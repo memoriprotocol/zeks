@@ -1,0 +1,18 @@
+HTTP/1.1 200 OK
+Content-Type: image/png
+Content-Length: 4058
+Connection: keep-alive
+Date: Sun, 06 Sep 2026 08:56:14 GMT
+Last-Modified: Thu, 06 Aug 2026 16:18:46 GMT
+ETag: "7458db13b24a41c319027376a852b0f0"
+x-amz-server-side-encryption: AES256
+x-amz-version-id: KN1EuM4WHyHv3OUbdSYDEllxVo48GNR4
+Accept-Ranges: bytes
+Server: AmazonS3
+X-Cache: Miss from cloudfront
+Via: 1.1 3bcdc80ec3ad797e3c7157df625a1a06.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: HAN51-P1
+X-Amz-Cf-Id: nD13oFYiRz5nIcLMeYEg4pgOoSGLjWzvKLZBLrG3ifQKKB7E261V-Q==
+Cross-Origin-Resource-Policy: cross-origin
+Timing-Allow-Origin: https://robinhood.com, https://www.robinhood.com, https://about.robinhood.com, https://brand.robinhood.com, https://join.robinhood.com, https://signup.robinhood.com, https://learn.robinhood.com, https://snacks.robinhood.com, https://sherwoodmedia.com, https://www.sherwoodmedia.com, https://sherwood.news, https://www.sherwood.news, https://gift.robinhood.com, https://policy.robinhood.com, https://referral.robinhood.com, https://invite.robinhood.com, https://deposit.robinhood.com, https://wallet.robinhood.com
+

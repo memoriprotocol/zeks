@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Browser Wallet">
+  <!-- Browser Wallet — neutral fallback when no wallet can be identified.
+       Designed to clearly read as a generic "browser wallet" without
+       resembling any brand mark. ZEKS-aligned neutral palette:
+         surface #FFFFFF, ink #1F1F1F, secondary #E5E5E2, accent (lime) #B7F34A. -->
+  <g>
+    <!-- Browser window outer frame -->
+    <rect x="6" y="10" width="52" height="44" rx="6"
+          fill="#FFFFFF" stroke="#1F1F1F" stroke-width="2"/>
+
+    <!-- Title bar with three dots (window controls) -->
+    <line x1="6" y1="20" x2="58" y2="20" stroke="#1F1F1F" stroke-width="2"/>
+    <circle cx="11" cy="15" r="1.4" fill="#1F1F1F"/>
+    <circle cx="16" cy="15" r="1.4" fill="#1F1F1F"/>
+    <circle cx="21" cy="15" r="1.4" fill="#1F1F1F"/>
+
+    <!-- Address bar -->
+    <rect x="26" y="13" width="28" height="4" rx="1.5"
+          fill="#E5E5E2" stroke="#1F1F1F" stroke-width="0.8"/>
+
+    <!-- Wallet card sitting inside the browser viewport -->
+    <rect x="14" y="28" width="36" height="20" rx="3"
+          fill="#1F1F1F"/>
+    <!-- Card accent stripe (lime — ZEKS primary) -->
+    <rect x="18" y="32" width="10" height="3" rx="1" fill="#B7F34A"/>
+    <!-- Card wallet button -->
+    <rect x="40" y="38" width="6" height="6" rx="1" fill="#B7F34A"/>
+  </g>
+</svg>

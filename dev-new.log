@@ -1,0 +1,33 @@
+
+> my-v0-project@0.1.0 dev
+> next dev
+
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3001
+   - Network:       http://192.168.1.3:3001
+
+ ✓ Starting...
+ ✓ Ready in 914ms
+ ○ Compiling /terminal ...
+ GET /terminal 200 in 5.3s (compile: 3.7s, render: 1636ms)
+ GET /terminal/markets 200 in 1065ms (compile: 622ms, render: 444ms)
+ GET /terminal/trade 200 in 520ms (compile: 401ms, render: 119ms)
+ GET /terminal/earn 200 in 565ms (compile: 447ms, render: 117ms)
+ GET /terminal/borrow 200 in 486ms (compile: 352ms, render: 134ms)
+ GET /terminal/portfolio 200 in 482ms (compile: 346ms, render: 136ms)
+ GET /terminal/activity 200 in 506ms (compile: 388ms, render: 118ms)
+ GET /terminal/markets/AAPL 200 in 1138ms (compile: 949ms, render: 189ms)
+ GET /terminal/markets/TSLA 200 in 128ms (compile: 15ms, render: 113ms)
+ GET /terminal/markets 200 in 1770ms (compile: 5ms, render: 1764ms)
+ GET /terminal/markets/AAPL 200 in 130ms (compile: 17ms, render: 114ms)
+ GET /terminal/markets/TSLA 200 in 113ms (compile: 6ms, render: 107ms)
+ GET /terminal/trade 200 in 104ms (compile: 4ms, render: 100ms)
+ GET /terminal/earn 200 in 105ms (compile: 6ms, render: 98ms)
+ GET /terminal/markets 200 in 407ms (compile: 4ms, render: 403ms)
+ GET /terminal/borrow 200 in 106ms (compile: 6ms, render: 99ms)
+ GET /terminal/portfolio 200 in 105ms (compile: 7ms, render: 98ms)
+ GET /terminal/activity 200 in 110ms (compile: 6ms, render: 104ms)
+ GET /api/markets/assets 200 in 318ms (compile: 288ms, render: 30ms)
+ GET /api/markets/quotes?symbols=AAPL,TSLA,NVDA 200 in 1286ms (compile: 126ms, render: 1161ms)
+ GET /api/markets/quotes?symbols=AAPL,TSLA,NVDA,MSFT,META,AMZN,GOOGL,AAOI,ABCL,ADBE,AEHR,AEIS,ALAB,AMAT,AMBA,AMC,AMD,AMKR,ANET,APLD,APP,ASML,ASTS,AUR,AVAV,AVGO,AXON,AXTI,BA,BABA,BB,BE,BND,BULL,CBRS,CCL,CEG,CELH,CIEN,CLOV,CLS,CLSK,COHR,COIN,COST,CRCL,CRDO,CRM,CRWD,CRWV,CSCO,CTSH,CVNA,DDOG,DELL,DJT,DOCN,ELF,EWT,EWY 200 in 8.0s (compile: 4ms, render: 8.0s)
+ GET /api/markets/quotes?symbols=AAPL,TSLA,NVDA,MSFT,META,AMZN,GOOGL,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z 200 in 7.7s (compile: 3ms, render: 7.7s)

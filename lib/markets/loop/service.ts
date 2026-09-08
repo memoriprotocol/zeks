@@ -1,0 +1,271 @@
+/**
+ * Loop service — derives LoopMarket + YieldVenues from the existing
+ * lending service and live Morpho data.
+ *
+ * No new onchain calls or providers are introduced. We:
+ *   1. Fetch real Morpho lending data for curated stocks
+ *       → projects to LoopMarket[]
+ *   2. Fetch real Morpho market data for the curated loan assets
+ *       (USDG/USDC/USDT) and pick the highest-TVL market per asset
+ *       → projects to YieldVenue[]
+ */
+
+import { fetchLendingMarkets } from "../lending"
+import type { LendingMarket } from "../lending"
+import {
+  fetchMorphoMarkets,
+  fetchLoanAssetMarkets,
+  type MorphoMarket,
+} from "../lending/morpho"
+import {
+  CURATED_STOCKS,
+  SUPPORTED_LOAN_ASSETS,
+  YIELD_VENUE_CONFIG,
+  YIELD_VENUE_ORDER,
+  type CuratedStock,
+  type SupportedLoanAsset,
+} from "./constants"
+import type { LoopMarket, YieldVenue } from "./types"
+
+/* ──────────────────────────────────────────────────────────────────
+ * Public types
+ * ──────────────────────────────────────────────────────────────────── */
+
+export interface LoopMarketsResult {
+  markets: LoopMarket[]
+  yieldVenues: YieldVenue[]
+  /** Symbols whose stock-loan data could not be fetched this cycle. */
+  failedStockSymbols: CuratedStock[]
+  /** Symbols whose yield-venue data could not be fetched this cycle. */
+  failedLoanSymbols: SupportedLoanAsset[]
+  fetchedAt: string
+}
+
+export interface FetchYieldVenuesOptions {
+  /** Override which loan assets are looked up. Defaults to `SUPPORTED_LOAN_ASSETS`. */
+  loanSymbols?: readonly SupportedLoanAsset[]
+  /** Optional fetch timeout in ms. */
+  fetchTimeoutMs?: number
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Implementation
+ * ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * Fetch LoopMarkets + YieldVenues for one cycle. Used by the
+ * `/api/loop/markets` route.
+ */
+export async function fetchLoopMarkets(): Promise<LoopMarketsResult> {
+  const fetchedAt = new Date().toISOString()
+
+  const [stock, venues] = await Promise.allSettled([
+    fetchLoopStocks(fetchedAt),
+    fetchYieldVenues(),
+  ])
+
+  const stockResult: {
+    markets: LoopMarket[]
+    failedStockSymbols: CuratedStock[]
+  } =
+    stock.status === "fulfilled"
+      ? stock.value
+      : { markets: [], failedStockSymbols: [...CURATED_STOCKS] }
+
+  const venueResult: {
+    yieldVenues: YieldVenue[]
+    failedLoanSymbols: SupportedLoanAsset[]
+  } =
+    venues.status === "fulfilled"
+      ? venues.value
+      : { yieldVenues: [], failedLoanSymbols: [...SUPPORTED_LOAN_ASSETS] }
+
+  return {
+    ...stockResult,
+    ...venueResult,
+    fetchedAt,
+  }
+}
+
+/* ── Loop stocks ─────────────────────────────────────────────────── */
+
+/**
+ * Fetch curated LoopMarket[] from the existing lending service.
+ * Reuses `fetchLendingMarkets` so we get Morpho + oracle + RH meta
+ * for free, with mock fallback when no real market exists.
+ */
+async function fetchLoopStocks(
+  fetchedAt: string,
+): Promise<{ markets: LoopMarket[]; failedStockSymbols: CuratedStock[] }> {
+  const result = await fetchLendingMarkets(CURATED_STOCKS, { debug: false })
+
+  let markets: LendingMarket[] = []
+  let failedAll: CuratedStock[] = []
+  if (result.kind === "ok" || result.kind === "partial") {
+    markets = result.payload.markets.filter((m) =>
+      (CURATED_STOCKS as readonly string[]).includes(m.symbol),
+    )
+    failedAll = (CURATED_STOCKS as readonly string[]).filter(
+      (sym) =>
+        !markets.some((m) => m.symbol === sym) || result.payload.failedSymbols.includes(sym),
+    ) as CuratedStock[]
+  } else {
+    failedAll = [...CURATED_STOCKS]
+  }
+
+  return {
+    markets: markets.map(lendingToLoopMarket),
+    failedStockSymbols: failedAll,
+  }
+}
+
+function lendingToLoopMarket(m: LendingMarket): LoopMarket {
+  return {
+    symbol: m.symbol,
+    name: m.name,
+    logoUrl: m.logoUrl,
+    marketId: m.marketId,
+    lltv: m.lltv ?? null,
+    oraclePrice: m.oraclePrice,
+    supplyApy: m.supplyApy,
+    borrowApy: m.borrowApy,
+    borrowApySource: m.sourceMode === "mock" ? "mock" : "morpho",
+    utilization: m.utilization,
+    sourceMode: m.sourceMode === "real-morpho"
+      ? "real-morpho"
+      : m.sourceMode === "real-morpho-unlisted"
+        ? "real-morpho-unlisted"
+        : "mock",
+    contractAddress: m.contractAddress,
+    rhMultiplier: m.rhMultiplier ?? null,
+    availableLiquidityUsd: m.availableLiquidity ?? null,
+    totalSupplyUsd: m.totalSupply ?? null,
+  }
+}
+
+/* ── Yield venues ────────────────────────────────────────────────── */
+
+/**
+ * Fetch YieldVenue[] for curated loan assets. Picks the canonical
+ * (highest-TVL) Morpho market per loan asset. Venue APY is the
+ * market's `supplyApy` — the rate a lender would earn.
+ */
+export async function fetchYieldVenues(
+  options: FetchYieldVenuesOptions = {},
+): Promise<{
+  yieldVenues: YieldVenue[]
+  failedLoanSymbols: SupportedLoanAsset[]
+}> {
+  const fetchedAt = new Date().toISOString()
+  const loanSymbols = (options.loanSymbols ?? SUPPORTED_LOAN_ASSETS) as readonly SupportedLoanAsset[]
+
+  // Query Morpho for the loan symbols. Falls back to an empty list
+  // when Morpho is unreachable.
+  const result = await fetchLoanAssetMarkets(loanSymbols).catch(() => ({
+    markets: [] as MorphoMarket[],
+    totalReturned: 0,
+    chainId: 4663,
+    endpoint: "https://api.morpho.org/graphql",
+  }))
+
+  const marketByLoan = pickCanonicalByLoan(result.markets)
+
+  // Ensure one YieldVenue per curated loan asset (in canonical order)
+  // so the UI can render the full venue strip even when markets
+  // are unavailable.
+  const venues: YieldVenue[] = []
+  const failedLoanSymbols: SupportedLoanAsset[] = []
+
+  for (const sym of YIELD_VENUE_ORDER) {
+    const cfg = YIELD_VENUE_CONFIG[sym]
+    const m = marketByLoan.get(sym.toUpperCase())
+    if (!m) {
+      failedLoanSymbols.push(sym)
+      venues.push(buildEmptyVenue(sym, cfg, fetchedAt))
+      continue
+    }
+    venues.push(buildVenue(sym, cfg, m, fetchedAt))
+  }
+
+  return { yieldVenues: venues, failedLoanSymbols }
+}
+
+/** Picks the canonical (highest-TVL) Morpho market per loan symbol. */
+function pickCanonicalByLoan(
+  markets: MorphoMarket[],
+): Map<string, MorphoMarket> {
+  const out = new Map<string, MorphoMarket>()
+  for (const m of markets) {
+    const sym = (m.loanAssetSymbol || "").toUpperCase()
+    if (!sym) continue
+    const existing = out.get(sym)
+    if (!existing) {
+      out.set(sym, m)
+      continue
+    }
+    const a = m.supplyAssetsUsd ?? 0
+    const b = existing.supplyAssetsUsd ?? 0
+    if (a > b) out.set(sym, m)
+  }
+  return out
+}
+
+function buildVenue(
+  sym: SupportedLoanAsset,
+  cfg: (typeof YIELD_VENUE_CONFIG)[SupportedLoanAsset],
+  m: MorphoMarket,
+  fetchedAt: string,
+): YieldVenue {
+  const tvl = m.supplyAssetsUsd ?? null
+  const borrowUsd = m.borrowAssetsUsd ?? null
+  const liquidity =
+    tvl != null && borrowUsd != null ? Math.max(0, tvl - borrowUsd) : null
+
+  // status: derive from (listed, fresh api response, APY present).
+  const isLive = m.supplyApy != null && tvl != null && (tvl ?? 0) > 0
+  const status: YieldVenue["status"] = !isLive
+    ? "unavailable"
+    : m.listed
+      ? "live"
+      : "unlisted"
+
+  return {
+    id: cfg.id,
+    name: cfg.name,
+    asset: sym,
+    apy: m.supplyApy,
+    tvl,
+    liquidity,
+    source: "morpho-supply",
+    status,
+    risk: cfg.risk,
+    tagline: cfg.tagline,
+    marketId: m.marketId,
+    assetAddress: m.loanAssetAddress || null,
+    listed: m.listed,
+    fetchedAt,
+  }
+}
+
+function buildEmptyVenue(
+  sym: SupportedLoanAsset,
+  cfg: (typeof YIELD_VENUE_CONFIG)[SupportedLoanAsset],
+  fetchedAt: string,
+): YieldVenue {
+  return {
+    id: cfg.id,
+    name: cfg.name,
+    asset: sym,
+    apy: null,
+    tvl: null,
+    liquidity: null,
+    source: "morpho-supply",
+    status: "unavailable",
+    risk: cfg.risk,
+    tagline: cfg.tagline,
+    marketId: null,
+    assetAddress: null,
+    listed: null,
+    fetchedAt,
+  }
+}

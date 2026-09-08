@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Tesla (TSLA)">
+  <!-- Tesla "T" wordmark: stylized shield-like T with characteristic curved top bar
+       and pointed stem. Recreated from first principles; not a pixel-trace. -->
+  <g fill="#E31927">
+    <!-- Outer T-shape with pointed corners (top of horizontal bar + tip of stem) -->
+    <path d="M8 12
+             C8 10.9 8.9 10 10 10
+             H54
+             C55.1 10 56 10.9 56 12
+             V22
+             C56 22.7 55.5 23.2 54.8 23.2
+             C48.6 23.2 43.5 27.4 40.8 33
+             L40.2 34.1
+             V52
+             C40.2 53.4 39.1 54.6 37.8 54.6
+             H26.2
+             C24.9 54.6 23.8 53.4 23.8 52
+             V34.1
+             L23.2 33
+             C20.5 27.4 15.4 23.2 9.2 23.2
+             C8.5 23.2 8 22.7 8 22
+             Z"/>
+  </g>
+</svg>

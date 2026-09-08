@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="USDG (unresolved placeholder)">
+  <!--
+    USDG identity is UNRESOLVED in the ZEKS project as of this phase.
+
+    There are multiple distinct tokens using the ticker "USDG" across
+    different issuers / chains. The ZEKS repository does not yet contain:
+      - a contract address,
+      - an issuer reference,
+      - a token-list / metadata source pin,
+      - or any document declaring which USDG the product refers to.
+
+    Per the asset-identity spec, when the exact token cannot be verified,
+    we MUST NOT invent a brand logo. We render a neutral USD-style
+    glyph on a quiet surface so the row is clearly a fallback and not
+    mistaken for an official issuer mark.
+
+    The container that mounts this logo MUST carry data-unresolved="true"
+    so the next phase can replace it with the verified logo once identity
+    is confirmed.
+  -->
+  <g>
+    <!-- Neutral circle so it is visibly a placeholder, not a brand mark. -->
+    <circle cx="32" cy="32" r="26" fill="#2A2F2A"/>
+    <!-- Dollar-style mark — generic glyph, NOT a USDG brand. -->
+    <text
+      x="32"
+      y="42"
+      text-anchor="middle"
+      font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+      font-size="30"
+      font-weight="600"
+      fill="#C8D3CB"
+      letter-spacing="-1"
+    >$</text>
+  </g>
+</svg>

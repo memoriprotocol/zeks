@@ -1,0 +1,138 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* ====== ZEKS palette v3 — warm, paper-like, Loopr-density ====== */
+  /* Page background — warm off-white (paper) */
+  --background: #F7F4EC;
+  /* Slightly darker warm tint for the chrome (sidebar / strip) */
+  --background-deep: #EFEBE0;
+
+  /* Primary text — warm near-black, no green undertone */
+  --foreground: #1A1814;
+
+  /* Surfaces — pure paper-white cards on warm background */
+  --card: #FFFFFF;
+  --card-foreground: #1A1814;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1814;
+
+  /* Primary accent — ZEKS lime (preserved) */
+  --primary: #B7F34A;
+  --primary-foreground: #1A1814;
+
+  /* Secondary surface — very subtle warm beige */
+  --secondary: #F1EDE2;
+  --secondary-foreground: #1A1814;
+
+  /* Muted surfaces + labels */
+  --muted: #F1EDE2;
+  --muted-foreground: #6B6555;
+
+  /* Soft accent — warm lime tint (used sparingly) */
+  --accent: #EDF4D0;
+  --accent-foreground: #1A1814;
+
+  /* Ink — dark accent for dark buttons / focus rings */
+  --ink: #1A1814;
+  --ink-foreground: #F7F4EC;
+
+  /* Destructive kept minimal, warm-shifted */
+  --destructive: #B33A2A;
+  --destructive-foreground: #FFFFFF;
+
+  /* Borders + inputs — softer, warm */
+  --border: #E6DFCF;
+  --border-strong: #D5CCB6;
+  --input: #D5CCB6;
+  --ring: #1A1814;
+
+  /* Positive / negative market states — readable on warm paper */
+  --up: #2E7D4F;
+  --down: #B33A2A;
+
+  /* Subtle lime variants for chart highlights */
+  --chart-lime: #B7F34A;
+  --chart-lime-soft: #EDF4D0;
+
+  --radius: 0.5rem;
+
+  /* Sidebar — slim, warm-white, thin border */
+  --sidebar: #FBF8F1;
+  --sidebar-foreground: #1A1814;
+  --sidebar-primary: #1A1814;
+  --sidebar-primary-foreground: #F7F4EC;
+  --sidebar-accent: #F1EDE2;
+  --sidebar-accent-foreground: #1A1814;
+  --sidebar-border: #E6DFCF;
+  --sidebar-ring: #1A1814;
+
+  /* Slimmer strip / ticker height */
+  --strip-height: 32px;
+  --header-height: 48px;
+  --sidebar-width: 168px;
+}
+
+@theme inline {
+  --font-sans: "DM Sans", "Geist Fallback", sans-serif;
+  --font-serif: "Fraunces", "Playfair Display", "Georgia", serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", monospace;
+  --color-background: var(--background);
+  --color-background-deep: var(--background-deep);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-chart-lime: var(--chart-lime);
+  --color-chart-lime-soft: var(--chart-lime-soft);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "ss02", "cv01";
+  }
+}
+
+/* Subtle paper noise — extremely subtle, used only where appropriate. */
+.paper {
+  background-image:
+    radial-gradient(1200px 600px at 0% 0%, rgba(0, 0, 0, 0.015), transparent 60%),
+    radial-gradient(1000px 500px at 100% 100%, rgba(183, 243, 74, 0.04), transparent 70%);
+}

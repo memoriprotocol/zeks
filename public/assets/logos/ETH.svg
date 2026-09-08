@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Ethereum (ETH)">
+  <!-- Ethereum diamond: canonical two-tone faceted logo.
+       Top half = solid diamond (lighter blue + darker blue facets).
+       Bottom half = split diamond with horizon line.
+       Recreated from first principles; not a pixel-trace of any third-party asset. -->
+  <g>
+    <!-- Upper pyramid -->
+    <path d="M32 4 L16 33 L32 41 L48 33 Z" fill="#627EEA"/>
+    <!-- Upper pyramid mid facet (small wedge highlight) -->
+    <path d="M32 4 L16 33 L32 25 Z" fill="#627EEA"/>
+    <path d="M32 4 L48 33 L32 25 Z" fill="#3C3C3C" opacity="0.65"/>
+
+    <!-- Lower pyramid (split into two faces) -->
+    <path d="M32 43 L16 35 L32 60 Z" fill="#627EEA"/>
+    <path d="M32 43 L48 35 L32 60 Z" fill="#8A92B2"/>
+
+    <!-- Horizon between top and bottom halves -->
+    <path d="M32 41 L48 33 L32 25 L16 33 Z" fill="#627EEA"/>
+    <path d="M32 41 L16 33 L32 25 Z" fill="#3C3C3C" opacity="0.85"/>
+  </g>
+</svg>
