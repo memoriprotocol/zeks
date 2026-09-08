@@ -5,13 +5,13 @@
  *
  * Lightweight read-only radar for the four canonical data sources:
  *
- *   - Wallet provider (EIP-1193)         → `eth_chainId` / `eth_blockNumber`
+ *   - Wallet provider (EIP-1193)         → status from useWallet
  *   - Public Robinhood RPC               → `eth_blockNumber`
  *   - Morpho GraphQL                     → `marketPositions` introspection
  *   - Chainlink                          → static (already wired)
  *
- * Used by the Overview Network/Protocol Status row. NEVER triggers
- * a wallet signature. NEVER opens a wallet popup.
+ * Used by the ProductBanner protocol pip and any "is chain live?"
+ * chip. NEVER triggers a wallet signature. NEVER opens a popup.
  */
 
 import * as React from "react"
@@ -55,7 +55,6 @@ async function checkRpc(): Promise<boolean> {
 
 async function checkMorpho(): Promise<boolean> {
   try {
-    // Probe with the empty address; the schema is what we care about.
     const r = await fetchUserMarketPositions(
       "0x0000000000000000000000000000000000000000",
       { fetchTimeoutMs: 4_000 },

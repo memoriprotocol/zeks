@@ -1,26 +1,35 @@
 "use client"
 
 /**
- * MarketsPageClient (v3 — Loopr-density)
+ * Markets page (ZEKS visual system · locked composition)
  *
- * Tightened composition: heading + 5-stat strip on top, dense
- * markets table below. Stats strip uses a single accent StripeCard
- * divider for visual unity. Featured grid is dropped — the table
- * already surfaces priority markets — keeping the page dense and
- * without an "admin" feel.
+ *   · PageTitle "Markets"
+ *   · MarketSummary card                 (104px · 3 metrics)
+ *   · SectionTitle "Curated"
+ *   · FeaturedMarkets grid               (4-col desktop · 8 tickers)
+ *   · SectionTitle "All markets"
+ *   · MarketsToolbar (search + filter)
+ *   · MarketList (dense table)
+ *
+ * Reuses: --content-max · --card-soft · --card-radius ·
+ *         --dash-* tokens · PageTitle · SectionTitle · Section primitive.
+ * No admin chrome. Read-only.
  */
 
 import * as React from "react"
-import MarketsTable from "@/components/markets/markets-table"
-import type { LendingMarket, LendingServiceResult } from "@/lib/markets/lending"
-import { fetchLendingMarkets } from "@/lib/markets/lending"
+import { PageTitle, SectionTitle } from "@/components/zeks/page-title"
+import { MarketSummary } from "@/components/zeks/markets/market-summary"
 import {
-  formatApy,
-  formatCompact,
-  formatUtilization,
-} from "@/lib/markets/format"
-import { resolveProtocolContractsForChain } from "@/lib/markets/protocol/registry"
-import { ROBINHOOD_CHAIN_ID } from "@/lib/markets/types"
+  MarketsToolbar,
+  type StatusFilter,
+} from "@/components/zeks/markets/markets-toolbar"
+import { FeaturedMarkets } from "@/components/zeks/markets/featured-markets"
+import { MarketList } from "@/components/zeks/markets/market-list"
+import { fetchLendingMarkets } from "@/lib/markets/lending"
+import type {
+  LendingMarket,
+  LendingServiceResult,
+} from "@/lib/markets/lending"
 
 interface MarketsPageClientProps {
   initialResult: LendingServiceResult
@@ -28,23 +37,6 @@ interface MarketsPageClientProps {
 }
 
 const REFRESH_INTERVAL_MS = 30_000
-
-type RowSourceMode =
-  | "live"
-  | "real-morpho"
-  | "real-morpho-unlisted"
-  | "mock"
-  | "partial"
-  | "empty"
-
-function rowSourceMode(markets: LendingMarket[]): RowSourceMode {
-  if (markets.length === 0) return "empty"
-  const allReal = markets.every(
-    (m) => m.sourceMode === "live" || m.sourceMode === "real-morpho",
-  )
-  if (allReal) return "real-morpho"
-  return "real-morpho-unlisted"
-}
 
 export default function MarketsPageClient({
   initialResult,
@@ -54,35 +46,21 @@ export default function MarketsPageClient({
     if (initialResult.kind === "error") return []
     return initialResult.payload.markets
   }, [initialResult])
-  const initialFetchedAt = React.useMemo(
+
+  const initialFetchedAt = React.useMemo<string>(
     () =>
       initialResult.kind === "error"
-        ? new Date().toISOString()
+        ? new Date(initialNowMs).toISOString()
         : initialResult.payload.fetchedAt,
-    [initialResult],
+    [initialResult, initialNowMs],
   )
-  const initialFailed = React.useMemo<string[]>(
-    () => (initialResult.kind === "error" ? [] : initialResult.payload.failedSymbols),
-    [initialResult],
-  )
-  const initialReason = React.useMemo<string | null>(
-    () =>
-      initialResult.kind === "partial" || initialResult.kind === "empty"
-        ? initialResult.reason
-        : null,
-    [initialResult],
-  )
-  const initialStateKind = initialResult.kind
 
   const [markets, setMarkets] = React.useState<LendingMarket[]>(initialMarkets)
-  const [fetchedAt, setFetchedAt] = React.useState<string>(initialFetchedAt)
-  const [failedSymbols, setFailedSymbols] =
-    React.useState<string[]>(initialFailed)
-  const [partialReason, setPartialReason] =
-    React.useState<string | null>(initialReason)
+  const [fetchedAt, setFetchedAt] =
+    React.useState<string>(initialFetchedAt)
   const [stale, setStale] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(
-    initialStateKind === "error" ? initialResult.message : null,
+    initialResult.kind === "error" ? initialResult.message : null,
   )
 
   const refresh = React.useCallback(async () => {
@@ -94,12 +72,6 @@ export default function MarketsPageClient({
       }
       setMarkets(result.payload.markets)
       setFetchedAt(result.payload.fetchedAt)
-      setFailedSymbols(result.payload.failedSymbols)
-      setPartialReason(
-        result.kind === "partial" || result.kind === "empty"
-          ? result.reason
-          : null,
-      )
       setStale(false)
       setErrorMessage(null)
     } catch {
@@ -114,163 +86,77 @@ export default function MarketsPageClient({
     return () => window.clearInterval(id)
   }, [refresh])
 
-  const contracts = resolveProtocolContractsForChain(ROBINHOOD_CHAIN_ID)
-  const protocolReady =
-    contracts.morphoBlueAddress != null &&
-    contracts.morphoBlueAddress !== "0x"
-
-  const stats = React.useMemo(() => {
-    const total = markets.length
-    const totalSupply = markets.reduce((s, m) => s + (m.totalSupply ?? 0), 0)
-    const totalBorrow = markets.reduce((s, m) => s + (m.totalBorrow ?? 0), 0)
-    const totalLiquidity = markets.reduce(
-      (s, m) => s + (m.availableLiquidity ?? 0),
-      0,
-    )
-    const avgSupplyApy = average(markets.map((m) => m.supplyApy))
-    const avgUtilization = average(markets.map((m) => m.utilization))
-    return {
-      total,
-      totalSupply,
-      totalBorrow,
-      totalLiquidity,
-      avgSupplyApy,
-      avgUtilization,
-    }
-  }, [markets])
+  // Featured toolbar state — independent of the full-list filter.
+  // (Featured is curated so it doesn't honor status filter.)
+  // Full-list toolbar state.
+  const [listQuery, setListQuery] = React.useState("")
+  const [listStatus, setListStatus] = React.useState<StatusFilter>("all")
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto" data-markets-page>
-      {/* Page heading */}
-      <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
-        <div>
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            MARKETS
-          </span>
-          <h1 className="font-serif text-3xl md:text-[34px] leading-[1.1] tracking-tight text-foreground mt-1.5">
-            Lending markets
-          </h1>
-          <p className="text-[13px] text-muted-foreground mt-1.5 max-w-md leading-relaxed">
-            Onchain lending opportunities on Robinhood Chain.
-          </p>
-        </div>
-        <StatusPill
-          stale={stale}
-          error={errorMessage}
-          protocolReady={protocolReady}
-        />
-      </div>
-
-      {/* Aggregate stat strip — 1-border unified */}
-      {markets.length > 0 ? (
-        <div
-          className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border border border-border rounded-xl overflow-hidden"
-          aria-label="Market aggregates"
-        >
-          <StatCell label="Markets" value={String(stats.total)} />
-          <StatCell label="Total TVL" value={formatCompact(stats.totalSupply)} />
-          <StatCell
-            label="Liquidity"
-            value={formatCompact(stats.totalLiquidity)}
-          />
-          <StatCell
-            label="Avg Supply APY"
-            value={formatApy(stats.avgSupplyApy)}
-            accent
-          />
-          <StatCell
-            label="Avg Util"
-            value={formatUtilization(stats.avgUtilization)}
-          />
-        </div>
-      ) : null}
-
-      {/* Markets table */}
-      <div className="mt-4">
-        {errorMessage ? (
-          <ServiceUnavailable onRetry={() => void refresh()} />
-        ) : markets.length === 0 ? (
-          <EmptyUniverse onRetry={() => void refresh()} />
-        ) : (
-          <MarketsTable
-            markets={markets}
-            failedSymbols={failedSymbols}
-            loading={false}
-            errorReason={null}
-            stale={stale}
-            onRetry={() => void refresh()}
-          />
-        )}
-      </div>
-
-      <p className="mt-3 text-[10px] font-mono tracking-wider text-muted-foreground/60">
-        {partialReason ? "Some data may be unavailable · " : ""}
-        Morpho · Robinhood Chain
-      </p>
-    </div>
-  )
-}
-
-function StatusPill({
-  stale,
-  error,
-  protocolReady,
-}: {
-  stale: boolean
-  error: string | null
-  protocolReady: boolean
-}) {
-  const tone = stale || error ? "warn" : protocolReady ? "ok" : "warn"
-  const label = stale
-    ? "Stale"
-    : error
-      ? "Data unavailable"
-      : protocolReady
-        ? "Live · Supply available"
-        : "Live · Supply coming soon"
-  return (
-    <span
-      className={
-        "inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium " +
-        (tone === "ok"
-          ? "bg-up/10 text-up"
-          : "bg-amber-500/10 text-amber-700 dark:text-amber-300")
-      }
-      data-status={tone}
+    <div
+      className="w-full mx-auto"
+      style={{ maxWidth: "var(--content-max)" }}
+      data-testid="markets-root"
     >
-      <span
-        aria-hidden="true"
-        className={
-          "w-1.5 h-1.5 rounded-full " +
-          (tone === "ok" ? "bg-up" : "bg-amber-500")
-        }
-      />
-      {label}
-    </span>
-  )
-}
-
-function StatCell({
-  label,
-  value,
-  accent,
-}: {
-  label: string
-  value: string
-  accent?: boolean
-}) {
-  return (
-    <div className="bg-card p-3.5">
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
       <div
-        className={
-          "font-mono tabular-nums text-[18px] mt-1 " +
-          (accent ? "text-up" : "text-foreground")
-        }
+        className="px-5 md:px-6 pb-12"
+        style={{
+          paddingTop: "var(--dash-top-pad)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--dash-section-gap)",
+        }}
       >
-        {value}
+        {/* 1 · Page title */}
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <PageTitle>Markets</PageTitle>
+          <span className="font-mono text-[10.5px] tracking-wide text-muted-foreground/60">
+            {errorMessage
+              ? "Live data unavailable"
+              : `Updated ${relative(fetchedAt)}${stale ? " · stale" : ""}`}
+          </span>
+        </div>
+
+        {/* 2 · Compact summary */}
+        <MarketSummary markets={markets} />
+
+        {/* 3 · Curated tickers */}
+        <section className="flex flex-col gap-3">
+          <SectionTitle
+            trailing={
+              markets.length === 0
+                ? null
+                : "8 curated · priority order"
+            }
+          >
+            Curated
+          </SectionTitle>
+          <FeaturedMarkets markets={markets} />
+        </section>
+
+        {/* 4 · All markets */}
+        <section className="flex flex-col gap-3">
+          <SectionTitle>All Markets</SectionTitle>
+          {errorMessage && markets.length === 0 ? (
+            <ServiceUnavailable onRetry={() => void refresh()} />
+          ) : (
+            <>
+              <MarketsToolbar
+                query={listQuery}
+                onQueryChange={setListQuery}
+                status={listStatus}
+                onStatusChange={setListStatus}
+                placeholder="Search markets (AAPL, TSLA, …)"
+                testId="markets-list-toolbar"
+              />
+              <MarketList
+                markets={markets}
+                query={listQuery}
+                status={listStatus}
+              />
+            </>
+          )}
+        </section>
       </div>
     </div>
   )
@@ -278,54 +164,36 @@ function StatCell({
 
 function ServiceUnavailable({ onRetry }: { onRetry: () => void }) {
   return (
-    <section
-      className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-6"
+    <div
+      data-testid="markets-unavailable"
+      className="rounded-[14px] border border-border px-5 py-5"
+      style={{ backgroundColor: "var(--card-soft)" }}
       role="alert"
-      data-state="api-unavailable"
     >
-      <p className="font-mono text-[10px] tracking-wider text-amber-700 dark:text-amber-300">
-        DATA UNAVAILABLE
-      </p>
-      <p className="text-[14px] font-sans text-foreground mt-1.5">
-        Live data unavailable
+      <div className="font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase">
+        Data Unavailable
+      </div>
+      <p className="text-[14px] text-foreground mt-2" style={{ lineHeight: 1.45 }}>
+        We could not reach Morpho for the live market universe.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-3 inline-flex items-center h-8 px-3 rounded-md bg-foreground text-background text-[11px] font-medium hover:opacity-90 transition-opacity"
+        className="mt-4 inline-flex items-center justify-center rounded-[8px] border border-primary/40 bg-primary/15 text-foreground h-8 px-3 text-[12px] font-medium hover:bg-primary/25 transition-colors"
       >
         Retry
       </button>
-    </section>
+    </div>
   )
 }
 
-function EmptyUniverse({ onRetry }: { onRetry: () => void }) {
-  return (
-    <section
-      className="rounded-xl border border-dashed border-border bg-secondary/30 px-5 py-6"
-      role="status"
-      data-state="empty"
-    >
-      <p className="text-[14px] font-sans text-foreground">
-        No lending markets available right now.
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-3 inline-flex items-center h-8 px-3 rounded-md border border-border bg-card text-[11px] font-medium text-foreground hover:bg-secondary/60"
-      >
-        Refresh
-      </button>
-    </section>
-  )
-}
-
-function average(values: Array<number | null>): number | null {
-  const finite = values.filter(
-    (v): v is number => v !== null && Number.isFinite(v),
-  )
-  if (finite.length === 0) return null
-  const sum = finite.reduce((s, v) => s + v, 0)
-  return sum / finite.length
+function relative(iso: string | null | undefined): string {
+  if (!iso) return "—"
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return "—"
+  const ms = Math.max(0, Date.now() - t)
+  if (ms < 60_000) return "just now"
+  const m = Math.floor(ms / 60_000)
+  if (m < 60) return `${m}m ago`
+  return `${Math.floor(m / 60)}h ago`
 }

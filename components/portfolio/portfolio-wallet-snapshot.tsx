@@ -10,7 +10,7 @@
 import * as React from "react"
 import { useWallet } from "@/components/app/wallet/use-wallet"
 import WalletButton from "@/components/app/wallet/wallet-button"
-import { useNetworkStatus } from "@/components/app/overview/use-network-status"
+import { useNetworkStatus } from "@/components/zeks/use-network-status"
 import { usePortfolio } from "./use-portfolio"
 import { formatUnits } from "@/lib/markets/onchain/format-units"
 
