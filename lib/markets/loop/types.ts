@@ -60,10 +60,12 @@ export interface YieldVenue {
   /** Available withdrawable supply in USD. */
   liquidity: number | null
   /** APY data source. */
-  source: "morpho-supply" | "mock"
+  source: "morpho-supply" | "verified-onchain" | "mock"
   /** Lifecycle / freshness status. */
   status:
     | "live"
+    | "candidate"
+    | "inactive"
     | "stale"
     | "unlisted"
     | "unavailable"

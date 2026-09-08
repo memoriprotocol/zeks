@@ -26,6 +26,7 @@ export default async function TerminalOverviewPage() {
   let marketsError: string | null = null
   let marketsFetchedAt: string | null = null
   let yieldVenues: YieldVenue[] = []
+  let yieldVenuesFetchedAt: string | null = null
 
   try {
     const [lending, loop] = await Promise.allSettled([
@@ -46,6 +47,7 @@ export default async function TerminalOverviewPage() {
     }
     if (loop.status === "fulfilled") {
       yieldVenues = loop.value.yieldVenues
+      yieldVenuesFetchedAt = loop.value.fetchedAt
     }
   } catch (err) {
     marketsError = err instanceof Error ? err.message : String(err)
@@ -61,6 +63,8 @@ export default async function TerminalOverviewPage() {
         marketsFetchedAt={marketsFetchedAt}
         marketsError={marketsError}
         stockMarketCount={stockMarketCount}
+        yieldVenues={yieldVenues}
+        yieldVenuesFetchedAt={yieldVenuesFetchedAt}
       />
     </AppShell>
   )

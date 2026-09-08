@@ -1,6 +1,6 @@
 ﻿import AppSidebar from "@/components/app/app-sidebar"
 import AppHeader from "@/components/app/app-header"
-import ContextStrip from "@/components/markets/context-strip"
+import TickerStrip from "@/components/markets/context-strip"
 import { WalletProvider } from "@/components/app/wallet/use-wallet"
 import {
   fetchRobinhoodAssets,
@@ -34,6 +34,7 @@ export default async function AppShell({
   let tickerAssets: Awaited<ReturnType<typeof fetchRobinhoodAssets>> = []
   let tickerFetchedAt = new Date().toISOString()
   let tickerError: string | null = null
+  let tickerQuotes: Record<string, MarketQuote> = {}
 
   try {
     const assetsResult = await Promise.race<
@@ -54,6 +55,7 @@ export default async function AppShell({
             timeoutMs: STRIP_OVERALL_TIMEOUT_MS,
           })
         tickerFetchedAt = set.fetchedAt
+        tickerQuotes = set.quotes
       }
     }
   } catch (err) {
@@ -69,13 +71,25 @@ export default async function AppShell({
         <div className="flex-1 min-w-0 flex flex-col">
           <AppHeader title={title} />
           {tickerAssets.length > 0 ? (
-            <ContextStrip
-              assets={tickerAssets}
+            <TickerStrip
+              assets={tickerAssets.map((a) => ({
+                symbol: a.symbol,
+                logoUrl: a.logoUrl,
+              }))}
+              quotes={tickerQuotes}
               fetchedAt={tickerFetchedAt}
               errorReason={tickerError}
             />
           ) : null}
-          <main className="flex-1 px-4 md:px-6 py-4 md:py-5 overflow-x-clip paper">
+          <main
+            className="flex-1 overflow-x-clip paper"
+            style={{
+              paddingLeft: "var(--content-pad-x)",
+              paddingRight: "var(--content-pad-x)",
+              paddingTop: "var(--content-pad-y)",
+              paddingBottom: "var(--content-pad-y)",
+            }}
+          >
             {children}
           </main>
         </div>

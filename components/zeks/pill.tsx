@@ -1,9 +1,10 @@
 "use client"
 
 /**
- * Pill — small mono-letter-spaced label with optional tone.
+ * Pill — small mono-letter-spaced label with optional tone + dot.
  *
- * Used for live/circuit badges, status chips, ranking markers.
+ * Used for IN / OUT / TRANSFER chips, status badges, ranking markers.
+ * Tighter padding, smaller radius — feels more like a label than a button.
  */
 
 import * as React from "react"
@@ -19,19 +20,19 @@ interface PillProps {
 
 const TONE_CLS: Record<Tone, string> = {
   neutral:
-    "border-border bg-secondary/40 text-muted-foreground",
-  primary: "border-primary/40 bg-primary/10 text-foreground",
-  up: "border-up/30 bg-up/10 text-up",
-  down: "border-down/30 bg-down/10 text-down",
-  muted: "border-border bg-transparent text-muted-foreground/70",
+    "border-border/60 bg-secondary/60 text-muted-foreground",
+  primary: "border-primary/50 bg-primary/20 text-foreground",
+  up:      "border-up/40 bg-up/15 text-up",
+  down:    "border-down/40 bg-down/15 text-down",
+  muted:   "border-border/40 bg-transparent text-muted-foreground/70",
 }
 
 const DOT_CLS: Record<Tone, string> = {
-  neutral: "bg-foreground/60",
+  neutral: "bg-muted-foreground/60",
   primary: "bg-primary",
-  up: "bg-up",
-  down: "bg-down",
-  muted: "bg-muted-foreground/40",
+  up:      "bg-up",
+  down:    "bg-down",
+  muted:   "bg-muted-foreground/50",
 }
 
 export function Pill({
@@ -43,7 +44,8 @@ export function Pill({
   return (
     <span
       className={[
-        "inline-flex items-center gap-1.5 h-5 px-1.5 rounded-md font-mono text-[10px] tracking-wide border",
+        "inline-flex items-center gap-1 h-[18px] px-1.5 rounded-md",
+        "font-mono text-[9.5px] tracking-wide border",
         TONE_CLS[tone],
         className ?? "",
       ]
@@ -53,7 +55,7 @@ export function Pill({
       {dot ? (
         <span
           aria-hidden="true"
-          className={["w-1.5 h-1.5 rounded-full", DOT_CLS[tone]].join(" ")}
+          className={["w-1 h-1 rounded-full shrink-0", DOT_CLS[tone]].join(" ")}
         />
       ) : null}
       {children}

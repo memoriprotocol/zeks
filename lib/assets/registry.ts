@@ -59,17 +59,15 @@ export interface AssetRegistryEntry {
  * file's shape contract.
  */
 const REGISTRY: Record<string, AssetRegistryEntry> = {
-  // Stock Tokens — logo files confirmed in /public/assets/logos/
-  AAPL: { symbol: "AAPL", name: "Apple",    kind: "stock-token", logoUrl: "/assets/logos/AAPL.svg" },
-  TSLA: { symbol: "TSLA", name: "Tesla",    kind: "stock-token", logoUrl: "/assets/logos/TSLA.svg" },
-  NVDA: { symbol: "NVDA", name: "NVIDIA",  kind: "stock-token", logoUrl: "/assets/logos/NVDA.svg" },
-  // MSFT, META, AMZN, GOOGL are registered but have no logo files yet.
-  // AssetLogo falls back to a deterministic letter initial (M, M, A, G).
-  // logoUrl omitted so we never make a 404 request before identity is confirmed.
-  MSFT:  { symbol: "MSFT",  name: "Microsoft", kind: "stock-token" },
-  META:  { symbol: "META",  name: "Meta",      kind: "stock-token" },
-  AMZN:  { symbol: "AMZN",  name: "Amazon",    kind: "stock-token" },
-  GOOGL: { symbol: "GOOGL", name: "Alphabet",  kind: "stock-token" },
+  // Stock Tokens — logo files in /public/assets/logos/
+  AAPL: { symbol: "AAPL", name: "Apple",    kind: "stock-token", logoUrl: "/assets/logos/AAPL.png" },
+  TSLA: { symbol: "TSLA", name: "Tesla",    kind: "stock-token", logoUrl: "/assets/logos/TSLA.png" },
+  NVDA: { symbol: "NVDA", name: "NVIDIA",  kind: "stock-token", logoUrl: "/assets/logos/NVDA.png" },
+  SPCX: { symbol: "SPCX", name: "SpaceX",   kind: "stock-token", logoUrl: "/assets/logos/SPCX.png" },
+  GOOGL:{ symbol: "GOOGL", name: "Alphabet", kind: "stock-token", logoUrl: "/assets/logos/GOOGL.png" },
+  AMZN: { symbol: "AMZN", name: "Amazon",    kind: "stock-token", logoUrl: "/assets/logos/AMZN.png" },
+  MSFT: { symbol: "MSFT", name: "Microsoft", kind: "stock-token", logoUrl: "/assets/logos/MSFT.png" },
+  META: { symbol: "META", name: "Meta",      kind: "stock-token", logoUrl: "/assets/logos/META.png" },
 
   // Crypto
   ETH:  { symbol: "ETH",  name: "Ethereum",    kind: "crypto",      logoUrl: "/assets/logos/ETH.svg" },

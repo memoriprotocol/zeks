@@ -85,6 +85,47 @@ export function formatCompact(value: number | null): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value)
 }
 
+/**
+ * Human-readable token formatter for onchain stablecoin amounts
+ * (e.g. USDG) coming from raw decimal strings like "1330.994441…".
+ *
+ * Spec:
+ *   · >= 1,000,000 → "$1.23M"
+ *   · >= 1,000     → "$1,330.99"
+ *   · <  1,000     → max 2-4 meaningful decimals
+ *   · never display long raw token decimals
+ *
+ * Accepts either a number (already-parsed) or a decimal string
+ * (raw onchain output). Falls back to "—" for null / NaN / empty.
+ */
+export function formatTokenAmount(value: number | string | null): string {
+  if (value == null || value === "") return "—"
+  const n = typeof value === "number" ? value : Number(value)
+  if (!Number.isFinite(n)) return "—"
+
+  const abs = Math.abs(n)
+  // Millions / billions → compact
+  if (abs >= 1_000_000) return `$${trim(n / 1_000_000)}M`
+  if (abs >= 1_000_000_000) return `$${trim(n / 1_000_000_000)}B`
+
+  // Thousands → grouped 2-decimal currency
+  if (abs >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n)
+  }
+
+  // Sub-thousand → 2-4 meaningful decimals (trim trailing zeros)
+  if (abs === 0) return "$0"
+  if (abs >= 1) return `$${n.toFixed(2)}`
+  if (abs >= 0.01) return `$${n.toFixed(4)}`
+  if (abs >= 0.0001) return `$${n.toFixed(4)}`
+  return `$${n.toFixed(2)}`
+}
+
 function trim(value: number): string {
   return (Math.round(value * 100) / 100).toString()
 }

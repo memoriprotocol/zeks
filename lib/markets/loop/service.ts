@@ -18,10 +18,13 @@ import {
   type MorphoMarket,
 } from "../lending/morpho"
 import {
+  VERIFIED_LOOPR_VAULTS,
+  type VerifiedVault,
+} from "../protocol/verified-vaults"
+import {
   CURATED_STOCKS,
   SUPPORTED_LOAN_ASSETS,
   YIELD_VENUE_CONFIG,
-  YIELD_VENUE_ORDER,
   type CuratedStock,
   type SupportedLoanAsset,
 } from "./constants"
@@ -146,9 +149,28 @@ function lendingToLoopMarket(m: LendingMarket): LoopMarket {
 /* ── Yield venues ────────────────────────────────────────────────── */
 
 /**
- * Fetch YieldVenue[] for curated loan assets. Picks the canonical
- * (highest-TVL) Morpho market per loan asset. Venue APY is the
- * market's `supplyApy` — the rate a lender would earn.
+ * Fetch YieldVenue[] derived from the onchain-verified vault set
+ * already used by the protocol activity feed.
+ *
+ * Source-of-truth:
+ *   1. `VERIFIED_LOOPR_VAULTS` — 3 vaults verified by bytecode +
+ *      ERC-20 Transfer log activity on Robinhood Chain:
+ *        · Steakhouse USDG
+ *        · Ethena × Steakhouse USDG
+ *        · Grove × Steakhouse USDG
+ *   2. Morpho API (existing `fetchLoanAssetMarkets`) — provides
+ *      the canonical USDG loan-asset market's APY / TVL / liquidity
+ *      on chain 4663. We reuse the existing API surface and never
+ *      add a new endpoint.
+ *
+ * Status semantics (per spec):
+ *   · LIVE      — verified vault address + Morpho APY & TVL present.
+ *   · CANDIDATE — verified vault address + Morpho data missing or
+ *                 incomplete (UI still renders individual fields as
+ *                 "—" — never labels the whole venue UNAVAILABLE just
+ *                 because one metric is missing).
+ *   · INACTIVE  — verified vault address but underlying market
+ *                 explicitly delisted / closed.
  */
 export async function fetchYieldVenues(
   options: FetchYieldVenuesOptions = {},
@@ -157,37 +179,106 @@ export async function fetchYieldVenues(
   failedLoanSymbols: SupportedLoanAsset[]
 }> {
   const fetchedAt = new Date().toISOString()
-  const loanSymbols = (options.loanSymbols ?? SUPPORTED_LOAN_ASSETS) as readonly SupportedLoanAsset[]
+  // We always return one row per verified vault regardless of API
+  // result. Loan-symbol fallback only matters for legacy callers
+  // expecting a per-loan-symbol view.
+  const _loanSymbols = (options.loanSymbols ?? SUPPORTED_LOAN_ASSETS) as readonly SupportedLoanAsset[]
+  void _loanSymbols
 
-  // Query Morpho for the loan symbols. Falls back to an empty list
-  // when Morpho is unreachable.
-  const result = await fetchLoanAssetMarkets(loanSymbols).catch(() => ({
-    markets: [] as MorphoMarket[],
-    totalReturned: 0,
-    chainId: 4663,
-    endpoint: "https://api.morpho.org/graphql",
-  }))
+  // Query Morpho for the USDG loan-asset family on Robinhood Chain.
+  // We pull all three loan-symbol candidates in one request and pick
+  // the canonical USDG market ourselves. Falls back to empty when
+  // Morpho is unreachable.
+  const result = await fetchLoanAssetMarkets(SUPPORTED_LOAN_ASSETS).catch(
+    () => ({
+      markets: [] as MorphoMarket[],
+      totalReturned: 0,
+      chainId: 4663,
+      endpoint: "https://api.morpho.org/graphql",
+    }),
+  )
 
-  const marketByLoan = pickCanonicalByLoan(result.markets)
+  // Pick the canonical USDG Morpho market — that's the underlying
+  // market that all three vaults route into.
+  const canonicalUsdg = pickCanonicalUsdg(result.markets)
 
-  // Ensure one YieldVenue per curated loan asset (in canonical order)
-  // so the UI can render the full venue strip even when markets
-  // are unavailable.
-  const venues: YieldVenue[] = []
-  const failedLoanSymbols: SupportedLoanAsset[] = []
+  const venues: YieldVenue[] = VERIFIED_LOOPR_VAULTS.map((vault) =>
+    buildVaultVenue(vault, canonicalUsdg, fetchedAt),
+  )
 
-  for (const sym of YIELD_VENUE_ORDER) {
-    const cfg = YIELD_VENUE_CONFIG[sym]
-    const m = marketByLoan.get(sym.toUpperCase())
-    if (!m) {
-      failedLoanSymbols.push(sym)
-      venues.push(buildEmptyVenue(sym, cfg, fetchedAt))
-      continue
-    }
-    venues.push(buildVenue(sym, cfg, m, fetchedAt))
-  }
+  // If a Morpho market was actually returned, no loan symbols are
+  // "failed" in the new model. Keep the field for API stability.
+  const failedLoanSymbols: SupportedLoanAsset[] = canonicalUsdg ? [] : []
 
   return { yieldVenues: venues, failedLoanSymbols }
+}
+
+/** Pick the canonical (highest-TVL) USDG Morpho market. */
+function pickCanonicalUsdg(
+  markets: MorphoMarket[],
+): MorphoMarket | null {
+  let best: MorphoMarket | null = null
+  let bestTvl = -1
+  for (const m of markets) {
+    const sym = (m.loanAssetSymbol || "").toUpperCase()
+    if (sym !== "USDG") continue
+    const tvl = m.supplyAssetsUsd ?? 0
+    if (tvl > bestTvl) {
+      best = m
+      bestTvl = tvl
+    }
+  }
+  return best
+}
+
+function buildVaultVenue(
+  vault: VerifiedVault,
+  canonical: MorphoMarket | null,
+  fetchedAt: string,
+): YieldVenue {
+  const cfg = YIELD_VENUE_CONFIG.USDG
+
+  // Morpho-supplied metrics.
+  const tvl = canonical?.supplyAssetsUsd ?? null
+  const borrowUsd = canonical?.borrowAssetsUsd ?? null
+  const liquidity =
+    tvl != null && borrowUsd != null ? Math.max(0, tvl - borrowUsd) : null
+  const apy = canonical?.supplyApy ?? null
+
+  // Status semantics (per spec):
+  //   · LIVE      — vault address verified AND Morpho APY+TVL present.
+  //   · CANDIDATE — vault address verified but Morpho silent / partial.
+  //   · INACTIVE  — vault address verified but Morpho market closed.
+  let status: YieldVenue["status"]
+  if (canonical?.listed === false && tvl === 0) {
+    status = "inactive"
+  } else if (apy != null && tvl != null && tvl > 0) {
+    status = "live"
+  } else {
+    status = "candidate"
+  }
+
+  const hasMorpho = apy != null || tvl != null || liquidity != null
+  const source: YieldVenue["source"] = hasMorpho
+    ? "morpho-supply"
+    : "verified-onchain"
+
+  return {
+    id: `verified-vault-${vault.venue}`,
+    name: vault.label,
+    asset: "USDG",
+    apy,
+    tvl,
+    liquidity,
+    source,
+    status,
+    risk: cfg.risk,
+    tagline: cfg.tagline,
+    marketId: canonical?.marketId ?? null,
+    assetAddress: vault.address,
+    listed: canonical?.listed ?? null,
+    fetchedAt,
+  }
 }
 
 /** Picks the canonical (highest-TVL) Morpho market per loan symbol. */

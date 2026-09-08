@@ -92,7 +92,7 @@ export default function AssetLogo({
   const fallbackLetter = (symbol?.[0] ?? "?").toUpperCase()
   const entry = resolveAsset(symbol)
   const resolvedSrc =
-    src ?? entry.logoUrl ?? `/assets/logos/${symbol}.svg`
+    src ?? entry.logoUrl ?? `/assets/logos/${symbol}.png`
   const isUnresolved = Boolean(unresolved ?? entry.unresolved)
 
   // Letter fallback sizing — scale with container

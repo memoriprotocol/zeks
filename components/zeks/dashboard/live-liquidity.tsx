@@ -1,42 +1,30 @@
 "use client"
 
 /**
- * LiveLiquidity — 32% / 68% two-column composition.
+ * LiveLiquidity — measured reference composition.
  *
- *   LEFT (~32%)
- *     · Total Liquidity card        (height ≈ 108px)
- *       — primary: protocol-wide totalSupply (USD)
- *       — secondary: "Added in last 6 deposits" (newest 6 IN events
- *         from the verified Protocol Feed, summed in raw token units
- *         — USDG).
+ *   Grid: 3 columns (md)
+ *     · Left  (span 1) — 2 stacked metric cards (16px gap)
+ *         · Total Liquidity
+ *         · Added in last 6 deposits
+ *     · Right (span 2) — live protocol activity feed
  *
- *   RIGHT (~68%)
- *     · Live Protocol Activity feed
- *       — newest-first Transfer events from verified Loopr vaults
- *       — IN · OUT · TRANSFER classification
- *       — compact rows; collapsed to a compact empty state when
- *         the feed has no events or the RPC returned an error.
+ *   All cards p-5 rounded-2xl · warm beige surface · thin border
+ *   Heading lives OUTSIDE cards (handled by SectionTitle in parent).
  *
- * Spec compliance:
- *   · No wallet-only data shown.
- *   · Compact when empty / when RPC unavailable.
- *   · No fake rows.
- *   · No horizontal scrollbars.
- *   · Reuses `--dash-card-gap` · `--card-soft` · `--dash-metric-h` ·
- *     `--dash-feed-h` · `--dash-feed-empty`.
+ *   Motion: pulse dot · fade-in on metric change · slide-in on rows.
+ *   Spec compliance:
+ *     · No wallet-only data shown.
+ *     · Empty state is compact and honest.
+ *     · No fake rows.
  */
 
 import * as React from "react"
-import { Section } from "@/components/zeks/section"
 import { Pill } from "@/components/zeks/pill"
-import { formatCompact } from "@/lib/markets/format"
+import { formatCompact, formatTokenAmount } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
 
-/**
- * Shape returned by GET /api/protocol/activity. We intentionally do
- * NOT import the server-side feed module from this client component —
- * the browser calls the API route only.
- */
+/** Shape returned by GET /api/protocol/activity. */
 interface ActivityEvent {
   id: string
   txHash: `0x${string}`
@@ -61,18 +49,14 @@ interface ActivityPayload {
   partial: boolean
 }
 
-interface ListedFeedProps {
-  events: ActivityEvent[]
-}
-
 interface LiveLiquidityProps {
   markets: LendingMarket[]
 }
 
-const PAGE_SIZE = 10
+const VISIBLE_ROWS = 8
+const POLL_MS = 10_000
 
 export function LiveLiquidity({ markets }: LiveLiquidityProps) {
-  // Total liquidity — sum of totalSupply across all Morpho markets.
   const totalLiquidityUsd = React.useMemo(() => {
     let total = 0
     let any = false
@@ -86,15 +70,12 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
     return any ? total : null
   }, [markets])
 
-  // Protocol feed state — fetched from /api/protocol/activity (server-side).
   const [feed, setFeed] = React.useState<ActivityPayload | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [tick, setTick] = React.useState(0)
 
   const refresh = React.useCallback(async () => {
     try {
       const ctrl = new AbortController()
-      // 8s — the server cache is 10s, so we always arrive into a hot cache.
       const t = setTimeout(() => ctrl.abort(), 8_000)
       const res = await fetch("/api/protocol/activity", {
         method: "GET",
@@ -110,7 +91,7 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
       const j = (await res.json()) as ActivityPayload
       setFeed(j)
     } catch {
-      // keep last known feed; surfaces nothing new
+      // keep last known feed
     } finally {
       setLoading(false)
     }
@@ -119,116 +100,236 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
   React.useEffect(() => {
     void refresh()
     const id = window.setInterval(() => {
-      setTick((t) => t + 1)
       void refresh()
-    }, 10_000)
+    }, POLL_MS)
     return () => window.clearInterval(id)
   }, [refresh])
 
-  // "Added in last 6 deposits" is already computed server-side.
   const addedLast6Usdg = feed?.addedLast6Deposits ?? "—"
-
   const isEmpty = !feed || feed.events.length === 0
 
   return (
     <div
-      className="grid grid-cols-1 lg:grid-cols-[minmax(0,32%)_minmax(0,68%)]"
-      style={{ gap: "var(--dash-card-gap)" }}
+      className="grid"
+      style={{
+        gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)",
+        gap: "var(--dash-card-gap)",
+      }}
       data-testid="section-live-liquidity"
     >
-      {/* ── LEFT — Total Liquidity card (108px) ────────────── */}
+      {/* LEFT — 2 stacked metric cards */}
       <div
-        className="rounded-[14px] border border-border px-5 py-4 flex flex-col"
+        className="grid"
         style={{
-          minHeight: "var(--dash-metric-h)",
-          backgroundColor: "var(--card-soft)",
+          gridTemplateRows: "1fr 1fr",
+          gap: "var(--dash-card-gap)",
         }}
       >
-        <div className="font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase">
-          Total Liquidity
-        </div>
-        <div
-          className="font-serif tabular-nums leading-none tracking-tight text-foreground mt-2"
-          style={{ fontSize: "32px" }}
-        >
-          {totalLiquidityUsd != null ? formatCompact(totalLiquidityUsd) : "—"}
-        </div>
-
-        {/* secondary — added in last 6 deposits */}
-        <div className="mt-auto pt-3 border-t border-border flex items-baseline justify-between gap-3">
-          <span className="font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase">
-            Added · last 6 deposits
-          </span>
-          <span className="font-mono tabular-nums text-[12.5px] text-foreground">
-            {addedLast6Usdg} <span className="text-muted-foreground/70">USDG</span>
-          </span>
-        </div>
+        <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
+        <AddedLastDepositsCard addedLast6Usdg={addedLast6Usdg} />
       </div>
 
-      {/* ── RIGHT — Live Protocol Activity (max 228 / empty 120) ── */}
-      <Section
-        aria-label="Live protocol activity"
-        data-testid="section-live-activity"
-        className="flex flex-col"
-        style={{
-          minHeight: isEmpty
-            ? "var(--dash-feed-empty)"
-            : "var(--dash-feed-h)",
-          maxHeight: "var(--dash-feed-h)",
-        }}
-      >
-        <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            <span className="font-mono text-[10.5px] tracking-wide text-muted-foreground/80 uppercase">
-              Live Protocol Activity
-            </span>
-          </span>
-          <span className="font-mono text-[10px] tracking-wide text-muted-foreground/60 hidden md:inline">
-            3 verified vaults · ~50k blocks
-          </span>
-        </div>
-
-        {isEmpty ? (
-          <EmptyFeed
-            loading={loading}
-            partial={Boolean(feed?.partial)}
-            errorMessage={feed?.errorMessage ?? null}
-            tick={tick}
-          />
-        ) : (
-          <ListedFeed events={feed!.events} />
-        )}
-      </Section>
+      {/* RIGHT — live protocol activity */}
+      <ActivityFeedPanel feed={feed} loading={loading} isEmpty={isEmpty} />
     </div>
   )
 }
 
-/* ── Empty / error state ─────────────────────────────────── */
+/* ── Metric cards (left column) ─────────────────────── */
+
+function TotalLiquidityCard({
+  totalLiquidityUsd,
+}: {
+  totalLiquidityUsd: number | null
+}) {
+  const primary =
+    totalLiquidityUsd != null ? formatCompact(totalLiquidityUsd) : "—"
+
+  return (
+    <Card>
+      <span
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
+        Total Liquidity
+      </span>
+      <span
+        key={primary}
+        className="zeks-anim-fade-in leading-none tabular-nums"
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontSize: "34px",
+          letterSpacing: "-0.02em",
+          color: "var(--foreground)",
+          marginTop: "auto",
+        }}
+      >
+        {primary}
+      </span>
+      <span
+        className="font-mono"
+        style={{
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+          marginTop: "4px",
+        }}
+      >
+        Across curated Morpho markets
+      </span>
+    </Card>
+  )
+}
+
+function AddedLastDepositsCard({ addedLast6Usdg }: { addedLast6Usdg: string }) {
+  return (
+    <Card>
+      <span
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
+        Added · last 6 deposits
+      </span>
+      <span
+        className="leading-none tabular-nums"
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontSize: "34px",
+          letterSpacing: "-0.02em",
+          color: "var(--foreground)",
+          marginTop: "auto",
+        }}
+      >
+        {formatTokenAmount(addedLast6Usdg)}
+      </span>
+      <span
+        className="font-mono"
+        style={{
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+          marginTop: "4px",
+        }}
+      >
+        USDG · onchain vault events
+      </span>
+    </Card>
+  )
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="flex flex-col"
+      style={{
+        padding: "var(--dash-card-pad)",
+        borderRadius: "var(--dash-card-radius)",
+        backgroundColor: "var(--card-soft)",
+        border: "1px solid var(--border)",
+        minHeight: "120px",
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/* ── Activity feed panel (right column) ─────────────── */
+
+function ActivityFeedPanel({
+  feed,
+  loading,
+  isEmpty,
+}: {
+  feed: ActivityPayload | null
+  loading: boolean
+  isEmpty: boolean
+}) {
+  return (
+    <div
+      className="flex flex-col overflow-hidden"
+      style={{
+        padding: "var(--dash-card-pad)",
+        borderRadius: "var(--dash-card-radius)",
+        backgroundColor: "var(--card-soft)",
+        border: "1px solid var(--border)",
+        minHeight: "256px",
+      }}
+    >
+      {/* Header row */}
+      <div
+        className="flex items-center gap-2 shrink-0"
+        style={{ paddingBottom: "12px" }}
+      >
+        <span
+          aria-hidden="true"
+          className="w-2 h-2 rounded-full shrink-0 zeks-anim-pulse"
+          style={{ backgroundColor: "var(--primary)" }}
+        />
+        <span
+          className="font-mono uppercase"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          Live Activity
+        </span>
+        {!isEmpty && (
+          <span
+            className="ml-auto font-mono tabular-nums"
+            style={{
+              fontSize: "11px",
+              color: "var(--muted-foreground)",
+            }}
+          >
+            {feed!.events.length} events
+          </span>
+        )}
+      </div>
+
+      {/* Feed body */}
+      {isEmpty ? (
+        <EmptyFeed
+          loading={loading}
+          errorMessage={feed?.errorMessage ?? null}
+        />
+      ) : (
+        <ActivityFeed events={feed!.events} />
+      )}
+    </div>
+  )
+}
+
+/* ── Empty state ─────────────────────────────────────── */
 
 function EmptyFeed({
   loading,
-  partial,
   errorMessage,
-  tick,
 }: {
   loading: boolean
-  partial: boolean
   errorMessage: string | null
-  tick: number
 }) {
   const label = errorMessage
-    ? partial
-      ? "RPC partial · recent events unavailable"
-      : "RPC unavailable · no recent vault activity"
-    : loading && tick === 0
-      ? "Loading recent vault activity…"
-      : "No recent vault activity in the last 50,000 blocks"
+    ? "Live feed unavailable"
+    : loading
+      ? "Connecting…"
+      : "No recent vault activity"
   return (
-    <div className="flex-1 flex items-center px-4">
+    <div className="flex-1 flex items-center">
       <p
-        className="font-mono text-[10.5px] tracking-wide text-muted-foreground/60"
-        style={{ lineHeight: 1.4 }}
+        className="font-mono tracking-wide"
+        style={{
+          fontSize: "12px",
+          color: "var(--muted-foreground)",
+        }}
       >
         {label}
       </p>
@@ -236,94 +337,140 @@ function EmptyFeed({
   )
 }
 
-/* ── Listed (compact rows) ──────────────────────────────── */
+/* ── Activity feed ───────────────────────────────────── */
 
-function ListedFeed({ events }: ListedFeedProps) {
+function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   const [showAll, setShowAll] = React.useState(false)
-  const visible = showAll ? events.length : Math.min(events.length, PAGE_SIZE)
+  const visible = showAll ? events.length : Math.min(events.length, VISIBLE_ROWS)
   const items = events.slice(0, visible)
   const more = events.length - visible
 
   return (
-    <>
+    <div className="flex-1 flex flex-col overflow-hidden">
       <ol
         className="relative flex-1 overflow-auto"
+        style={{ padding: "0 0 4px" }}
         data-testid="protocol-feed-list"
       >
+        {/* Vertical timeline line */}
         <span
           aria-hidden="true"
-          className="absolute left-[11px] top-2 bottom-2 w-px bg-border"
+          className="absolute left-[11px] top-3 bottom-3 w-px"
+          style={{ backgroundColor: "var(--border)" }}
         />
         {items.map((e) => (
-          <FeedRow key={e.id} event={e} />
+          <ActivityRow key={e.id} event={e} />
         ))}
       </ol>
-      {more > 0 ? (
-        <div className="border-t border-border px-4 py-2 flex items-center justify-between gap-3">
-          <span className="font-mono text-[10px] tracking-wide text-muted-foreground/60">
-            +{more} earlier events
-          </span>
+
+      {more > 0 && !showAll && (
+        <div
+          className="flex items-center justify-end shrink-0"
+          style={{
+            paddingTop: "6px",
+            borderTop: "1px solid var(--border)",
+          }}
+        >
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="font-mono text-[10.5px] tracking-wide text-foreground/80 hover:text-foreground underline-offset-2 hover:underline"
+            className="font-mono tracking-wide transition-colors"
+            style={{
+              fontSize: "11px",
+              color: "var(--muted-foreground)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px 0",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
           >
-            Show all
+            +{more} more
           </button>
         </div>
-      ) : null}
-    </>
+      )}
+    </div>
   )
 }
 
-function FeedRow({ event }: { event: ActivityEvent }) {
+/* ── Single feed row ────────────────────────────────── */
+
+function ActivityRow({ event }: { event: ActivityEvent }) {
   const tone =
-    event.kind === "in"
-      ? "up"
-      : event.kind === "out"
-        ? "down"
-        : "muted"
+    event.kind === "in" ? "up" : event.kind === "out" ? "down" : "muted"
   const label =
-    event.kind === "in"
-      ? "IN"
-      : event.kind === "out"
-        ? "OUT"
-        : "TRANSFER"
+    event.kind === "in" ? "IN" : event.kind === "out" ? "OUT" : "TRANSFER"
+
   return (
-    <li className="relative pl-7 pr-3 py-2 border-t border-border first:border-t-0">
+    <li
+      className="relative"
+      style={{
+        paddingLeft: "32px",
+        paddingRight: "12px",
+        paddingTop: "5px",
+        paddingBottom: "5px",
+      }}
+    >
+      {/* Timeline dot */}
       <span
         aria-hidden="true"
-        className={[
-          "absolute left-[7px] top-3 w-1.5 h-1.5 rounded-full",
-          event.kind === "in"
-            ? "bg-up"
-            : event.kind === "out"
-              ? "bg-amber-500"
-              : "bg-muted-foreground/60",
-        ].join(" ")}
+        className="absolute rounded-full shrink-0"
+        style={{
+          left: "10px",
+          top: "11px",
+          width: "5px",
+          height: "5px",
+          backgroundColor:
+            event.kind === "in"
+              ? "var(--up)"
+              : event.kind === "out"
+                ? "var(--down)"
+                : "var(--muted-foreground)",
+          opacity: 0.7,
+        }}
       />
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Pill tone={tone} dot>
-            {label}
-          </Pill>
-          <span className="font-mono text-[10px] tracking-wide text-muted-foreground/80 truncate">
-            {event.label}
-          </span>
-        </div>
-        <span className="font-mono text-[10px] tracking-wide text-muted-foreground/70 tabular-nums shrink-0">
+
+      {/* Top row — chip + venue + time */}
+      <div className="flex items-center gap-2">
+        <Pill tone={tone} dot>
+          {label}
+        </Pill>
+        <span
+          className="font-mono truncate"
+          style={{
+            fontSize: "11px",
+            color: "var(--muted-foreground)",
+          }}
+        >
+          {event.label}
+        </span>
+        <span
+          className="ml-auto font-mono tabular-nums shrink-0"
+          style={{ fontSize: "11px", color: "var(--muted-foreground)" }}
+        >
           {relative(event.timestamp)}
         </span>
       </div>
-      <p className="font-mono text-[10px] tracking-wide text-muted-foreground/70 mt-0.5 truncate">
-        {event.amountUsdg}{" "}
-        <span className="text-muted-foreground/50">USDG</span>
-        {" · "}
+
+      {/* Amount + tx link */}
+      <p
+        className="font-mono flex items-center gap-2"
+        style={{
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+          marginTop: "2px",
+        }}
+      >
+        <span className="truncate">{formatTokenAmount(event.amountUsdg)} USDG</span>
         <a
           href={txLink(event.txHash)}
           target="_blank"
           rel="noreferrer"
-          className="hover:text-foreground underline-offset-2 hover:underline"
+          className="shrink-0 underline-offset-2 transition-colors"
+          style={{ color: "var(--muted-foreground)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
         >
           {short(event.txHash)}
         </a>
@@ -331,6 +478,8 @@ function FeedRow({ event }: { event: ActivityEvent }) {
     </li>
   )
 }
+
+/* ── Helpers ────────────────────────────────────────── */
 
 function short(hash: string): string {
   if (hash.length <= 12) return hash

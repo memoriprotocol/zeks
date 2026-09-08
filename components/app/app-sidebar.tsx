@@ -32,39 +32,34 @@ const PRIMARY_NAV: NavItem[] = [
 ]
 
 /**
- * AppSidebar (v3 — Loopr-density)
+ * AppSidebar — 64px icon-only rail (measured reference spec).
  *
- * Narrow, icon-first navigation with a subtle active indicator
- *   - Width: 168px
- *   - Soft lime-accent active state (no harsh rectangle)
- *   - Secondary network info tucked in the footer (no chrome bar
- *     duplicated with the header)
+ * Slim chrome · tooltip labels on hover.
  */
 export default function AppSidebar({ current }: AppSidebarProps) {
   return (
-    <aside className="hidden md:flex w-[168px] shrink-0 flex-col border-r border-border bg-sidebar">
+    <aside
+      className="hidden md:flex shrink-0 flex-col border-r border-border bg-sidebar"
+      style={{ width: "var(--shell-sidebar-w)" }}
+      aria-label="Primary navigation"
+    >
       {/* Brand */}
-      <div className="h-12 px-4 flex items-center border-b border-sidebar-border">
-        <Link
-          href="/terminal"
-          className="flex items-center gap-1.5"
-          aria-label="ZEKS"
+      <Link
+        href="/terminal"
+        aria-label="ZEKS"
+        className="h-12 flex items-center justify-center border-b border-sidebar-border"
+      >
+        <span
+          aria-hidden="true"
+          className="relative inline-flex w-2 h-2 shrink-0"
         >
-          <span
-            aria-hidden="true"
-            className="relative inline-flex w-1.5 h-1.5 shrink-0"
-          >
-            <span className="absolute inset-0 rounded-full bg-primary opacity-70 animate-ping" />
-            <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-primary" />
-          </span>
-          <span className="font-serif text-[15px] font-semibold tracking-tight text-sidebar-foreground leading-none">
-            ZEKS
-          </span>
-        </Link>
-      </div>
+          <span className="absolute inset-0 rounded-full bg-primary opacity-70 animate-ping" />
+          <span className="relative inline-block w-2 h-2 rounded-full bg-primary" />
+        </span>
+      </Link>
 
-      {/* Primary nav — icon-first, soft active */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5">
+      {/* Primary nav */}
+      <nav className="flex-1 py-2 flex flex-col items-stretch gap-1" style={{ padding: "8px 8px" }}>
         {PRIMARY_NAV.map((item) => {
           const Icon = item.icon
           const active = current === item.key
@@ -73,36 +68,27 @@ export default function AppSidebar({ current }: AppSidebarProps) {
               key={item.key}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              aria-label={item.label}
+              title={item.label}
               className={
-                "group relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-colors " +
+                "group relative flex items-center justify-center rounded-md transition-colors " +
                 (active
-                  ? "bg-accent text-foreground font-medium"
+                  ? "bg-accent text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/60")
               }
+              style={{ height: "36px", width: "48px", alignSelf: "center" }}
             >
               {active ? (
                 <span
                   aria-hidden="true"
-                  className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary"
+                  className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-primary"
                 />
               ) : null}
-              <Icon className="w-[15px] h-[15px] shrink-0" />
-              <span className="truncate">{item.label}</span>
+              <Icon className="w-[16px] h-[16px] shrink-0" />
             </Link>
           )
         })}
       </nav>
-
-      {/* Footer — slim network line, no chrome bar duplication */}
-      <div className="px-4 py-3 border-t border-sidebar-border space-y-1">
-        <p className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
-          NETWORK
-        </p>
-        <p className="text-xs text-foreground font-medium">Robinhood Chain</p>
-        <p className="text-[10px] font-mono text-muted-foreground">
-          Live · Morpho
-        </p>
-      </div>
     </aside>
   )
 }

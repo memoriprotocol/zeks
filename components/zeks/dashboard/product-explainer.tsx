@@ -1,12 +1,11 @@
 "use client"
 
 /**
- * ProductExplainer — full-width two-column explainer.
+ * ProductExplainer — editorial two-column explainer.
  *
- *   Left  (≈ 2fr) — product text (≤ 2 lines)
- *   Right (≈ 1fr) — 2 small metrics, vertically centered
- *
- * Height target = 104px. Single beige surface; thin border.
+ *   rounded-2xl · p-5 · mb-8 · warm beige surface · thin border
+ *   left = product copy (≤ 2 lines, 13px sans)
+ *   right = 2 small ZEKS metrics
  */
 
 import * as React from "react"
@@ -39,34 +38,37 @@ export function ProductExplainer({
     <div
       data-testid="section-product-explainer"
       aria-label="Product explainer"
-      className="w-full rounded-[14px] border border-border overflow-hidden grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-0"
+      className="grid"
       style={{
-        minHeight: "var(--dash-explainer-h)",
+        padding: "var(--dash-card-pad)",
+        borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
+        border: "1px solid var(--border)",
+        gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)",
+        gap: "24px",
+        marginBottom: "var(--dash-explainer-mb)",
       }}
     >
-      <div className="px-5 md:border-r md:border-border flex items-center">
+      {/* Left — product copy */}
+      <div className="flex items-center">
         <p
-          className="text-[13px] text-foreground/90 max-w-prose"
           style={{
-            lineHeight: 1.45,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
+            fontSize: "var(--font-body)",
+            lineHeight: 1.5,
+            color: "var(--foreground)",
+            opacity: 0.78,
+            maxWidth: "60ch",
           }}
         >
-          Deposit a tokenized stock as collateral on Morpho, borrow a
-          stablecoin against it, and route the stablecoin into a yield venue.
+          Deposit a tokenized stock as collateral on Morpho, borrow a stablecoin
+          against it, and route the stablecoin into a verified yield venue.
         </p>
       </div>
 
-      <div className="px-5 flex items-center justify-between gap-4">
-        <Metric
-          label="Markets"
-          value={stockMarketCount ?? "—"}
-        />
-        <Metric
+      {/* Right — metrics */}
+      <div className="flex items-center gap-8">
+        <MiniMetric label="Markets" value={stockMarketCount ?? "—"} />
+        <MiniMetric
           label="Liquidity"
           value={
             totalLiquidityUsd != null
@@ -79,20 +81,33 @@ export function ProductExplainer({
   )
 }
 
-function Metric({
+function MiniMetric({
   label,
   value,
 }: {
   label: string
-  value: React.ReactNode
+  value: string | number
 }) {
   return (
-    <div className="min-w-0">
-      <div className="font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase">
+    <div>
+      <div
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
         {label}
       </div>
       <div
-        className="font-serif tabular-nums leading-none text-[24px] text-foreground mt-1.5"
+        className="tabular-nums leading-none"
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontSize: "22px",
+          color: "var(--foreground)",
+          marginTop: "4px",
+        }}
       >
         {value}
       </div>

@@ -61,13 +61,13 @@
   --sidebar-border: #E6DFCF;
   --sidebar-ring: #1A1814;
 
-  /* ── Layout chrome (loopr-density) ─────────────────────── */
-  --shell-sidebar-w: 168px;        /* narrow sidebar */
-  --shell-header-h:   48px;        /* thin top bar */
-  --shell-strip-h:    32px;        /* thin ticker */
-  --content-max:    980px;         /* centered gutter (locked to spec) */
-  --content-pad-x:    24px;        /* md gutter */
-  --content-pad-x-md: 24px;
+  /* ── Layout chrome (measured reference spec) ────────────── */
+  --shell-sidebar-w:  64px;        /* icon-only sidebar */
+  --shell-header-h:   48px;
+  --shell-strip-h:    40px;        /* py-2.5 ticker strip */
+  --content-max:    1152px;        /* ~max-w-6xl */
+  --content-pad-x:    28px;        /* desktop gutter */
+  --content-pad-y:    28px;        /* desktop top/bottom */
 
   /* ── Spacing scale (tokenized) ─────────────────────────── */
   --space-1:  4px;
@@ -76,32 +76,26 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
 
-  /* Dashboard rhythm tokens (pixel-locked per spec) */
-  --dash-section-gap: 28px;        /* between top-level sections */
-  --dash-card-gap:    14px;        /* between cards inside a section */
-  --dash-top-pad:     28px;        /* top page padding */
-  --dash-banner-h:    56px;        /* announcement banner */
-  --dash-explainer-h: 104px;       /* product explainer */
-  --dash-metric-h:    108px;       /* total liquidity card */
-  --dash-feed-h:      228px;       /* activity feed (max) */
-  --dash-feed-empty:  120px;       /* activity feed (empty) */
-  --dash-card-pad:    18px;        /* stock card padding */
-  --dash-card-min-h:  250px;       /* stock card min-height */
+  /* Dashboard rhythm tokens (measured reference spec) */
+  --dash-section-gap:  36px;       /* major section separation 32-40 */
+  --dash-card-gap:     16px;       /* between cards */
+  --dash-heading-gap:  12px;       /* section heading -> content */
+  --dash-card-pad:     20px;       /* p-5 */
+  --dash-card-radius:  16px;       /* rounded-2xl */
+  --dash-card-min-h:   240px;      /* equal visual height */
+  --dash-banner-mb:    16px;       /* mb-4 */
+  --dash-explainer-mb: 32px;       /* mb-8 */
 
-  /* ── Typography scale ──────────────────────────────────── */
-  --font-display: 44px;            /* page heading */
-  --font-h2:       22px;           /* section heading */
-  --font-h3:       16px;           /* card heading */
-  --font-body:     13px;
-  --font-small:    12px;
-  --font-meta:     10px;           /* mono label */
-  --font-number:   40px;           /* hero metric */
-
-  /* ── Card surface tokens ───────────────────────────────── */
-  --card-radius: 14px;             /* spec: 14–16px */
-  --card-border: 1px solid var(--border);
-  --card-hover:   var(--secondary);
+  /* ── Typography scale (measured reference spec) ─────────── */
+  --font-dash-title:   26px;       /* serif, -0.04em */
+  --font-section-head: 13px;       /* mono uppercase */
+  --font-body:         13px;       /* sans body */
+  --font-card-symbol:  15px;       /* serif symbol */
+  --font-card-company: 11px;       /* mono company */
+  --font-micro:        10px;       /* small mono labels */
 }
 
 @theme inline {
@@ -197,4 +191,49 @@
   background-image:
     radial-gradient(1200px 600px at 0% 0%, rgba(0, 0, 0, 0.015), transparent 60%),
     radial-gradient(1000px 500px at 100% 100%, rgba(183, 243, 74, 0.04), transparent 70%);
+}
+
+/* ── Dashboard motion — subtle, premium, non-distracting ────────── */
+
+/* Fade + slide up — new feed rows */
+@keyframes zeks-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Fade in — metric value change */
+@keyframes zeks-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Gentle pulse — live indicator dot */
+@keyframes zeks-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+.zeks-anim-slide-in {
+  animation: zeks-slide-in 300ms ease-out both;
+}
+.zeks-anim-fade-in {
+  animation: zeks-fade-in 200ms ease-out both;
+}
+.zeks-anim-pulse {
+  animation: zeks-pulse 2.2s ease-in-out infinite;
+}
+
+/* ── Ticker marquee (continuous linear scroll) ──────────────── */
+@keyframes zeks-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.zeks-marquee {
+  display: flex;
+  width: max-content;
+  animation: zeks-marquee 32s linear infinite;
+}
+.zeks-marquee:hover {
+  animation-play-state: paused;
 }

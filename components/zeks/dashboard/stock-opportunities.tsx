@@ -1,20 +1,20 @@
 "use client"
 
 /**
- * StockOpportunities — curated 8-ticker grid with search + filter.
+ * StockOpportunities — measured reference card system.
  *
- *   Spec list: AAPL · SPCX · TSLA · NVDA · GOOGL · AMZN · MSFT · META
+ *   Toolbar: search (py-2.5, 13px) + 12px mono filter
+ *   Grid: 3 columns on desktop · gap 16px
+ *   Card:  p-5 · rounded-2xl · logo 40x40 · equal visual height
  *
- *   Toolbar: search (flex-1) · one status select
- *   Grid:    3 columns on desktop
- *   Card:    logo (34) · symbol (17 serif) · company (11) ·
- *            price (28 serif) · LLTV · Borrow APY · Liquidity ·
- *            compact "Explore" CTA
+ *   Internal hierarchy:
+ *     1. Header     — logo + symbol (15px serif) + company (11px mono) + status
+ *     2. Oracle     — large serif price block
+ *     3. Divider
+ *     4. Stat strip — LLTV · Borrow APY · Liquidity
+ *     5. CTA strip  — strategy spread (optional) + Explore lime pill
  *
- *   Per spec: no extra badges. Fields without data are hidden.
- *   Read-only.
- *
- *   CTA: subtle lime outline/fill · compact (not full-width).
+ *   No big black blocks, no giant lime buttons, equal heights.
  */
 
 import * as React from "react"
@@ -29,6 +29,9 @@ import type { LendingMarket } from "@/lib/markets/lending"
 
 interface StockOpportunitiesProps {
   markets: LendingMarket[]
+  /** Default venue APY for strategy spread.
+   *  Null when no live venue is available. */
+  venueApy: number | null
 }
 
 const PRIORITY: readonly string[] = [
@@ -50,6 +53,7 @@ type StatusFilter = "all" | "live" | "borrowable"
 
 export function StockOpportunities({
   markets,
+  venueApy,
 }: StockOpportunitiesProps) {
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<StatusFilter>("all")
@@ -76,27 +80,43 @@ export function StockOpportunities({
       )
         return false
       if (!q) return true
-      const hay = `${m.symbol} ${m.name ?? ""}`.toLowerCase()
-      return hay.includes(q)
+      return `${m.symbol} ${m.name ?? ""}`.toLowerCase().includes(q)
     })
   }, [priority, query, filter])
 
   return (
-    <div data-testid="section-stock-opportunities" className="flex flex-col gap-3">
-      {/* Toolbar — search takes most width, filter on right */}
+    <div
+      data-testid="section-stock-opportunities"
+      className="flex flex-col"
+      style={{ gap: "var(--dash-heading-gap)" }}
+    >
+      {/* Toolbar */}
       <div className="flex items-center gap-2.5 flex-wrap">
-        <label className="relative flex-1 min-w-[240px]">
+        <label className="relative flex-1 min-w-[220px]">
           <span className="sr-only">Search stocks</span>
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search AAPL, TSLA, …"
-            className="w-full h-9 rounded-[10px] border border-border bg-transparent pl-9 pr-3 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-foreground/40 transition-colors"
+            className="w-full rounded-md border outline-none"
+            style={{
+              padding: "10px 12px 10px 32px",
+              fontSize: "var(--font-body)",
+              borderColor: "var(--border)",
+              color: "var(--foreground)",
+              background: "var(--background)",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
           />
           <span
             aria-hidden="true"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 text-[12px]"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{
+              fontSize: "13px",
+              color: "var(--muted-foreground)",
+            }}
           >
             ⌕
           </span>
@@ -108,7 +128,17 @@ export function StockOpportunities({
             setFilter(e.currentTarget.value as StatusFilter)
           }
           aria-label="Filter by status"
-          className="h-9 rounded-[10px] border border-border bg-transparent px-3 text-[12px] text-foreground outline-none focus:border-foreground/40 transition-colors"
+          className="rounded-md border outline-none cursor-pointer font-mono uppercase"
+          style={{
+            padding: "8px 12px",
+            fontSize: "12px",
+            letterSpacing: "0.04em",
+            borderColor: "var(--border)",
+            color: "var(--foreground)",
+            background: "var(--background)",
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
+          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
         >
           <option value="all">All</option>
           <option value="live">Live</option>
@@ -118,128 +148,238 @@ export function StockOpportunities({
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <EmptyState
-          hasAny={priority.length > 0}
-          filtered={filtered.length}
-          total={priority.length}
-        />
+        <EmptyState hasAny={priority.length > 0} />
       ) : (
         <ul
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
-          style={{ gap: "var(--dash-card-gap)" }}
+          className="grid"
+          style={{
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: "var(--dash-card-gap)",
+          }}
+          data-testid="stock-grid"
         >
           {filtered.map((m) => (
-            <li key={m.marketId ?? m.symbol}>
-              <OpportunityCard market={m} />
+            <li key={m.marketId ?? m.symbol} className="h-full">
+              <OpportunityCard market={m} venueApy={venueApy} />
             </li>
           ))}
         </ul>
       )}
 
-      {/* Footnote · match count */}
-      <p className="font-mono text-[10px] tracking-wide text-muted-foreground/60 px-0.5">
-        {filtered.length} / {priority.length} curated tickers ·{" "}
-        {priority.length} / {PRIORITY.length} live
+      {/* Footnote */}
+      <p
+        className="font-mono"
+        style={{
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+          paddingTop: "4px",
+        }}
+      >
+        {filtered.length} / {priority.length} curated tickers
+        {priority.length < PRIORITY.length
+          ? ` · ${priority.length} of ${PRIORITY.length} live`
+          : ""}
       </p>
     </div>
   )
 }
 
-/* ── Single card ─────────────────────────────────────────────── */
+/* ── Single card ─────────────────────────────────────── */
 
-function OpportunityCard({ market: m }: { market: LendingMarket }) {
-  const hasPrice = m.oraclePrice != null
-  const hasLltv = m.lltv != null
-  const hasBorrow = m.borrowApy != null
+function OpportunityCard({
+  market: m,
+  venueApy,
+}: {
+  market: LendingMarket
+  venueApy: number | null
+}) {
   const liquidity = m.availableLiquidity ?? m.totalSupply ?? null
-  const hasLiq = liquidity != null
+  const spread =
+    venueApy != null && m.borrowApy != null ? venueApy - m.borrowApy : null
 
   return (
     <article
-      className="rounded-[14px] border border-border flex flex-col h-full"
+      className="flex flex-col h-full transition-all duration-200"
       style={{
-        minHeight: "var(--dash-card-min-h)",
         padding: "var(--dash-card-pad)",
+        borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
+        border: "1px solid var(--border)",
+        minHeight: "var(--dash-card-min-h)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)"
+        e.currentTarget.style.boxShadow =
+          "0 4px 20px rgba(26,24,20,0.06)"
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = ""
+        e.currentTarget.style.boxShadow = ""
       }}
       data-testid="opportunity-card"
     >
-      {/* Header — logo · symbol · company */}
+      {/* 1 · Header — logo · symbol · company · status */}
       <header className="flex items-center gap-3">
         <AssetLogo
           symbol={m.symbol}
           name={m.name ?? m.symbol}
           src={m.logoUrl ?? undefined}
-          size={34}
+          size={40}
         />
         <div className="min-w-0 flex-1">
-          <div
-            className="font-serif text-foreground"
-            style={{ fontSize: "17px", lineHeight: 1.1 }}
-          >
-            {m.symbol}
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: "var(--font-card-symbol)",
+                color: "var(--foreground)",
+                lineHeight: 1.1,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {m.symbol}
+            </div>
+            <StatusChip m={m} />
           </div>
           <div
-            className="font-mono text-muted-foreground/70 truncate"
-            style={{ fontSize: "11px", marginTop: "3px" }}
+            className="font-mono truncate"
+            style={{
+              fontSize: "var(--font-card-company)",
+              color: "var(--muted-foreground)",
+              marginTop: "4px",
+              letterSpacing: "0.02em",
+            }}
           >
             {m.name ?? m.symbol}
           </div>
         </div>
       </header>
 
-      {/* Oracle price — only when present */}
-      {hasPrice ? (
-        <div className="mt-4">
+      {/* 2 · Oracle price */}
+      {m.oraclePrice != null && (
+        <div
+          style={{
+            paddingTop: "14px",
+            paddingBottom: "12px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
           <div
-            className="font-mono tracking-wide text-muted-foreground/70 uppercase"
-            style={{ fontSize: "9px" }}
+            className="font-mono uppercase"
+            style={{
+              fontSize: "var(--font-micro)",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.06em",
+            }}
           >
             Oracle Price
           </div>
           <div
-            className="font-serif tabular-nums leading-none tracking-tight text-foreground"
-            style={{ fontSize: "28px", marginTop: "4px" }}
+            className="tabular-nums leading-tight"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: "28px",
+              letterSpacing: "-0.02em",
+              color: "var(--foreground)",
+              marginTop: "2px",
+            }}
           >
-            {formatPrice(m.oraclePrice as number)}
+            {formatPrice(m.oraclePrice)}
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* Field strip — LLTV · Borrow APY · Liquidity (hide each if missing) */}
+      {/* 3 · Stat strip */}
       <dl
-        className="mt-4 grid grid-cols-3"
-        style={{ columnGap: "12px" }}
+        className="grid grid-cols-3"
+        style={{
+          columnGap: "8px",
+          paddingTop: "12px",
+          paddingBottom: spread != null ? "12px" : "0",
+          borderBottom: spread != null ? "1px solid var(--border)" : undefined,
+        }}
       >
-        {hasLltv ? (
-          <Field
-            label="LLTV"
-            value={`${((m.lltv as number) * 100).toFixed(1)}%`}
-          />
-        ) : (
-          <Field label="LLTV" value="—" muted />
-        )}
-        {hasBorrow ? (
-          <Field
-            label="Borrow"
-            value={formatApy(m.borrowApy as number)}
-            tone="down"
-          />
-        ) : (
-          <Field label="Borrow" value="—" muted />
-        )}
-        {hasLiq ? (
-          <Field label="Liquidity" value={formatCompact(liquidity as number)} />
-        ) : (
-          <Field label="Liquidity" value="—" muted />
-        )}
+        <StatField
+          label="LLTV"
+          value={m.lltv != null ? `${(m.lltv * 100).toFixed(1)}%` : "—"}
+        />
+        <StatField
+          label="Borrow APY"
+          value={m.borrowApy != null ? formatApy(m.borrowApy) : "—"}
+          tone="down"
+        />
+        <StatField
+          label="Liquidity"
+          value={liquidity != null ? formatCompact(liquidity) : "—"}
+        />
       </dl>
 
-      {/* CTA — compact, subtle lime outline/fill */}
-      <div className="mt-auto pt-4">
+      {/* 4 · Footer — strategy spread + CTA
+          Fixed row height so the CTA baseline matches across every card,
+          regardless of whether spread is present. */}
+      <div
+        className="flex items-center justify-between"
+        style={{
+          marginTop: "auto",
+          paddingTop: "14px",
+          minHeight: "28px",
+        }}
+      >
+        {spread != null ? (
+          <span
+            className="font-mono uppercase inline-flex items-baseline gap-1.5"
+            style={{
+              fontSize: "var(--font-micro)",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.06em",
+              lineHeight: 1,
+            }}
+          >
+            Spread
+            <span
+              className="tabular-nums"
+              style={{
+                color: spread >= 0 ? "var(--up)" : "var(--down)",
+                fontSize: "12px",
+                letterSpacing: "0",
+              }}
+            >
+              {spread >= 0 ? "+" : ""}
+              {spread.toFixed(2)}%
+            </span>
+          </span>
+        ) : (
+          <span
+            className="font-mono uppercase inline-flex items-baseline"
+            style={{
+              fontSize: "var(--font-micro)",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.06em",
+              lineHeight: 1,
+            }}
+          >
+            Spread —
+          </span>
+        )}
         <Link
           href={`/terminal/markets/${encodeURIComponent(m.symbol)}`}
-          className="inline-flex items-center justify-center rounded-[8px] border border-primary/40 bg-primary/15 text-foreground h-8 px-3.5 text-[12px] font-medium hover:bg-primary/25 transition-colors"
+          className="font-medium transition-colors inline-flex items-center justify-center"
+          style={{
+            fontSize: "12px",
+            height: "24px",
+            padding: "0 10px",
+            borderRadius: "5px",
+            backgroundColor: "var(--primary)",
+            color: "var(--primary-foreground)",
+            textDecoration: "none",
+            lineHeight: 1,
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "rgba(183,243,74,0.85)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "var(--primary)")
+          }
         >
           Explore →
         </Link>
@@ -248,39 +388,77 @@ function OpportunityCard({ market: m }: { market: LendingMarket }) {
   )
 }
 
-function Field({
+/* ── Source chip ────────────────────────────────────── */
+
+function StatusChip({ m }: { m: LendingMarket }) {
+  const isLive = m.sourceMode === "real-morpho" || m.sourceMode === "live"
+  const isUnlisted = m.sourceMode === "real-morpho-unlisted"
+  const label = isLive ? "LIVE" : isUnlisted ? "UNLISTED" : "MOCK"
+  const color = isLive
+    ? "var(--up)"
+    : isUnlisted
+      ? "var(--muted-foreground)"
+      : "var(--down)"
+  return (
+    <span
+      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      style={{
+        fontSize: "9px",
+        color,
+        letterSpacing: "0.08em",
+        opacity: 0.85,
+        padding: "2px 5px",
+        border: `1px solid ${color}`,
+        borderRadius: "4px",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="rounded-full shrink-0"
+        style={{ width: "4px", height: "4px", backgroundColor: color }}
+      />
+      {label}
+    </span>
+  )
+}
+
+/* ── Stat field ─────────────────────────────────────── */
+
+function StatField({
   label,
   value,
   tone,
-  muted,
 }: {
   label: string
   value: string
   tone?: "up" | "down"
-  muted?: boolean
 }) {
-  const cls =
+  const color =
     tone === "up"
-      ? "text-up"
+      ? "var(--up)"
       : tone === "down"
-        ? "text-down"
-        : muted
-          ? "text-muted-foreground"
-          : "text-foreground"
+        ? "var(--down)"
+        : "var(--foreground)"
   return (
     <div>
       <dt
-        className="font-mono tracking-wide text-muted-foreground/70 uppercase"
-        style={{ fontSize: "9px" }}
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.04em",
+        }}
       >
         {label}
       </dt>
       <dd
-        className={[
-          "font-mono tabular-nums",
-          cls,
-        ].join(" ")}
-        style={{ fontSize: "13px", marginTop: "3px" }}
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "12.5px",
+          color,
+          marginTop: "3px",
+        }}
       >
         {value}
       </dd>
@@ -288,32 +466,18 @@ function Field({
   )
 }
 
-function EmptyState({
-  hasAny,
-  filtered,
-  total,
-}: {
-  hasAny: boolean
-  filtered: number
-  total: number
-}) {
-  if (!hasAny) {
-    return (
-      <p className="font-mono text-[11px] tracking-wide text-muted-foreground/70 px-0.5">
-        None of the 8 curated tickers are currently live.
-      </p>
-    )
-  }
-  if (filtered === 0) {
-    return (
-      <p className="font-mono text-[11px] tracking-wide text-muted-foreground/70 px-0.5">
-        No curated tickers match the current filter.
-      </p>
-    )
-  }
+function EmptyState({ hasAny }: { hasAny: boolean }) {
   return (
-    <p className="font-mono text-[11px] tracking-wide text-muted-foreground/70 px-0.5">
-      {filtered} / {total} curated tickers
+    <p
+      className="font-mono"
+      style={{
+        fontSize: "12px",
+        color: "var(--muted-foreground)",
+      }}
+    >
+      {hasAny
+        ? "No tickers match the current filter."
+        : "None of the 8 curated tickers are currently live."}
     </p>
   )
 }

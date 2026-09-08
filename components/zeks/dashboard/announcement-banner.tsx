@@ -1,10 +1,10 @@
 "use client"
 
 /**
- * AnnouncementBanner — full-width strip under the page title.
+ * AnnouncementBanner — compact single-row strip.
  *
- *   Compact (56px), single row, mono metadata. Not a hero.
- *   No developer-facing copy.
+ *   warm off-white surface · rounded-2xl · p-5 (vertical 4) · mb-4
+ *   mono metadata · thin border
  */
 
 import * as React from "react"
@@ -14,24 +14,49 @@ export function AnnouncementBanner() {
     <div
       data-testid="section-announcement"
       aria-label="Announcement"
-      className="w-full rounded-[14px] border border-border overflow-hidden flex items-center px-5"
+      className="flex items-center justify-between gap-3 border"
       style={{
-        height: "var(--dash-banner-h)",
+        padding: "10px 20px",
+        borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
+        borderColor: "var(--border)",
+        marginBottom: "var(--dash-banner-mb)",
       }}
     >
-      <span className="inline-flex items-center gap-1.5 h-5 px-2 rounded-md font-mono text-[10px] tracking-wide border border-primary/40 bg-primary/10 text-foreground">
-        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-        ZEKS
-      </span>
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span
+          className="font-mono uppercase shrink-0"
+          style={{
+            fontSize: "10px",
+            letterSpacing: "0.08em",
+            padding: "3px 8px",
+            borderRadius: "4px",
+            background: "var(--secondary)",
+            border: "1px solid var(--border)",
+            color: "var(--foreground)",
+          }}
+        >
+          ZEKS
+        </span>
+        <p
+          className="truncate"
+          style={{
+            fontSize: "var(--font-body)",
+            color: "var(--foreground)",
+            opacity: 0.78,
+          }}
+        >
+          Live data from Morpho &amp; Chainlink on Robinhood Chain
+        </p>
+      </div>
 
-      <span className="mx-4 hidden sm:inline-block w-px h-4 bg-border" />
-
-      <p className="text-[13px] text-foreground/90 truncate" style={{ lineHeight: 1.4 }}>
-        Live data from Morpho and Chainlink on Robinhood Chain.
-      </p>
-
-      <span className="ml-auto font-mono text-[10px] tracking-wide text-muted-foreground/70 hidden md:inline">
+      <span
+        className="font-mono shrink-0 hidden md:inline"
+        style={{
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+        }}
+      >
         Robinhood Chain · 4663
       </span>
     </div>
