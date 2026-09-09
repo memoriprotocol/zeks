@@ -1,194 +1,370 @@
 "use client"
 
 /**
- * ActivityLive (v3 — Loopr-density)
+ * ActivityLive (v4 — Protocol-wide vault activity)
  *
- * Compact, dense activity feed.
+ * UI shell preserved from v3 — same title, copy, table layout,
+ * empty/error states. Only the data source and a small
+ * status/refresh row + Load-more pagination are added.
  *
- *   - 32-row pipe to the Blockscout txlist API (refresh ~60s).
- *   - Each row links to the Robinhood Chain explorer.
- *   - Polite states: disconnected / wrong-network / unsupported /
- *     empty / unavailable. No giant empty cards.
+ *   · Read-only. No browser-side RPC, no signing, no wallet queries.
+ *   · Polls every 2.5s (visible) / 10s (hidden). Single shared
+ *     subscription — never stacks intervals.
+ *   · Dedupe by (txHash, logIndex) on the client.
+ *   · New rows appear in place (no F5 needed).
+ *   · Pagination: in-memory "Load more" widens the visible slice
+ *     without forcing a 50k-block rescan.
+ *   · Graceful states: loading · empty · API unavailable ·
+ *     RPC unavailable (partial). Never throws.
  */
 
 import * as React from "react"
 import Link from "next/link"
-import { useWallet } from "@/components/app/wallet/use-wallet"
-import WalletButton from "@/components/app/wallet/wallet-button"
-import { useWalletActivity } from "@/components/portfolio/use-wallet-activity"
+import {
+  useProtocolActivity,
+  type ProtocolActivityEvent,
+} from "@/components/activity/use-protocol-activity"
+import { formatTokenAmount } from "@/lib/markets/format"
+
+const PAGE_STEP = 12
+const INITIAL_VISIBLE = 24
 
 export default function ActivityLive() {
-  const { status, shortAddress } = useWallet()
-  const { activity, loading, error, unsupported } = useWalletActivity()
+  const {
+    events,
+    loading,
+    errorMessage,
+    partial,
+    latestBlock,
+    updatedAt,
+    refresh,
+  } = useProtocolActivity()
 
-  if (
-    status === "disconnected" ||
-    status === "idle" ||
-    status === "available" ||
-    status === "connecting"
-  ) {
-    return <DisconnectedState />
-  }
+  const [visibleCount, setVisibleCount] = React.useState(INITIAL_VISIBLE)
 
-  if (status === "wrong-network") {
-    return (
-      <section className="w-full max-w-[1080px] mx-auto rounded-2xl border border-border bg-card p-5">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          ACTIVITY
-        </span>
-        <h2 className="font-serif text-[22px] mt-2 text-foreground">
-          Switch to Robinhood Chain
-        </h2>
-        <p className="text-[13px] text-muted-foreground mt-2 max-w-md leading-relaxed">
-          Your wallet is on a different network. Switch to Robinhood Chain
-          to view activity.
-        </p>
-        <div className="mt-4">
-          <WalletButton />
-        </div>
-      </section>
-    )
-  }
+  // When the newest event id changes (i.e. a new row arrives on top),
+  // collapse the list back to the initial visible count so the user
+  // sees the new event without paging.
+  const firstId = events[0]?.id
+  React.useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE)
+  }, [firstId])
 
-  if (unsupported) {
-    return (
-      <section className="w-full max-w-[1080px] mx-auto rounded-2xl border border-border bg-card p-5">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          ACTIVITY
-        </span>
-        <h2 className="font-serif text-[22px] mt-2 text-foreground">
-          Activity feed unavailable
-        </h2>
-        <p className="text-[13px] text-muted-foreground mt-2 max-w-md leading-relaxed">
-          This chain does not expose a public activity feed.
-        </p>
-      </section>
-    )
-  }
+  const visible = events.slice(0, visibleCount)
+  const canLoadMore = events.length > visible.length
+
+  const statusLabel =
+    loading && events.length === 0
+      ? "Connecting…"
+      : errorMessage && events.length === 0
+        ? "API unavailable"
+        : errorMessage
+          ? "Partial · retrying"
+          : "Live"
 
   return (
     <div className="w-full max-w-[1080px] mx-auto">
       <div className="mb-4">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
+        <span
+          className="font-mono text-[10px] tracking-wider text-muted-foreground/80"
+          data-testid="activity-eyebrow"
+        >
           ACTIVITY
         </span>
         <h1 className="font-serif text-3xl md:text-[34px] leading-[1.1] tracking-tight text-foreground mt-1.5">
           Activity
         </h1>
         <p className="text-[13px] text-muted-foreground mt-1.5 max-w-md leading-relaxed">
-          Recent transactions for{" "}
-          <span className="font-mono text-foreground/80">
-            {shortAddress ?? "this wallet"}
-          </span>
-          .
+          Verified Loopr vault transfers on Robinhood Chain.
         </p>
       </div>
 
-      {error && activity.length === 0 ? (
-        <div className="text-[12px] font-medium px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
-          Live data unavailable
-        </div>
+      <div className="flex items-center gap-3 flex-wrap mb-3">
+        <StatusPill
+          label={statusLabel}
+          tone={
+            errorMessage && events.length === 0
+              ? "down"
+              : partial
+                ? "warn"
+                : "up"
+          }
+        />
+        <span
+          className="font-mono text-[10px] tabular-nums text-muted-foreground/80"
+          data-testid="activity-meta"
+        >
+          block #
+          {latestBlock != null
+            ? latestBlock.toLocaleString("en-US")
+            : "—"}
+          {updatedAt ? ` · synced ${formatAgo(updatedAt)}` : ""}
+          {events.length > 0 ? ` · ${events.length} events` : ""}
+        </span>
+        <span className="ml-auto" />
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="font-mono text-[10px] tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Refresh activity"
+        >
+          ↻ Refresh
+        </button>
+      </div>
+
+      {errorMessage && events.length === 0 ? (
+        <ErrorState
+          message={errorMessage}
+          onRetry={() => void refresh()}
+        />
       ) : null}
 
-      {activity.length === 0 ? (
-        <section className="rounded-2xl border border-dashed border-border bg-secondary/30 px-5 py-6" data-activity-empty>
+      {events.length === 0 && !errorMessage ? (
+        <section
+          className="rounded-2xl border border-dashed border-border bg-secondary/30 px-5 py-6"
+          data-activity-empty
+        >
           <p className="font-serif text-[16px] text-foreground leading-snug">
             No recent activity
           </p>
           <p className="mt-1 text-[12px] text-muted-foreground leading-relaxed">
-            This wallet has no transactions on Robinhood Chain.
+            No verified vault transfers detected on Robinhood Chain in
+            the recent scan window.
           </p>
         </section>
-      ) : (
+      ) : null}
+
+      {events.length > 0 ? (
         <section
           className="rounded-2xl border border-border bg-card overflow-hidden"
           aria-label="Recent activity"
           data-activity-table
         >
           <ul className="divide-y divide-border">
-            {activity.map((a) => (
-              <li key={a.hash}>
-                <Link
-                  href={`https://explorer.robinhood.com/tx/${a.hash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between gap-3 px-4 h-11 hover:bg-secondary/30 transition-colors"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="inline-flex items-center px-2 h-6 rounded-md bg-secondary text-[10px] font-mono tracking-wider text-foreground/80 shrink-0">
-                      Transaction
-                    </span>
-                    <span className="font-mono text-[12px] text-muted-foreground truncate">
-                      {shortenHash(a.hash)}
-                    </span>
-                    {a.reverted ? (
-                      <span className="text-[10px] text-down shrink-0">reverted</span>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-4 text-[12px] font-mono tabular-nums shrink-0">
-                    <span className="text-foreground">
-                      {a.valueRaw > BigInt(0)
-                        ? `${(Number(a.valueRaw) / 1e18).toFixed(4)}`
-                        : "0"}
-                    </span>
-                    <span className="text-muted-foreground tabular-nums">
-                      {fmtTimestamp(a.timestamp)}
-                    </span>
-                  </div>
-                </Link>
-              </li>
+            {visible.map((e, idx) => (
+              <ActivityRow
+                key={e.id}
+                event={e}
+                isFresh={idx === 0 && !loading}
+              />
             ))}
           </ul>
+          {canLoadMore ? (
+            <div className="flex items-center justify-center px-4 py-3 border-t border-border bg-secondary/30">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCount((n) =>
+                    Math.min(events.length, n + PAGE_STEP),
+                  )
+                }
+                className="font-mono text-[10px] tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="activity-load-more"
+              >
+                Load more ↓
+              </button>
+              <span
+                className="font-mono text-[10px] tabular-nums text-muted-foreground/60 ml-3"
+                aria-hidden="true"
+              >
+                {events.length - visible.length} more
+              </span>
+            </div>
+          ) : null}
         </section>
-      )}
+      ) : null}
+
+      {partial && events.length > 0 ? (
+        <p
+          className="mt-3 text-[10px] font-mono tracking-wider text-amber-700 dark:text-amber-300"
+          data-testid="activity-partial"
+        >
+          RPC unavailable · partial data · retrying
+        </p>
+      ) : null}
 
       <p className="mt-3 text-[10px] font-mono tracking-wider text-muted-foreground/60">
-        {loading ? "Refreshing…" : "Blockscout · Robinhood Chain"}
+        {loading && events.length === 0
+          ? "Connecting…"
+          : "Robinhood Chain · verified Loopr vaults"}
       </p>
     </div>
   )
 }
 
-function DisconnectedState() {
+/* ── Row ──────────────────────────────────────────── */
+
+function ActivityRow({
+  event,
+  isFresh,
+}: {
+  event: ProtocolActivityEvent
+  isFresh: boolean
+}) {
+  const tone =
+    event.kind === "in"
+      ? "up"
+      : event.kind === "out"
+        ? "down"
+        : "muted"
+  const label =
+    event.kind === "in"
+      ? "IN"
+      : event.kind === "out"
+        ? "OUT"
+        : "TRANSFER"
+
   return (
-    <div className="w-full max-w-[1080px] mx-auto">
-      <div className="mb-4">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          ACTIVITY
-        </span>
-        <h1 className="font-serif text-3xl md:text-[34px] leading-[1.1] tracking-tight text-foreground mt-1.5">
-          Activity
-        </h1>
-        <p className="text-[13px] text-muted-foreground mt-1.5 max-w-md leading-relaxed">
-          Connect your wallet to view recent onchain transactions.
-        </p>
-      </div>
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <p className="text-[13px] text-muted-foreground leading-relaxed">
-          Connect your wallet.
-        </p>
-        <div className="mt-3">
-          <WalletButton />
+    <li
+      data-feed-row={event.id}
+      data-fresh={isFresh ? "1" : undefined}
+      className={isFresh ? "zeks-anim-row-insert" : undefined}
+    >
+      <Link
+        href={`https://explorer.robinhood.com/tx/${event.txHash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-between gap-3 px-4 h-11 hover:bg-secondary/30 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={
+              "inline-flex items-center px-2 h-6 rounded-md bg-secondary text-[10px] font-mono tracking-wider shrink-0 " +
+              (tone === "up"
+                ? "text-up"
+                : tone === "down"
+                  ? "text-down"
+                  : "text-foreground/80")
+            }
+          >
+            {label}
+          </span>
+          <span
+            className="font-mono text-[12px] text-foreground truncate"
+            data-feed-vault
+          >
+            {event.label}
+          </span>
+          <span
+            className="font-mono text-[10px] tabular-nums text-muted-foreground shrink-0"
+            data-feed-amount
+          >
+            {formatTokenAmount(event.amountUsdg)} USDG
+          </span>
         </div>
-      </div>
+        <div className="flex items-center gap-4 text-[12px] font-mono tabular-nums shrink-0">
+          <span className="text-muted-foreground tabular-nums">
+            #{event.blockNumber.toLocaleString("en-US")}
+          </span>
+          <span
+            className="font-mono text-[12px] text-muted-foreground truncate"
+            data-feed-hash
+          >
+            {shortenHash(event.txHash)}
+          </span>
+          <span
+            className="text-muted-foreground tabular-nums"
+            data-feed-time
+          >
+            {event.timestamp != null
+              ? formatRelative(event.timestamp)
+              : "—"}
+          </span>
+        </div>
+      </Link>
+    </li>
+  )
+}
+
+/* ── Status pill ─────────────────────────────────── */
+
+function StatusPill({
+  label,
+  tone,
+}: {
+  label: string
+  tone: "up" | "down" | "warn"
+}) {
+  const cls =
+    tone === "up"
+      ? "border-up/40 text-up"
+      : tone === "down"
+        ? "border-down/40 text-down"
+        : "border-amber-500/40 text-amber-700 dark:text-amber-300"
+  return (
+    <span
+      className={
+        "inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md border bg-secondary text-[10px] font-mono tracking-wider shrink-0 " +
+        cls
+      }
+      data-testid="activity-status"
+      data-tone={tone}
+    >
+      <span
+        aria-hidden="true"
+        className={
+          "w-1.5 h-1.5 rounded-full shrink-0 " +
+          (tone === "up" ? "bg-up" : tone === "down" ? "bg-down" : "bg-amber-500")
+        }
+      />
+      {label}
+    </span>
+  )
+}
+
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  return (
+    <div
+      className="text-[12px] font-medium px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 flex items-center justify-between gap-3"
+      data-testid="activity-error"
+    >
+      <span>{message}</span>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="text-[10px] font-mono tracking-wider underline-offset-2 hover:underline"
+      >
+        Retry
+      </button>
     </div>
   )
 }
+
+/* ── Helpers ──────────────────────────────────────── */
 
 function shortenHash(h: string): string {
   if (h.length < 14) return h
   return `${h.slice(0, 10)}…${h.slice(-4)}`
 }
 
-function fmtTimestamp(iso: string | null): string {
-  if (!iso) return "—"
+function formatAgo(iso: string): string {
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return "—"
-  const d = new Date(t)
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  const ms = Math.max(0, Date.now() - t)
+  if (ms < 1500) return "just now"
+  const s = Math.floor(ms / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+function formatRelative(ts: number): string {
+  const ms = Math.max(0, Date.now() - ts * 1000)
+  if (ms < 1500) return "just now"
+  const s = Math.floor(ms / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
 }
