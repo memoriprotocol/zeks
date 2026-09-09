@@ -304,7 +304,7 @@ function EarnHero({ market }: { market: LendingMarket }) {
 
             <div className="flex items-baseline gap-3 mt-4">
               <span
-                className="font-serif leading-none tabular-nums text-[64px] md:text-[80px] tracking-tight text-up"
+                className="zeks-num-xl text-up"
                 data-earn-hero-apy
               >
                 {formatApy(market.supplyApy)}
@@ -353,10 +353,8 @@ function EarnHero({ market }: { market: LendingMarket }) {
 function Kpi({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
-      <div className="font-mono tabular-nums text-[18px] md:text-[20px] mt-1 text-foreground">
+      <div className="zeks-label">{label}</div>
+      <div className="zeks-num-price text-foreground mt-1">
         {value}
       </div>
     </div>
@@ -371,20 +369,20 @@ function OpportunityRow({ market }: { market: LendingMarket }) {
         className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center px-5 h-12 hover:bg-secondary/40 transition-colors"
       >
         <div className="min-w-0">
-          <div className="font-mono text-[13px] font-semibold text-foreground truncate">
+          <div className="zeks-display-sm truncate">
             {market.symbol}
           </div>
           <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 truncate">
             {market.collateralAssetSymbol} collateral
           </div>
         </div>
-        <span className="font-mono tabular-nums text-up text-right text-[14px]">
+        <span className="zeks-num-cell text-up text-right">
           {formatApy(market.supplyApy)}
         </span>
-        <span className="hidden md:inline font-mono tabular-nums text-foreground text-right text-[12px]">
+        <span className="hidden md:inline zeks-num-cell text-foreground text-right">
           {formatPrice(market.availableLiquidity)}
         </span>
-        <span className="hidden md:inline font-mono tabular-nums text-muted-foreground text-right text-[12px]">
+        <span className="hidden md:inline zeks-num-cell text-muted-foreground text-right">
           {formatUtilization(market.utilization)}
         </span>
       </Link>
@@ -403,12 +401,10 @@ function Stat({
 }) {
   return (
     <div className="bg-card p-3.5">
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
+      <div className="zeks-label">{label}</div>
       <div
         className={
-          "font-mono tabular-nums text-[18px] mt-1 " +
+          "zeks-num-md mt-1 " +
           (tone === "up" ? "text-up" : "text-foreground")
         }
       >

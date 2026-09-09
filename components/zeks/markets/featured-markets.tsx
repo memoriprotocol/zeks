@@ -131,8 +131,8 @@ function FeaturedCard({ market: m }: { market: LendingMarket }) {
             Price
           </div>
           <div
-            className="font-serif tabular-nums leading-none tracking-tight text-foreground"
-            style={{ fontSize: "26px", marginTop: "4px" }}
+            className="zeks-num-summary text-foreground"
+            style={{ marginTop: "4px" }}
           >
             {formatPrice(m.oraclePrice as number)}
           </div>

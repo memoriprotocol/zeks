@@ -69,7 +69,7 @@ export default function PortfolioSummary({
         <div className="mt-3">
           <div
             className={
-              "font-serif leading-none tabular-nums tracking-tight text-[44px] md:text-[56px] " +
+              "zeks-num-xl " +
               (netValue == null
                 ? "text-foreground/40"
                 : netValue >= 0
@@ -156,7 +156,7 @@ export default function PortfolioSummary({
         </div>
       </div>
 
-      <div className="mt-3 font-serif leading-none tabular-nums tracking-tight text-[44px] md:text-[56px] text-foreground/40">
+      <div className="mt-3 zeks-num-xl text-foreground/40">
         —
       </div>
       <p className="mt-2 text-[11px] font-mono tracking-wider text-muted-foreground/70">

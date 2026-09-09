@@ -324,13 +324,13 @@ function BorrowRow({ market }: { market: LendingMarket }) {
             {market.collateralAssetSymbol} → {market.loanAssetSymbol}
           </div>
         </div>
-        <span className="font-mono tabular-nums text-down text-right text-[14px]">
+        <span className="zeks-num-cell text-down text-right">
           {market.borrowApy != null ? formatApy(market.borrowApy) : "—"}
         </span>
-        <span className="hidden md:inline font-mono tabular-nums text-foreground text-right text-[12px]">
+        <span className="hidden md:inline zeks-num-cell text-foreground text-right">
           {formatPrice(market.availableLiquidity)}
         </span>
-        <span className="hidden md:inline font-mono tabular-nums text-foreground text-right text-[12px]">
+        <span className="hidden md:inline zeks-num-cell text-foreground text-right">
           {lltvLabel(market)}
         </span>
         <span className="hidden md:flex items-center justify-end gap-1.5 text-[11px] font-mono">
@@ -390,12 +390,10 @@ function Stat({
 }) {
   return (
     <div className="bg-card p-3.5">
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
+      <div className="zeks-label">{label}</div>
       <div
         className={
-          "font-mono tabular-nums text-[18px] mt-1 " +
+          "zeks-num-md mt-1 " +
           (tone === "down" ? "text-down" : "text-foreground")
         }
       >

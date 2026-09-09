@@ -122,7 +122,7 @@ function PositionCard({
       </header>
 
       <div className="mt-2">
-        <span className="font-serif tracking-tight leading-none tabular-nums text-[36px] md:text-[44px] text-foreground">
+        <span className="zeks-num-xl text-foreground">
           {positionValueUsd != null ? formatPrice(positionValueUsd) : "—"}
         </span>
         <span className="ml-2 font-mono text-[10px] tracking-wider text-muted-foreground/70">
@@ -280,7 +280,7 @@ function LoadingCard() {
       <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
         POSITION
       </span>
-      <div className="font-serif text-[36px] mt-2 text-foreground/40">—</div>
+      <div className="zeks-num-xl mt-2 text-foreground/40">—</div>
       <div className="mt-3 font-mono text-[10px] tracking-wider text-muted-foreground/70">
         Reading onchain state…
       </div>

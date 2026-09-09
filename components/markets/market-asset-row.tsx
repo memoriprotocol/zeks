@@ -45,7 +45,7 @@ export default function MarketAssetRow({ market }: MarketAssetRowProps) {
           size={26}
         />
         <div className="min-w-0">
-          <div className="text-[13px] font-mono font-semibold text-foreground leading-none truncate">
+          <div className="zeks-display-sm truncate">
             {market.symbol}
           </div>
           <div className="text-[10.5px] font-mono text-muted-foreground leading-none truncate mt-1">
@@ -55,37 +55,37 @@ export default function MarketAssetRow({ market }: MarketAssetRowProps) {
       </div>
 
       {/* Oracle Price */}
-      <div className="text-right text-[13px] font-mono tabular-nums text-foreground">
+      <div className="text-right zeks-num-cell text-foreground">
         {formatPrice(market.oraclePrice)}
       </div>
 
       {/* Supply APY */}
-      <div className="text-right text-[13px] font-mono tabular-nums text-up">
+      <div className="text-right zeks-num-cell text-up">
         {formatApy(market.supplyApy)}
       </div>
 
       {/* Borrow APY */}
-      <div className="text-right text-[13px] font-mono tabular-nums text-foreground">
+      <div className="text-right zeks-num-cell text-foreground">
         {formatApy(market.borrowApy)}
       </div>
 
       {/* Total Supply */}
-      <div className="text-right text-[12.5px] font-mono tabular-nums text-muted-foreground">
+      <div className="text-right zeks-num-cell text-muted-foreground">
         {formatCompact(market.totalSupply)}
       </div>
 
       {/* Total Borrow */}
-      <div className="text-right text-[12.5px] font-mono tabular-nums text-muted-foreground">
+      <div className="text-right zeks-num-cell text-muted-foreground">
         {formatCompact(market.totalBorrow)}
       </div>
 
       {/* Utilization */}
-      <div className="text-right text-[12.5px] font-mono tabular-nums text-foreground">
+      <div className="text-right zeks-num-cell text-foreground">
         {formatUtilization(market.utilization)}
       </div>
 
       {/* Available Liquidity */}
-      <div className="text-right text-[12.5px] font-mono tabular-nums text-muted-foreground">
+      <div className="text-right zeks-num-cell text-muted-foreground">
         {formatCompact(market.availableLiquidity)}
       </div>
 

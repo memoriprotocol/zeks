@@ -160,6 +160,16 @@
     line-height: 1.5;
     font-variant-numeric: lining-nums;
   }
+
+  /* Defaults for tabular financial values when not overridden
+     by an explicit zeks-num-* utility. Element-agnostic so a
+     stray <span> never reverts to old-style figures. */
+  .tabular-nums,
+  [data-finance] {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
 }
 
 /* ── Section primitive (used by all dashboard sections) ──────── */
@@ -198,40 +208,67 @@
      tabular-nums: all digits same width (for column alignment).    */
   .zeks-num {
     font-variant-numeric: lining-nums tabular-nums;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.015em;
     font-weight: 400;
   }
-  /* Large KPI value: 28px, weight 400, tight leading */
+  /* Large KPI value: 28-32px, sans/Inter-style, weight 400 */
   .zeks-num-lg {
     font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
+    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
     font-size: var(--font-kpi);
-    letter-spacing: -0.025em;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
     font-weight: 400;
-    line-height: 1;
   }
-  /* Extra-large KPI: 34px */
+  /* Extra-large KPI: 34px (live liquidity cards) */
   .zeks-num-xl {
     font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
+    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
     font-size: var(--font-kpi-lg);
-    letter-spacing: -0.025em;
-    font-weight: 400;
     line-height: 1;
+    letter-spacing: -0.015em;
+    font-weight: 400;
   }
-  /* Medium numeric values in tables/cards: 12–13px */
+  /* Summary metric: 23-26px */
+  .zeks-num-summary {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+    font-size: 24px;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    font-weight: 400;
+  }
+  /* Stock/card oracle price: 22-25px */
+  .zeks-num-price {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+    font-size: 23px;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    font-weight: 400;
+  }
+  /* Medium numeric values in tables/cards: 12-14px sans/Inter */
   .zeks-num-md {
     font-variant-numeric: lining-nums tabular-nums;
-    font-size: 12.5px;
-    letter-spacing: -0.01em;
+    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+    font-size: 13px;
+    letter-spacing: -0.015em;
     font-weight: 400;
   }
-  /* Small numeric values: 11–12px mono */
+  /* Small numeric values: 11-12px mono */
   .zeks-num-sm {
     font-variant-numeric: lining-nums tabular-nums;
     font-family: var(--font-mono), "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-size: 11.5px;
     letter-spacing: 0;
+    font-weight: 400;
+  }
+  /* Table-cell numeric: 12.5px sans, tabular, weight 400 */
+  .zeks-num-cell {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+    font-size: 12.5px;
+    letter-spacing: -0.015em;
     font-weight: 400;
   }
 

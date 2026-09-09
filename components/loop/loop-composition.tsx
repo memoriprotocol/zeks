@@ -506,11 +506,8 @@ function StockCard({
           {m.oraclePrice != null ? "Chainlink Oracle" : "Chainlink Oracle"}
         </div>
         <div
-          className="tabular-nums leading-tight"
+          className="zeks-num-price"
           style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "28px",
-            letterSpacing: "-0.02em",
             color:
               m.oraclePrice != null ? "var(--foreground)" : "var(--muted-foreground)",
             marginTop: "2px",
@@ -877,11 +874,8 @@ function VenueCard({
           Supply APY
         </div>
         <div
-          className="tabular-nums leading-tight"
+          className="zeks-num-price"
           style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "28px",
-            letterSpacing: "-0.02em",
             color: v.apy != null ? "var(--up)" : "var(--muted-foreground)",
             marginTop: "2px",
             opacity: v.apy != null ? 1 : 0.55,
@@ -1079,12 +1073,10 @@ function CarryPanel({
         {showNet ? (
           <>
             <div
-              className="tabular-nums leading-none tracking-tight mt-2"
+              className="zeks-num-xl"
               style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: "56px",
                 color: carry.profitable ? "var(--up)" : "var(--down)",
-                letterSpacing: "-0.03em",
+                marginTop: "8px",
               }}
             >
               {`${carry.profitable ? "+" : ""}${formatApy(net)}`}
@@ -1106,12 +1098,10 @@ function CarryPanel({
         ) : showGross ? (
           <>
             <div
-              className="tabular-nums leading-none tracking-tight mt-2"
+              className="zeks-num-xl"
               style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: "56px",
                 color: gross >= 0 ? "var(--up)" : "var(--down)",
-                letterSpacing: "-0.03em",
+                marginTop: "8px",
               }}
             >
               {`${gross >= 0 ? "+" : ""}${formatApy(gross)}`}
@@ -1131,13 +1121,11 @@ function CarryPanel({
         ) : (
           <>
             <div
-              className="tabular-nums leading-none tracking-tight mt-2"
+              className="zeks-num-xl"
               style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: "56px",
                 color: "var(--muted-foreground)",
                 opacity: 0.4,
-                letterSpacing: "-0.03em",
+                marginTop: "8px",
               }}
             >
               —
@@ -1318,14 +1306,7 @@ function RouteVisualization({
         <RouteStep
           label="Net"
           primary={
-            <span
-              className="tabular-nums"
-              style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: "24px",
-                letterSpacing: "-0.02em",
-              }}
-            >
+            <span className="zeks-num-summary">
               {venue.apy != null && market.borrowApy != null
                 ? `${venue.apy - market.borrowApy - LOOP_ESTIMATED_FEES_PERCENT >= 0 ? "+" : ""}${(venue.apy - market.borrowApy - LOOP_ESTIMATED_FEES_PERCENT).toFixed(2)}%`
                 : "—"}
@@ -1382,12 +1363,10 @@ function RouteStep({
           {label}
         </div>
         <div
+          className="zeks-num-md"
           style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "16px",
             color: "var(--foreground)",
             marginTop: "2px",
-            letterSpacing: "-0.01em",
           }}
         >
           {primary}

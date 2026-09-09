@@ -4,6 +4,9 @@
  * Metric — large numeric value + small caption + optional tone.
  *
  * Used by MarketCapacity stats and hero metrics.
+ *
+ * Typography: serif is reserved for headings / prominent names.
+ * This metric uses clean sans tabular numerals (`zeks-num-*`).
  */
 
 import * as React from "react"
@@ -20,9 +23,9 @@ interface MetricProps {
 }
 
 const SIZE_CLS = {
-  hero: "text-[40px] md:text-[48px]",
-  lg: "text-[34px] md:text-[40px]",
-  md: "text-[24px]",
+  hero: "zeks-num-xl",
+  lg: "zeks-num-lg",
+  md: "zeks-num-summary",
 }
 
 const TONE_CLS: Record<Tone, string> = {
@@ -47,9 +50,9 @@ export function Metric({
       </div>
       <div
         className={[
-          "font-serif tabular-nums leading-none tracking-tight mt-2",
           SIZE_CLS[size],
           TONE_CLS[tone],
+          "mt-2",
         ].join(" ")}
       >
         {value}

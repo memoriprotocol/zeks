@@ -132,8 +132,7 @@ export default function LendingMarketDetail({
             </span>
             <div
               className={
-                "font-serif leading-none tabular-nums tracking-tight mt-1.5 " +
-                "text-[40px] md:text-[52px] " +
+                "zeks-num-xl mt-1.5 " +
                 (market.oraclePrice == null ? "text-foreground/40" : "text-foreground")
               }
               data-field="oracle-price"
@@ -240,8 +239,7 @@ function HeroApy({
       </span>
       <span
         className={
-          "font-serif leading-none tabular-nums tracking-tight mt-1.5 " +
-          "text-[40px] md:text-[52px] " +
+          "zeks-num-xl mt-1.5 " +
           toneClass
         }
       >

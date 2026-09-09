@@ -307,7 +307,7 @@ function PriceSummary({
       </div>
       <div
         className={
-          "font-serif leading-none tabular-nums tracking-tight text-[44px] md:text-[56px] mt-2 " +
+          "zeks-num-xl mt-2 " +
           (quoteUnavailable ? "text-muted-foreground/60" : "text-foreground")
         }
         data-testid="asset-reference-price"
