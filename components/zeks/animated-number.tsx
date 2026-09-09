@@ -18,6 +18,11 @@
  *
  * NOTE: this animates the DISPLAYED value, not the data layer.
  * Data layer is always canonical and stable.
+ *
+ * Hooks are ALWAYS called in the same order regardless of value.
+ * The null/NaN branch only chooses what to render; it never skips
+ * hooks. (Skipping hooks would trigger React's "Expected static
+ * flag was missing" error when value flips between null ↔ number.)
  */
 import * as React from "react"
 
@@ -43,29 +48,38 @@ export function AnimatedNumber({
   style,
   testId,
 }: AnimatedNumberProps) {
-  // null/undefined ⇒ render "—" without animating.
-  if (value == null || !Number.isFinite(value)) {
-    return (
-      <span className={className} style={style} data-testid={testId}>
-        —
-      </span>
-    )
-  }
+  // Resolve to a numeric target. null/NaN → null sentinel.
+  const target =
+    value != null && Number.isFinite(value) ? (value as number) : null
 
-  const target = value
+  // Refs + state are declared UNCONDITIONALLY so hooks run in the
+  // same order regardless of whether `value` is a number or null.
   const startRef = React.useRef<number | null>(null)
-  const fromRef = React.useRef<number>(target)
+  const fromRef = React.useRef<number | null>(target)
   const rafRef = React.useRef<number | null>(null)
-  const [display, setDisplay] = React.useState<string>(() => format(target))
+  const [display, setDisplay] = React.useState<string>(() =>
+    target != null ? format(target) : "—",
+  )
 
-  // Cancel any running animation when the target changes.
   React.useEffect(() => {
-    const from = fromRef.current
+    // Cancel any in-flight animation before deciding what to do.
+    if (rafRef.current != null) {
+      window.cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+
+    if (target == null) {
+      setDisplay("—")
+      fromRef.current = null
+      return
+    }
+
+    const from = fromRef.current ?? target
     if (from === target) {
       setDisplay(format(target))
       return
     }
-    // Capture previous frame.
+
     const t0 = performance.now()
     startRef.current = t0
     const animate = (now: number) => {
@@ -95,7 +109,7 @@ export function AnimatedNumber({
 
   return (
     <span className={className} style={style} data-testid={testId}>
-      {display}
+      {target == null ? "—" : display}
     </span>
   )
 }
