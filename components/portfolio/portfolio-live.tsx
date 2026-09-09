@@ -16,7 +16,7 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { usePortfolio } from "./use-portfolio"
-import { useWalletActivity } from "./use-wallet-activity"
+import { usePortfolioActivity } from "./use-portfolio-activity"
 import PortfolioSummary from "./portfolio-summary"
 import PortfolioPositions from "./portfolio-positions"
 import PortfolioEarnPositions from "./portfolio-earn-positions"
@@ -28,11 +28,11 @@ import PortfolioIssues from "./portfolio-issues"
 export default function PortfolioLive() {
   const { snapshot, loading, refresh } = usePortfolio()
   const {
-    activity,
+    items: activity,
     loading: activityLoading,
-    activityError,
-    activityUnsupported,
-  } = useWalletActivity()
+    error: activityError,
+    unsupported: activityUnsupported,
+  } = usePortfolioActivity()
 
   const noDataYet = !snapshot
 

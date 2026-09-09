@@ -22,10 +22,12 @@ import {
   formatUtilization,
 } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
+import { useLendingMarkets } from "./use-lending-markets"
 import { resolveProtocolContractsForChain } from "@/lib/markets/protocol/registry"
 import { ROBINHOOD_CHAIN_ID } from "@/lib/markets/types"
 
-const POLL_INTERVAL_MS = 60_000
+const PAGE_STEP = 12
+const INITIAL_VISIBLE = 6
 
 type EarnFilter = "all" | "highest-apy" | "highest-liquidity" | "lowest-utilization"
 
@@ -53,45 +55,32 @@ interface EarnLiveProps {
 }
 
 export default function EarnLive({
-  initialMarkets,
-  initialFetchedAt,
-  initialError,
+  initialMarkets: _initialMarkets,
+  initialFetchedAt: _initialFetchedAt,
+  initialError: _initialError,
 }: EarnLiveProps) {
-  const [state, setState] = React.useState<{
-    loading: boolean
-    error: string | null
-    markets: LendingMarket[]
-  }>({
-    loading: false,
-    error: initialError,
-    markets: initialMarkets,
-  })
+  const {
+    markets: allMarkets,
+    loading,
+    errorMessage,
+    fetchedAt,
+    refresh,
+  } = useLendingMarkets(_initialMarkets, _initialError)
   const [filter, setFilter] = React.useState<EarnFilter>("all")
   const [query, setQuery] = React.useState("")
+  const [visible, setVisible] = React.useState(INITIAL_VISIBLE)
 
-  const refresh = React.useCallback(async () => {
-    setState((s) => ({ ...s, loading: true }))
-    try {
-      const res = await fetch("/api/markets/lending")
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: ApiResponse = await res.json()
-      if (!data.ok) throw new Error(data.message ?? "Unknown error")
-      setState({ loading: false, error: null, markets: data.markets })
-    } catch (err) {
-      setState({
-        loading: false,
-        error: err instanceof Error ? err.message : String(err),
-        markets: [],
-      })
-    }
-  }, [])
-
+  // If the user has paged out and a new market arrives, snap back.
+  const totalRows = React.useMemo(
+    () =>
+      allMarkets.filter((m) =>
+        query ? m.symbol.toLowerCase().includes(query.toLowerCase()) : true,
+      ).length,
+    [allMarkets, query],
+  )
   React.useEffect(() => {
-    const id = window.setInterval(() => void refresh(), POLL_INTERVAL_MS)
-    return () => window.clearInterval(id)
-  }, [refresh])
-
-  const allMarkets = state.markets
+    setVisible(INITIAL_VISIBLE)
+  }, [totalRows])
 
   const contracts = resolveProtocolContractsForChain(ROBINHOOD_CHAIN_ID)
   const protocolReady =
@@ -213,13 +202,16 @@ export default function EarnLive({
         </label>
       </div>
 
-      {state.error ? (
+      {errorMessage && rows.length > 0 ? (
+        <div className="mt-4 text-[12px] font-medium px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
+          Live data unavailable · showing last known state
+        </div>
+      ) : null}
+      {errorMessage && rows.length === 0 ? (
         <div className="mt-4 text-[12px] font-medium px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
           Live data unavailable
         </div>
       ) : null}
-
-      {/* Opportunities list — dense, single-column rows */}
       <section className="mt-3 rounded-2xl border border-border bg-card overflow-hidden" data-earn-grid>
         <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] px-5 py-2 text-[10px] font-mono tracking-wider text-muted-foreground/70 border-b border-border">
           <span>Market</span>
@@ -234,17 +226,53 @@ export default function EarnLive({
               : "Showing the top opportunity above."}
           </p>
         ) : (
-          <ul className="divide-y divide-border">
-            {rest.map((m) => (
-              <OpportunityRow key={m.marketId} market={m} />
-            ))}
-          </ul>
+          <>
+            <ul className="divide-y divide-border">
+              {rest.slice(0, visible).map((m) => (
+                <OpportunityRow key={m.marketId} market={m} />
+              ))}
+            </ul>
+            {rest.length > visible ? (
+              <div className="flex items-center justify-center px-4 py-3 border-t border-border bg-secondary/30">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisible((n) => Math.min(rest.length, n + PAGE_STEP))
+                  }
+                  className="font-mono text-[10px] tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                  data-testid="earn-load-more"
+                >
+                  Load more ↓
+                </button>
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground/60 ml-3">
+                  {rest.length - visible} more
+                </span>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 
-      <p className="mt-3 text-[10px] font-mono tracking-wider text-muted-foreground/60">
-        Filter · {FILTER_LABELS[filter]} · Morpho
-      </p>
+      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-mono tracking-wider text-muted-foreground/60">
+        <span>
+          Filter · {FILTER_LABELS[filter]} · Morpho
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>{loading ? "Refreshing…" : "Live"}</span>
+        {fetchedAt ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>{new Date(fetchedAt).toLocaleTimeString()}</span>
+          </>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="ml-auto hover:text-foreground transition-colors"
+        >
+          ↻ Refresh
+        </button>
+      </div>
     </div>
   )
 }

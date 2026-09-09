@@ -8,9 +8,11 @@
  *   - Morpho user positions (via api.morpho.org/graphql)
  *   - Wallet ERC20 balances for tokens the user has touched
  *
- * Polls every 30 s while connected. Recomputes when the wallet
- * state changes (accountsChanged / chainChanged). Resets to
- * disconnected state on disconnect.
+ * Cadence:
+ *   - Initial fetch on mount and whenever the wallet address,
+ *     chain id, or status changes (immediate).
+ *   - Polls every 5 s while connected and the tab is visible.
+ *   - Slows to 10 s while `document.hidden`.
  *
  * NEVER fabricates data. Every value traces to either the Morpho
  * API or a real `eth_call` against the wallet's RPC.
@@ -25,7 +27,14 @@ import {
   type PortfolioSnapshot,
 } from "@/lib/markets/portfolio"
 
-const POLL_INTERVAL_MS = 30_000
+const POLL_VISIBLE_MS = 5_000
+const POLL_HIDDEN_MS = 10_000
+
+function pollIntervalMs(): number {
+  return typeof document !== "undefined" && document.hidden
+    ? POLL_HIDDEN_MS
+    : POLL_VISIBLE_MS
+}
 
 export interface UsePortfolioResult {
   snapshot: PortfolioSnapshot | null
@@ -39,6 +48,7 @@ export function usePortfolio(): UsePortfolioResult {
   const [loading, setLoading] = React.useState(false)
 
   const refresh = React.useCallback(async () => {
+    if (wallet.status !== "connected") return
     setLoading(true)
     try {
       const provider =
@@ -58,16 +68,28 @@ export function usePortfolio(): UsePortfolioResult {
     } finally {
       setLoading(false)
     }
-  }, [wallet.address, wallet.chainId])
+  }, [wallet.status, wallet.address, wallet.chainId])
 
+  // Immediate refresh on account / network / status change.
   React.useEffect(() => {
     void refresh()
   }, [refresh])
 
+  // Polling while connected, visibility-aware cadence.
   React.useEffect(() => {
     if (wallet.status !== "connected") return
-    const id = window.setInterval(() => void refresh(), POLL_INTERVAL_MS)
-    return () => window.clearInterval(id)
+    let id: ReturnType<typeof setInterval> | null = null
+    const start = () => {
+      if (id != null) clearInterval(id)
+      id = setInterval(() => void refresh(), pollIntervalMs())
+    }
+    start()
+    const onVisibility = () => start()
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      if (id != null) clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
   }, [wallet.status, refresh])
 
   return { snapshot, loading, refresh }
