@@ -269,28 +269,15 @@ function TotalLiquidityCard({
   )
   return (
     <Card>
-      <span
-        className="font-mono uppercase"
-        style={{
-          fontSize: "var(--font-micro)",
-          color: "var(--muted-foreground)",
-          letterSpacing: "0.06em",
-        }}
-      >
+      <span className="zeks-label" style={{ marginBottom: "8px" }}>
         Total Liquidity
       </span>
       <AnimatedNumber
         value={totalLiquidityUsd}
         format={formatFn}
         durationMs={300}
-        className="leading-none tabular-nums"
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontSize: "34px",
-          letterSpacing: "-0.02em",
-          color: "var(--foreground)",
-          marginTop: "auto",
-        }}
+        className="zeks-num-xl"
+        style={{ color: "var(--foreground)", marginTop: "auto" }}
         testId="metric-total-liquidity"
       />
       <span
@@ -332,28 +319,15 @@ function AddedLastDepositsCard({
 
   return (
     <Card>
-      <span
-        className="font-mono uppercase"
-        style={{
-          fontSize: "var(--font-micro)",
-          color: "var(--muted-foreground)",
-          letterSpacing: "0.06em",
-        }}
-      >
+      <span className="zeks-label" style={{ marginBottom: "8px" }}>
         Added · last 6 deposits
       </span>
       <AnimatedNumber
         value={displayValue}
         format={formatFn}
         durationMs={300}
-        className="leading-none tabular-nums"
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontSize: "34px",
-          letterSpacing: "-0.02em",
-          color: "var(--foreground)",
-          marginTop: "auto",
-        }}
+        className="zeks-num-xl"
+        style={{ color: "var(--foreground)", marginTop: "auto" }}
         testId="metric-added-last-6"
       />
       <span
@@ -436,14 +410,7 @@ function ActivityFeedPanel({
             className="w-2 h-2 rounded-full shrink-0 zeks-anim-pulse"
             style={{ backgroundColor: "var(--up)" }}
           />
-          <span
-            className="font-mono uppercase"
-            style={{
-              fontSize: "var(--font-micro)",
-              color: "var(--muted-foreground)",
-              letterSpacing: "0.06em",
-            }}
-          >
+          <span className="zeks-label">
             Live Activity
           </span>
         </div>

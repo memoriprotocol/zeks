@@ -22,14 +22,16 @@ export default function MarketsSection() {
         {/* Header */}
         <div className="flex items-start justify-between mb-10">
           <div>
-            <span className="text-xs font-mono text-muted-foreground tracking-wider">MARKET_INTELLIGENCE</span>
-            <h2 className="font-serif text-4xl md:text-5xl mt-4 max-w-md leading-tight">
+            <span className="zeks-label" style={{ fontSize: "11px" }}>
+              MARKET_INTELLIGENCE
+            </span>
+            <h2 className="font-serif text-3xl md:text-4xl mt-4 max-w-md leading-tight tracking-tight">
               Markets, without
               <br />
               the noise.
             </h2>
           </div>
-          <p className="text-muted-foreground text-sm max-w-xs hidden md:block">
+          <p className="text-muted-foreground text-sm max-w-xs hidden md:block mt-3">
             Discover tokenized assets and emerging markets across Robinhood Chain.
           </p>
         </div>
@@ -55,11 +57,11 @@ export default function MarketsSection() {
 
           {/* Table header */}
           <div className="grid grid-cols-5 px-6 pb-3 border-b border-border">
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Asset</span>
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider text-right">Price</span>
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider text-right">24H</span>
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider text-right">Volume</span>
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider text-right">Liquidity</span>
+            <span className="zeks-label-inline">Asset</span>
+            <span className="zeks-label-inline text-right">Price</span>
+            <span className="zeks-label-inline text-right">24H</span>
+            <span className="zeks-label-inline text-right">Volume</span>
+            <span className="zeks-label-inline text-right">Liquidity</span>
           </div>
 
           {/* Table rows */}

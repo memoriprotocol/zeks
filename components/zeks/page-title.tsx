@@ -6,9 +6,9 @@
  *   <PageTitle>Dashboard</PageTitle>
  *   <SectionTitle>Live Liquidity</SectionTitle>
  *
- * Per spec (measured reference):
- *   · Page title  → 26px serif, -0.04em
- *   · Section heading → 13px mono uppercase
+ * Typography system:
+ *   · PageTitle  → 26px serif, weight 400, -0.035em (editorial display)
+ *   · SectionTitle → 13px mono uppercase (true section label)
  */
 
 import * as React from "react"
@@ -21,14 +21,9 @@ interface PageTitleProps {
 export function PageTitle({ children, className }: PageTitleProps) {
   return (
     <h1
-      className={["font-serif text-foreground", className ?? ""]
+      className={["zeks-display", className ?? ""]
         .filter(Boolean)
         .join(" ")}
-      style={{
-        fontSize: "var(--font-dash-title)",
-        lineHeight: 1.1,
-        letterSpacing: "-0.04em",
-      }}
       data-testid="page-title"
     >
       {children}
@@ -56,20 +51,20 @@ export function SectionTitle({
       data-testid="section-title"
     >
       <span
-        className="font-mono uppercase"
+        className="zeks-label"
         style={{
+          /* section labels use 10px, 0.08em tracking */
           fontSize: "var(--font-section-head)",
-          color: "var(--foreground)",
           letterSpacing: "0.04em",
+          color: "var(--foreground)",
         }}
       >
         {children}
       </span>
       {trailing ? (
         <span
-          className="font-mono"
+          className="zeks-num-sm"
           style={{
-            fontSize: "11px",
             color: "var(--muted-foreground)",
           }}
         >

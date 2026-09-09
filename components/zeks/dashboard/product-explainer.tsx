@@ -90,21 +90,10 @@ function MiniMetric({
 }) {
   return (
     <div>
+      <div className="zeks-label">{label}</div>
       <div
-        className="font-mono uppercase"
+        className="zeks-num-lg"
         style={{
-          fontSize: "var(--font-micro)",
-          color: "var(--muted-foreground)",
-          letterSpacing: "0.06em",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        className="tabular-nums leading-none"
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontSize: "22px",
           color: "var(--foreground)",
           marginTop: "4px",
         }}

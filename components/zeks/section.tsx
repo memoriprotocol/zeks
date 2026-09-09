@@ -60,18 +60,27 @@ function SectionHeader({
   return (
     <header
       className={[
-        "px-4 py-2 border-b border-border flex items-center justify-between gap-3 flex-wrap",
+        "flex items-center justify-between gap-3 flex-wrap",
         className ?? "",
       ]
         .filter(Boolean)
         .join(" ")}
+      style={{
+        padding: "10px 16px",
+        borderBottom: "1px solid var(--border)",
+      }}
     >
       <div className="flex items-baseline gap-3 min-w-0">
-        <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/80">
-          {title.toUpperCase()}
-        </span>
+        <span className="zeks-label">{title}</span>
         {subtitle ? (
-          <span className="text-[11px] text-muted-foreground truncate">
+          <span
+            className="font-sans"
+            style={{
+              fontSize: "11px",
+              color: "var(--muted-foreground)",
+              fontWeight: 400,
+            }}
+          >
             {subtitle}
           </span>
         ) : null}
@@ -106,10 +115,7 @@ function SectionFooter({
 }) {
   return (
     <footer
-      className={[
-        "px-4 py-1.5 border-t border-border font-mono text-[10px] tracking-wider text-muted-foreground/60 flex items-center justify-between gap-2 flex-wrap",
-        className ?? "",
-      ]
+      className={["zeks-section-footer", className ?? ""]
         .filter(Boolean)
         .join(" ")}
     >

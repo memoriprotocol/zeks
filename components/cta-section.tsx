@@ -7,10 +7,10 @@ export default function CTASection() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="bg-card border border-border rounded-2xl p-12 md:p-16">
           <div className="text-center max-w-2xl mx-auto">
-            <span className="text-xs font-mono text-muted-foreground tracking-wider">
+            <span className="zeks-label" style={{ fontSize: "11px" }}>
               ONCHAIN_FINANCE
             </span>
-            <h2 className="font-serif text-4xl md:text-5xl mt-4 mb-4 leading-tight">
+            <h2 className="font-serif text-3xl md:text-4xl mt-4 mb-4 leading-tight tracking-tight">
               Put your capital
               <br />
               onchain.

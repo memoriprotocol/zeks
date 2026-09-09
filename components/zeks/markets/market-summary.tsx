@@ -91,24 +91,12 @@ function SummaryCell({
 }) {
   return (
     <div className="flex flex-col" style={{ minWidth: 0 }}>
+      <div className="zeks-label">{label}</div>
       <div
-        className="font-mono uppercase"
+        className="zeks-num-lg"
         style={{
-          fontSize: "var(--font-micro)",
-          color: "var(--muted-foreground)",
-          letterSpacing: "0.06em",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        className="tabular-nums leading-none"
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontSize: "28px",
-          letterSpacing: "-0.02em",
           color: tone === "down" ? "var(--down)" : "var(--foreground)",
-          marginTop: "8px",
+          marginTop: "6px",
         }}
       >
         {value}

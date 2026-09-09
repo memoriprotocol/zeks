@@ -124,24 +124,13 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div
-          className="font-mono uppercase"
-          style={{
-            fontSize: "var(--font-micro)",
-            color: "var(--muted-foreground)",
-            letterSpacing: "0.06em",
-          }}
-        >
+        <div className="zeks-label" style={{ marginBottom: "2px" }}>
           APY
         </div>
         <div
-          className="tabular-nums leading-tight"
+          className="zeks-num-lg"
           style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "28px",
-            letterSpacing: "-0.02em",
             color: v.apy != null ? "var(--up)" : "var(--muted-foreground)",
-            marginTop: "2px",
             opacity: v.apy != null ? 1 : 0.5,
           }}
         >
@@ -174,24 +163,16 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
         className="flex items-center justify-between"
         style={{ marginTop: "auto", paddingTop: "12px" }}
       >
-        <span
-          className="font-mono uppercase"
-          style={{
-            fontSize: "var(--font-micro)",
-            color: "var(--muted-foreground)",
-            letterSpacing: "0.06em",
-          }}
-        >
+        <span className="zeks-label">
           {sourceLabel(v.source)}
         </span>
         {v.marketId && (
           <span
-            className="font-mono truncate"
+            className="font-mono font-variant-numeric: tabular-nums"
             style={{
               fontSize: "11px",
               color: "var(--muted-foreground)",
               opacity: 0.7,
-              fontVariantNumeric: "tabular-nums",
             }}
             title={v.marketId}
           >
@@ -234,21 +215,10 @@ function StatusChip({ status }: { status: YieldVenue["status"] }) {
 function StatField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt
-        className="font-mono uppercase"
-        style={{
-          fontSize: "var(--font-micro)",
-          color: "var(--muted-foreground)",
-          letterSpacing: "0.04em",
-        }}
-      >
-        {label}
-      </dt>
+      <dt className="zeks-label-inline">{label}</dt>
       <dd
-        className="tabular-nums"
+        className="zeks-num-md"
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "12.5px",
           color: "var(--foreground)",
           marginTop: "3px",
         }}

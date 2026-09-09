@@ -96,6 +96,8 @@
   --font-card-symbol:  15px;       /* serif symbol */
   --font-card-company: 11px;       /* mono company */
   --font-micro:        10px;       /* small mono labels */
+  --font-kpi:          28px;       /* large financial KPI (market summary, liquidity cards) */
+  --font-kpi-lg:       34px;       /* larger KPI (live liquidity cards) */
 }
 
 @theme inline {
@@ -153,9 +155,10 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "ss02", "cv01";
+    font-feature-settings: "ss01", "ss02", "cv01", "cv11";
     font-family: var(--font-sans), "DM Sans", sans-serif;
-    line-height: 1.45;
+    line-height: 1.5;
+    font-variant-numeric: lining-nums;
   }
 }
 
@@ -169,7 +172,15 @@
     @apply px-4 py-2.5 border-b border-border flex items-center justify-between gap-3 flex-wrap;
   }
   .zeks-section-footer {
-    @apply px-4 py-1.5 border-t border-border font-mono text-[10px] tracking-wider text-muted-foreground/60 flex items-center justify-between gap-2 flex-wrap;
+    @apply flex items-center justify-between gap-2 flex-wrap;
+    font-family: var(--font-mono), "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+    opacity: 0.6;
+    padding: 6px 16px;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 14px 14px;
   }
 
   .zeks-meta {
@@ -182,8 +193,93 @@
     @apply font-serif text-foreground tracking-tight;
   }
 
-  .zeks-num { @apply font-mono tabular-nums; }
-  .zeks-num-lg { @apply font-serif tabular-nums leading-none tracking-tight; }
+  /* ── Financial numbers ─────────────────────────────────── */
+  /* lining-nums: all digits same height (like financial print).
+     tabular-nums: all digits same width (for column alignment).    */
+  .zeks-num {
+    font-variant-numeric: lining-nums tabular-nums;
+    letter-spacing: -0.02em;
+    font-weight: 400;
+  }
+  /* Large KPI value: 28px, weight 400, tight leading */
+  .zeks-num-lg {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
+    font-size: var(--font-kpi);
+    letter-spacing: -0.025em;
+    font-weight: 400;
+    line-height: 1;
+  }
+  /* Extra-large KPI: 34px */
+  .zeks-num-xl {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
+    font-size: var(--font-kpi-lg);
+    letter-spacing: -0.025em;
+    font-weight: 400;
+    line-height: 1;
+  }
+  /* Medium numeric values in tables/cards: 12–13px */
+  .zeks-num-md {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-size: 12.5px;
+    letter-spacing: -0.01em;
+    font-weight: 400;
+  }
+  /* Small numeric values: 11–12px mono */
+  .zeks-num-sm {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-family: var(--font-mono), "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
+
+  /* ── Display / editorial headings ────────────────────── */
+  /* Page title: 26px serif, weight 400, tight tracking */
+  .zeks-display {
+    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
+    font-size: var(--font-dash-title);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    color: var(--foreground);
+  }
+  /* Small display: 17–18px for asset/venue names */
+  .zeks-display-sm {
+    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+  }
+
+  /* ── Section labels ──────────────────────────────────── */
+  /* Mono uppercase labels — only for true section labels */
+  .zeks-label {
+    font-family: var(--font-mono), "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+  /* Inline label (not full-width, not uppercase) */
+  .zeks-label-inline {
+    font-family: var(--font-mono), "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+  /* Body text */
+  .zeks-body {
+    font-size: var(--font-body);
+    line-height: 1.5;
+    color: var(--foreground);
+    font-weight: 400;
+  }
 }
 
 /* Subtle paper noise — extremely subtle, used only where appropriate. */

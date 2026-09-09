@@ -40,10 +40,10 @@ export default function PortfolioSection() {
         <div className="grid md:grid-cols-5 gap-12 items-start">
           {/* LEFT: label + headline + copy + CTA */}
           <div className="md:col-span-2">
-            <span className="text-xs font-mono text-muted-foreground tracking-wider">
+            <span className="zeks-label" style={{ fontSize: "11px" }}>
               PORTFOLIO_INTELLIGENCE
             </span>
-            <h2 className="font-serif text-4xl md:text-5xl mt-4 leading-tight">
+            <h2 className="font-serif text-3xl md:text-4xl mt-4 leading-tight tracking-tight">
               Every position.
               <br />
               One view.
@@ -70,13 +70,13 @@ export default function PortfolioSection() {
               <div className="p-6">
                 <div className="flex items-start justify-between gap-6 flex-wrap">
                   <div>
-                    <p className="text-xs font-mono text-muted-foreground">PORTFOLIO VALUE</p>
-                    <p className="font-serif text-3xl md:text-4xl mt-2">$128,482.21</p>
+                    <p className="zeks-label-inline">Portfolio Value</p>
+                    <p className="font-serif text-2xl md:text-3xl mt-1 tabular-nums tracking-tight">$128,482.21</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-mono text-muted-foreground">TODAY</p>
-                    <p className="font-serif text-xl mt-1">+$2,842.18</p>
-                    <p className="text-xs font-mono text-muted-foreground mt-0.5">+2.26%</p>
+                    <p className="zeks-label-inline">Today</p>
+                    <p className="font-serif text-lg mt-1 tabular-nums tracking-tight">+$2,842.18</p>
+                    <p className="zeks-num-sm text-muted-foreground mt-0.5">+2.26%</p>
                   </div>
                 </div>
               </div>
@@ -125,7 +125,7 @@ export default function PortfolioSection() {
 
               {/* 3. Allocation */}
               <div className="p-6">
-                <p className="text-xs font-mono text-muted-foreground">ALLOCATION</p>
+                <p className="zeks-label-inline">Allocation</p>
 
                 {/* Single thin segmented bar */}
                 <div className="flex h-1.5 w-full mt-4 overflow-hidden rounded-full bg-secondary">
@@ -152,8 +152,8 @@ export default function PortfolioSection() {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-4">
                   {allocations.map((a) => (
                     <div key={a.label} className="flex items-center justify-between">
-                      <span className="text-xs font-mono text-muted-foreground">{a.label}</span>
-                      <span className="text-xs font-mono">{a.percent}%</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{a.label}</span>
+                      <span className="zeks-num-sm">{a.percent}%</span>
                     </div>
                   ))}
                 </div>
@@ -161,7 +161,7 @@ export default function PortfolioSection() {
 
               {/* 4. Positions */}
               <div className="p-6">
-                <p className="text-xs font-mono text-muted-foreground">POSITIONS</p>
+                <p className="zeks-label-inline">Positions</p>
                 <ul className="mt-4 divide-y divide-border">
                   {positions.map((p) => (
                     <li
@@ -175,10 +175,10 @@ export default function PortfolioSection() {
                           size={24}
                           shape="rounded"
                         />
-                        <span className="text-sm font-mono">{p.ticker}</span>
-                        <span className="text-xs font-mono text-muted-foreground">{p.tag}</span>
+                        <span className="font-mono text-[12px]">{p.ticker}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground">{p.tag}</span>
                       </div>
-                      <span className="font-serif">{p.value}</span>
+                      <span className="font-serif text-[14px] tracking-tight">{p.value}</span>
                     </li>
                   ))}
                 </ul>
@@ -186,7 +186,7 @@ export default function PortfolioSection() {
 
               {/* 5. Footer */}
               <div className="px-6 py-4">
-                <span className="text-xs font-mono text-muted-foreground">
+                <span className="font-mono text-[10px] text-muted-foreground opacity-60">
                   DEMO_DATA · PRESENTATION_ONLY
                 </span>
               </div>

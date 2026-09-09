@@ -264,24 +264,13 @@ function OpportunityCard({
             borderBottom: "1px solid var(--border)",
           }}
         >
-          <div
-            className="font-mono uppercase"
-            style={{
-              fontSize: "var(--font-micro)",
-              color: "var(--muted-foreground)",
-              letterSpacing: "0.06em",
-            }}
-          >
+          <div className="zeks-label" style={{ marginBottom: "2px" }}>
             Oracle Price
           </div>
           <div
-            className="tabular-nums leading-tight"
+            className="zeks-num-lg"
             style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: "28px",
-              letterSpacing: "-0.02em",
               color: "var(--foreground)",
-              marginTop: "2px",
             }}
           >
             {formatPrice(m.oraclePrice)}
@@ -441,24 +430,10 @@ function StatField({
         : "var(--foreground)"
   return (
     <div>
-      <dt
-        className="font-mono uppercase"
-        style={{
-          fontSize: "var(--font-micro)",
-          color: "var(--muted-foreground)",
-          letterSpacing: "0.04em",
-        }}
-      >
-        {label}
-      </dt>
+      <dt className="zeks-label-inline">{label}</dt>
       <dd
-        className="tabular-nums"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "12.5px",
-          color,
-          marginTop: "3px",
-        }}
+        className="zeks-num-md"
+        style={{ color, marginTop: "3px" }}
       >
         {value}
       </dd>
