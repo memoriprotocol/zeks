@@ -129,18 +129,21 @@ interface GraphQLResponse<T> {
 }
 
 /**
- * Morpho query that returns ALL markets for a chain, filtered to a
- * specific loan asset (e.g. USDG, USDC). We deliberately return
- * the whole market row so we can pick the highest-TVL market per
- * loan token ourselves.
+ * Morpho query that returns ALL markets for a chain, filtered to
+ * specific loan assets (by contract address). The Morpho GraphQL
+ * filter is `loanAssetAddress_in` — there is no
+ * `loanAssetSymbol_in` filter on the Markets collection.
+ *
+ * We deliberately return the whole market row so we can pick the
+ * highest-TVL market per loan token ourselves.
  */
 const LOAN_MARKETS_QUERY = /* GraphQL */ `
-  query MarketsByLoanAsset($chainId: [Int!], $loanSymbol: [String!]) {
+  query MarketsByLoanAddress($chainId: [Int!], $loanAddresses: [String!]) {
     markets(
       first: 50
       orderBy: SupplyAssetsUsd
       orderDirection: Desc
-      where: { chainId_in: $chainId, loanAssetSymbol_in: $loanSymbol }
+      where: { chainId_in: $chainId, loanAssetAddress_in: $loanAddresses }
     ) {
       items {
         marketId
@@ -163,10 +166,35 @@ const LOAN_MARKETS_QUERY = /* GraphQL */ `
 `
 
 /**
- * Fetch Morpho markets on the target chain whose loan-asset symbol
- * matches one of the given symbols. Returns the full MorphoMarket[]
- * (one row per market). Caller picks the canonical (highest-TVL
- * supply) market per loan token. No API key required.
+ * Resolve the contract addresses for a set of loan-asset symbols
+ * on a given chain. The Morpho GraphQL markets filter only accepts
+ * addresses — there is no symbol-based filter — so we look up the
+ * address via the `assets` collection first.
+ */
+const ASSETS_BY_SYMBOL_QUERY = /* GraphQL */ `
+  query AssetsBySymbol($chainId: Int!, $symbols: [String!]) {
+    assets(where: { chainId_in: [$chainId], symbol_in: $symbols }, first: 50) {
+      items {
+        address
+        symbol
+        chain { id }
+      }
+    }
+  }
+`
+
+/**
+ * Fetch Morpho markets on the target chain whose loan-asset matches
+ * one of the given symbols.
+ *
+ * The Morpho GraphQL `markets` filter only accepts
+ * `loanAssetAddress_in` — there is no symbol filter — so we look up
+ * the contract addresses for the symbols via the `assets`
+ * collection first, then filter markets by those addresses.
+ *
+ * Returns the full MorphoMarket[] (one row per market). Caller picks
+ * the canonical (highest-TVL supply) market per loan token. No API
+ * key required.
  */
 export async function fetchLoanAssetMarkets(
   loanSymbols: readonly string[],
@@ -179,11 +207,35 @@ export async function fetchLoanAssetMarkets(
     return { markets: [], totalReturned: 0, chainId, endpoint: MORPHO_GRAPHQL_ENDPOINT }
   }
 
+  const upperSymbols = loanSymbols.map((s) => s.toUpperCase())
+
+  // Step 1 — resolve loan-asset contract addresses via assets query
+  const loanAddresses = await fetchLoanAssetAddresses(
+    upperSymbols,
+    chainId,
+    { fetchTimeoutMs, debug },
+  )
+
+  if (loanAddresses.length === 0) {
+    if (debug) {
+      console.warn(
+        `[morpho] no loan-asset addresses resolved for symbols=${upperSymbols.join(",")}`,
+      )
+    }
+    return {
+      markets: [],
+      totalReturned: 0,
+      chainId,
+      endpoint: MORPHO_GRAPHQL_ENDPOINT,
+    }
+  }
+
+  // Step 2 — query markets filtered by those addresses
   const body = JSON.stringify({
     query: LOAN_MARKETS_QUERY,
     variables: {
       chainId: [chainId],
-      loanSymbol: loanSymbols.map((s) => s.toUpperCase()),
+      loanAddresses,
     },
   })
 
@@ -234,6 +286,11 @@ export async function fetchLoanAssetMarkets(
   }
 
   if (json.errors && json.errors.length > 0) {
+    if (debug) {
+      console.warn(
+        `[morpho] loan-market GraphQL errors: ${json.errors.map((e) => e.message).join("; ")}`,
+      )
+    }
     return {
       markets: [],
       totalReturned: 0,
@@ -267,6 +324,59 @@ export async function fetchLoanAssetMarkets(
     totalReturned: raw.length,
     chainId,
     endpoint: MORPHO_GRAPHQL_ENDPOINT,
+  }
+}
+
+/**
+ * Resolve Morpho asset contract addresses for the given symbols on
+ * the target chain. Returns lowercase addresses (the GraphQL filter
+ * expects lowercase). Empty array when no symbols resolve or the
+ * network call fails.
+ */
+async function fetchLoanAssetAddresses(
+  symbols: readonly string[],
+  chainId: number,
+  options: { fetchTimeoutMs?: number; debug?: boolean } = {},
+): Promise<string[]> {
+  const { fetchTimeoutMs = 6_000, debug = false } = options
+
+  const body = JSON.stringify({
+    query: ASSETS_BY_SYMBOL_QUERY,
+    variables: {
+      chainId,
+      symbols: Array.from(new Set(symbols)),
+    },
+  })
+
+  try {
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), fetchTimeoutMs)
+    const res = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      signal: controller.signal,
+      cache: "no-store",
+    })
+    clearTimeout(t)
+    if (!res.ok) return []
+    const json = (await res.json()) as GraphQLResponse<{
+      assets: { items: Array<{ address: string; symbol: string; chain: { id: number } }> }
+    }>
+    if (json.errors && json.errors.length > 0) return []
+    const items = json.data?.assets.items ?? []
+    const addrs = items
+      .filter((a) => a.chain?.id === chainId)
+      .map((a) => (a.address ?? "").toLowerCase())
+      .filter((a) => a.length > 0)
+    if (debug) {
+      console.info(
+        `[morpho] resolved loan-asset addresses: ${addrs.join(",")} (symbols=${symbols.join(",")})`,
+      )
+    }
+    return addrs
+  } catch {
+    return []
   }
 }
 

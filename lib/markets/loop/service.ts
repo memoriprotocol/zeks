@@ -22,6 +22,10 @@ import {
   type VerifiedVault,
 } from "../protocol/verified-vaults"
 import {
+  ROBINHOOD_PUBLIC_RPC_URL,
+  parseUint256,
+} from "../onchain/rpc"
+import {
   CURATED_STOCKS,
   SUPPORTED_LOAN_ASSETS,
   YIELD_VENUE_CONFIG,
@@ -185,32 +189,95 @@ export async function fetchYieldVenues(
   const _loanSymbols = (options.loanSymbols ?? SUPPORTED_LOAN_ASSETS) as readonly SupportedLoanAsset[]
   void _loanSymbols
 
-  // Query Morpho for the USDG loan-asset family on Robinhood Chain.
-  // We pull all three loan-symbol candidates in one request and pick
-  // the canonical USDG market ourselves. Falls back to empty when
-  // Morpho is unreachable.
-  const result = await fetchLoanAssetMarkets(SUPPORTED_LOAN_ASSETS).catch(
-    () => ({
-      markets: [] as MorphoMarket[],
-      totalReturned: 0,
-      chainId: 4663,
-      endpoint: "https://api.morpho.org/graphql",
-    }),
-  )
+  // Pull USDG-family markets from Morpho in parallel with per-vault
+  // onchain `totalAssets()` reads. The two are independent — one
+  // failing does not gate the other.
+  const [morphoResult, vaultOnchain] = await Promise.all([
+    fetchLoanAssetMarkets(SUPPORTED_LOAN_ASSETS).catch(
+      () =>
+        ({
+          markets: [] as MorphoMarket[],
+          totalReturned: 0,
+          chainId: 4663,
+          endpoint: "https://api.morpho.org/graphql",
+        }) as {
+          markets: MorphoMarket[]
+          totalReturned: number
+          chainId: number
+          endpoint: string
+        },
+    ),
+    fetchVaultTotalAssets(VERIFIED_LOOPR_VAULTS, 5_000),
+  ])
 
-  // Pick the canonical USDG Morpho market — that's the underlying
-  // market that all three vaults route into.
-  const canonicalUsdg = pickCanonicalUsdg(result.markets)
+  // The canonical USDG Morpho market that all three vaults route
+  // into. We pick the highest-TVL supply market to derive APY.
+  const canonicalUsdg = pickCanonicalUsdg(morphoResult.markets)
 
   const venues: YieldVenue[] = VERIFIED_LOOPR_VAULTS.map((vault) =>
-    buildVaultVenue(vault, canonicalUsdg, fetchedAt),
+    buildVaultVenue(
+      vault,
+      canonicalUsdg,
+      vaultOnchain.get(vault.address.toLowerCase()) ?? null,
+      fetchedAt,
+    ),
   )
 
-  // If a Morpho market was actually returned, no loan symbols are
-  // "failed" in the new model. Keep the field for API stability.
+  // If the canonical USDG market was found, no loan symbols are
+  // "failed". Keep the field for API stability.
   const failedLoanSymbols: SupportedLoanAsset[] = canonicalUsdg ? [] : []
 
   return { yieldVenues: venues, failedLoanSymbols }
+}
+
+/**
+ * Read ERC-4626 `totalAssets()` for each vault via the canonical
+ * Robinhood RPC. Returns a Map<lowercasedAddress, raw totalAssets
+ * in token base units>. Each vault's TVL is independent — no shared
+ * Morpho pool is reported per-vault.
+ *
+ * Uses the public Robinhood Chain RPC at the URL already in
+ * `lib/markets/onchain/rpc.ts`. Per-vault reads run concurrently with
+ * a 5 s timeout. Reads that fail individually are simply absent
+ * from the map — callers treat missing entries as null.
+ */
+async function fetchVaultTotalAssets(
+  vaults: readonly VerifiedVault[],
+  timeoutMs: number,
+): Promise<Map<string, bigint>> {
+  const out = new Map<string, bigint>()
+  await Promise.all(
+    vaults.map(async (v) => {
+      try {
+        const ctrl = new AbortController()
+        const t = setTimeout(() => ctrl.abort(), timeoutMs)
+        const res = await fetch(ROBINHOOD_PUBLIC_RPC_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_call",
+            params: [
+              { to: v.address, data: "0x01e1d114" }, // totalAssets()
+              "latest",
+            ],
+            id: 1,
+          }),
+          signal: ctrl.signal,
+          cache: "no-store",
+        })
+        clearTimeout(t)
+        if (!res.ok) return
+        const j = (await res.json()) as { result?: string }
+        if (!j.result || j.result === "0x" || j.result === "0x0") return
+        const total = parseUint256(j.result as `0x${string}`, 0)
+        out.set(v.address.toLowerCase(), total)
+      } catch {
+        // silent — vault falls back to null TVL
+      }
+    }),
+  )
+  return out
 }
 
 /** Pick the canonical (highest-TVL) USDG Morpho market. */
@@ -231,37 +298,67 @@ function pickCanonicalUsdg(
   return best
 }
 
+/**
+ * Build a per-vault YieldVenue with INDEPENDENT data.
+ *
+ *   · TVL       — onchain `totalAssets() / 10^decimals`. Each vault
+ *                  shows its OWN TVL — not a shared Morpho pool.
+ *   · APY       — shared underlying USDG Morpho market supplyApy.
+ *                  All three verified vaults route into the SAME
+ *                  pool on Robinhood Chain (USDe/USDG), so the APY
+ *                  is identical by construction. When that market
+ *                  is silent we surface `null` and status degrades
+ *                  to "candidate".
+ *   · liquidity — TVL (ERC-4626 share token; no borrow-side to
+ *                  subtract). We do NOT fabricate a borrow/liquidity
+ *                  split.
+ */
 function buildVaultVenue(
   vault: VerifiedVault,
   canonical: MorphoMarket | null,
+  totalAssetsRaw: bigint | null,
   fetchedAt: string,
 ): YieldVenue {
   const cfg = YIELD_VENUE_CONFIG.USDG
 
-  // Morpho-supplied metrics.
-  const tvl = canonical?.supplyAssetsUsd ?? null
-  const borrowUsd = canonical?.borrowAssetsUsd ?? null
-  const liquidity =
-    tvl != null && borrowUsd != null ? Math.max(0, tvl - borrowUsd) : null
+  // Per-vault independent TVL: ERC-4626 totalAssets / 10^decimals.
+  // This is the share balance, not USD.
+  const tvl =
+    totalAssetsRaw != null
+      ? Number(totalAssetsRaw) / Math.pow(10, vault.decimals)
+      : null
+
+  // Liquidity: ERC-4626 — no borrow-side, so TVL == liquidity
+  // (modulo share-per-asset ratio, which we treat as 1:1). We do
+  // NOT fabricate a borrow/liquidity subtraction.
+  const liquidity = tvl
+
+  // APY: shared underlying USDG Morpho market supplyApy.
   const apy = canonical?.supplyApy ?? null
 
-  // Status semantics (per spec):
-  //   · LIVE      — vault address verified AND Morpho APY+TVL present.
-  //   · CANDIDATE — vault address verified but Morpho silent / partial.
-  //   · INACTIVE  — vault address verified but Morpho market closed.
+  // Status:
+  //   · live         — both APY and TVL present.
+  //   · candidate    — vault verified but APY or TVL missing.
+  //   · unavailable  — vault has no live data on either axis.
   let status: YieldVenue["status"]
-  if (canonical?.listed === false && tvl === 0) {
-    status = "inactive"
-  } else if (apy != null && tvl != null && tvl > 0) {
+  if (apy != null && tvl != null && tvl > 0) {
     status = "live"
-  } else {
+  } else if (vault != null) {
     status = "candidate"
+  } else {
+    status = "unavailable"
   }
 
-  const hasMorpho = apy != null || tvl != null || liquidity != null
-  const source: YieldVenue["source"] = hasMorpho
-    ? "morpho-supply"
-    : "verified-onchain"
+  const hasMorpho = apy != null
+  const hasOnchain = tvl != null
+  const source: YieldVenue["source"] =
+    hasMorpho && hasOnchain
+      ? "morpho-supply"
+      : hasOnchain
+        ? "verified-onchain"
+        : hasMorpho
+          ? "morpho-supply"
+          : "verified-onchain"
 
   return {
     id: `verified-vault-${vault.venue}`,
