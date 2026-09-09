@@ -696,40 +696,65 @@ function StockCard({
         ) : null}
       </div>
 
-      {/* 6 · Footer — compact primary Configure → + quiet secondary View market → */}
+      {/* 6 · Footer — compact primary Configure → + quiet secondary View market →
+          Configure is hidden when the market is mock (no Morpho market on
+          Robinhood Chain) — there is nothing to configure. */}
       <div
         className="flex items-center gap-2"
         style={{ marginTop: "auto", paddingTop: "14px" }}
       >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onSelect(m.symbol)
-          }}
-          className="inline-flex items-center justify-center gap-1.5 transition-colors"
-          style={{
-            height: "34px",
-            padding: "0 16px",
-            fontSize: "12px",
-            fontFamily: "var(--font-sans)",
-            fontWeight: 500,
-            borderRadius: "6px",
-            backgroundColor: "var(--primary)",
-            color: "var(--primary-foreground)",
-            border: "none",
-            cursor: "pointer",
-            lineHeight: 1,
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "rgba(183,243,74,0.85)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--primary)")
-          }
-        >
-          Configure →
-        </button>
+        {isMock ? (
+          <span
+            className="font-mono uppercase"
+            data-loop-configure-disabled
+            title="No Morpho market for this collateral on Robinhood Chain"
+            style={{
+              height: "34px",
+              padding: "0 14px",
+              display: "inline-flex",
+              alignItems: "center",
+              fontSize: "11px",
+              letterSpacing: "0.06em",
+              borderRadius: "6px",
+              border: "1px dashed var(--border)",
+              color: "var(--muted-foreground)",
+              backgroundColor: "transparent",
+              lineHeight: 1,
+            }}
+          >
+            Unavailable
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect(m.symbol)
+            }}
+            className="inline-flex items-center justify-center gap-1.5 transition-colors"
+            style={{
+              height: "34px",
+              padding: "0 16px",
+              fontSize: "12px",
+              fontFamily: "var(--font-sans)",
+              fontWeight: 500,
+              borderRadius: "6px",
+              backgroundColor: "var(--primary)",
+              color: "var(--primary-foreground)",
+              border: "none",
+              cursor: "pointer",
+              lineHeight: 1,
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "rgba(183,243,74,0.85)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "var(--primary)")
+            }
+          >
+            Configure →
+          </button>
+        )}
         <Link
           href={`/terminal/markets/${encodeURIComponent(m.symbol)}`}
           onClick={(e) => e.stopPropagation()}
@@ -901,7 +926,7 @@ function VenueCard({
         >
           {sourceLabel(v.source)}
         </span>
-        {v.marketId ? (
+        {v.assetAddress ? (
           <span
             className="font-mono truncate"
             style={{
@@ -909,11 +934,17 @@ function VenueCard({
               color: "var(--muted-foreground)",
               opacity: 0.7,
               fontVariantNumeric: "tabular-nums",
-              maxWidth: "110px",
+              maxWidth: "120px",
             }}
-            title={v.marketId}
+            title={v.assetAddress}
+            data-loop-vault-address
           >
-            {shortMarketId(v.marketId)}
+            <span
+              style={{ opacity: 0.65, marginRight: "6px", letterSpacing: "0.04em" }}
+            >
+              Vault
+            </span>
+            {shortAddress(v.assetAddress)}
           </span>
         ) : null}
       </div>
@@ -1658,4 +1689,12 @@ function sourceLabel(s: YieldVenue["source"]): string {
 function shortMarketId(id: string): string {
   if (id.length <= 14) return id
   return `${id.slice(0, 8)}…${id.slice(-4)}`
+}
+
+/** "0xBeEf…0ddD" for an Ethereum address. */
+function shortAddress(addr: string): string {
+  if (!addr) return "—"
+  // Expect `0x` + 40 hex chars. If shorter, return as-is.
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) return addr
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 }
