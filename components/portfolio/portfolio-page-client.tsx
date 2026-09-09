@@ -44,8 +44,8 @@ export default function PortfolioPageClient({}: PortfolioPageClientProps) {
           Your portfolio
         </h1>
         <p className="text-sm text-muted-foreground mt-1.5 max-w-xl leading-relaxed">
-          Supplied, borrowed, collateral positions and recent activity
-          across Morpho markets on Robinhood Chain.
+          Wallet positions, supplied assets, debt and collateral on Robinhood
+          Chain.
         </p>
       </div>
 

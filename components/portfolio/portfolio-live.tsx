@@ -1,17 +1,15 @@
 "use client"
 
 /**
- * PortfolioLive (v3 — Loopr-density)
+ * PortfolioLive (v4 — Portfolio page final build)
  *
- * Compact account view. NO giant empty cards.
+ * Page structure:
+ *   1. Account Summary — full-width hero card (6 metrics).
+ *   2. Two-column body — LEFT: all Morpho positions; RIGHT: wallet + activity.
+ *   3. Earn / Borrow breakdown — compact separate sections (no duplication).
  *
- *   - Top: Account summary hero.
- *   - Two-column below the hero:
- *       LEFT  → Positions (supplied/borrowed/collateral)
- *       RIGHT → Wallet balances + activity summary
- *   - If empty: the LEFT panel renders a compact "No active
- *     positions" + suggested markets row, the RIGHT panel still
- *     shows the wallet summary.
+ * Empty states are compact and intentional.
+ * No transaction buttons. Read-only.
  */
 
 import * as React from "react"
@@ -23,9 +21,9 @@ import PortfolioSummary from "./portfolio-summary"
 import PortfolioPositions from "./portfolio-positions"
 import PortfolioEarnPositions from "./portfolio-earn-positions"
 import PortfolioBorrowPositions from "./portfolio-borrow-positions"
+import PortfolioWalletSnapshot from "./portfolio-wallet-snapshot"
 import PortfolioActivity from "./portfolio-activity"
 import PortfolioIssues from "./portfolio-issues"
-import PortfolioWalletSnapshot from "./portfolio-wallet-snapshot"
 
 export default function PortfolioLive() {
   const { snapshot, loading, refresh } = usePortfolio()
@@ -40,6 +38,7 @@ export default function PortfolioLive() {
 
   return (
     <div className="space-y-3" data-portfolio-live>
+      {/* 1 · Account Summary — full-width hero */}
       <PortfolioSummary
         dataUnavailable={noDataYet}
         snapshot={snapshot ?? null}
@@ -47,29 +46,16 @@ export default function PortfolioLive() {
       />
       <PortfolioIssues issues={snapshot?.issues ?? []} />
 
-      {/* Asymmetric: positions left, wallet+activity right */}
+      {/* 2 · Positions (left) + Wallet + Activity (right) */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-3">
-        <div className="space-y-3 min-w-0">
-          <PortfolioPositions
-            dataUnavailable={noDataYet}
-            snapshot={snapshot ?? null}
-            loading={loading}
-          />
-          <PortfolioEarnPositions
-            dataUnavailable={noDataYet || (snapshot?.supplied.length ?? 0) === 0}
-            snapshot={snapshot ?? null}
-            loading={loading}
-          />
-          <PortfolioBorrowPositions
-            dataUnavailable={
-              noDataYet ||
-              ((snapshot?.borrowed.length ?? 0) === 0 &&
-                (snapshot?.collateral.length ?? 0) === 0)
-            }
-            snapshot={snapshot ?? null}
-            loading={loading}
-          />
-        </div>
+        {/* LEFT: all positions */}
+        <PortfolioPositions
+          dataUnavailable={noDataYet}
+          snapshot={snapshot ?? null}
+          loading={loading}
+        />
+
+        {/* RIGHT: wallet snapshot + recent activity */}
         <div className="space-y-3 min-w-0">
           <PortfolioWalletSnapshot />
           <PortfolioActivity
@@ -82,6 +68,25 @@ export default function PortfolioLive() {
         </div>
       </div>
 
+      {/* 3 · Earn / Borrow breakdown — compact separate sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <PortfolioEarnPositions
+          dataUnavailable={noDataYet || (snapshot?.supplied.length ?? 0) === 0}
+          snapshot={snapshot ?? null}
+          loading={loading}
+        />
+        <PortfolioBorrowPositions
+          dataUnavailable={
+            noDataYet ||
+            ((snapshot?.borrowed.length ?? 0) === 0 &&
+              (snapshot?.collateral.length ?? 0) === 0)
+          }
+          snapshot={snapshot ?? null}
+          loading={loading}
+        />
+      </div>
+
+      {/* Footer nav */}
       <div className="flex items-center gap-3 flex-wrap text-[10px] font-mono tracking-wider text-muted-foreground/70 pt-1">
         <span>Live data</span>
         <span aria-hidden="true">·</span>

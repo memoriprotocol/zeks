@@ -1,14 +1,16 @@
 "use client"
 
 /**
- * PortfolioPositions (v3)
+ * PortfolioPositions (v4)
  *
- * Compact positioned positions card on the Portfolio page.
+ * Unified position card on the Portfolio page.
  *
- *   - Live → three vertical groups: Wallet token balances · Supplied · Borrowed.
- *   - Empty → compact 1-line state, not a giant card.
+ *   - Wallet balances (top group)
+ *   - Supplied / Borrowed / Collateral (Morpho)
+ *   - Empty state is compact and intentional — no giant blank card.
  *
  * Densely formatted for finance app feel.
+ * No transaction buttons, no supply/borrow enablement.
  */
 
 import * as React from "react"
@@ -66,6 +68,7 @@ export default function PortfolioPositions({
                   rows={wallet.map((w) => ({
                     key: w.contractAddress ?? w.symbol,
                     symbol: w.symbol,
+                    type: null,
                     apy: null,
                     usd: w.balanceUsd,
                     raw: w.balanceRaw,
@@ -79,6 +82,7 @@ export default function PortfolioPositions({
                   rows={supplied.map((s) => ({
                     key: s.marketId ?? s.symbol,
                     symbol: s.symbol,
+                    type: null,
                     apy: s.supplyApy,
                     usd: s.balanceUsd,
                   }))}
@@ -91,6 +95,7 @@ export default function PortfolioPositions({
                   rows={borrowed.map((b) => ({
                     key: b.marketId ?? b.symbol,
                     symbol: b.symbol,
+                    type: "debt",
                     apy: b.borrowApy,
                     usd: b.balanceUsd,
                   }))}
@@ -102,6 +107,7 @@ export default function PortfolioPositions({
                   rows={collateral.map((c) => ({
                     key: c.marketId ?? c.symbol,
                     symbol: c.symbol,
+                    type: "collateral",
                     apy: null,
                     usd: c.balanceUsd,
                   }))}
@@ -169,6 +175,7 @@ function Group({
   rows: Array<{
     key: string
     symbol: string
+    type: string | null
     apy: number | null
     usd: number | null
     raw?: bigint
@@ -183,23 +190,39 @@ function Group({
         {rows.map((r) => (
           <div
             key={r.key}
-            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,80px)] items-center gap-3 px-3 h-10"
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,90px)] items-center gap-3 px-3 h-10"
           >
             <span className="font-mono text-[12.5px] font-medium text-foreground truncate">
               {r.symbol}
             </span>
-            <span
-              className={
-                "font-mono tabular-nums text-[11px] " +
-                (tone === "up"
-                  ? "text-up"
-                  : tone === "down"
-                    ? "text-down"
-                    : "text-muted-foreground")
-              }
-            >
-              {r.apy != null ? formatApy(r.apy) : r.raw != null ? formatRawAmount(r.raw, 18) : "—"}
-            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              {r.type ? (
+                <span
+                  className={
+                    "text-[10px] font-mono " +
+                    (r.type === "debt" ? "text-down" : "text-muted-foreground")
+                  }
+                >
+                  {r.type}
+                </span>
+              ) : null}
+              <span
+                className={
+                  "font-mono tabular-nums text-[11px] " +
+                  (tone === "up"
+                    ? "text-up"
+                    : tone === "down"
+                      ? "text-down"
+                      : "text-muted-foreground")
+                }
+              >
+                {r.apy != null
+                  ? formatApy(r.apy)
+                  : r.raw != null
+                    ? formatRawAmount(r.raw, 18)
+                    : "—"}
+              </span>
+            </div>
             <span className="font-mono tabular-nums text-[11px] text-foreground tabular-nums text-right">
               {r.usd != null ? formatPrice(r.usd) : "—"}
             </span>

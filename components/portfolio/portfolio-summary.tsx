@@ -1,12 +1,13 @@
 "use client"
 
 /**
- * PortfolioSummary (v3 — Loopr-density)
+ * PortfolioSummary (v4 — Loopr-density, 6-metric Account Summary)
  *
- *   - Single column on mobile, hero-sized on desktop.
- *   - Strong serif net-value headline.
- *   - 3-column key metrics inline (Supplied / Borrowed / Supply APY).
- *   - Subtle source pills (Morpho / Chainlink / Robinhood Chain).
+ *   - Single hero card.
+ *   - Row 1: Net value (large serif headline).
+ *   - Row 2: 6 equal columns — Supplied · Borrowed · Collateral ·
+ *     Est. yield · W. Supply APY · Positions.
+ *   - Source pills: Morpho · Chainlink · Robinhood Chain.
  *
  * Empty state: a single line, not a giant card.
  */
@@ -31,6 +32,7 @@ export default function PortfolioSummary({
   if (snapshot) {
     const totalSupplied = snapshot.totalSuppliedUsd
     const totalBorrowed = snapshot.totalBorrowedUsd
+    const totalCollateral = snapshot.totalCollateralUsd
     const netValue = snapshot.netValueUsd
     const positionCount =
       snapshot.supplied.length +
@@ -39,15 +41,22 @@ export default function PortfolioSummary({
     const hasPositions = positionCount > 0
     const apy = snapshot.weightedSupplyApy
 
+    // Estimated yield: deposited × APY / 365 (daily) — derive from supplied USD + APY
+    const estYieldDaily =
+      totalSupplied != null && apy != null
+        ? (totalSupplied * (apy / 100)) / 365
+        : null
+
     return (
       <section
         aria-label="Account summary"
         data-testid="portfolio-summary"
         className="rounded-2xl border border-border bg-card p-5 md:p-6"
       >
+        {/* Row 1 — label + source pills */}
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
           <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            NET VALUE
+            ACCOUNT SUMMARY
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
             <SourcePill label="Morpho" />
@@ -56,6 +65,7 @@ export default function PortfolioSummary({
           </div>
         </div>
 
+        {/* Row 2 — net value headline */}
         <div className="mt-3">
           <div
             className={
@@ -80,7 +90,8 @@ export default function PortfolioSummary({
           </p>
         </div>
 
-        <div className="mt-5 pt-4 border-t border-border grid grid-cols-3 gap-3">
+        {/* Row 3 — 6-metric bar */}
+        <div className="mt-5 pt-4 border-t border-border grid grid-cols-3 md:grid-cols-6 gap-3">
           <Mini
             label="Supplied"
             value={totalSupplied != null ? formatPrice(totalSupplied) : "—"}
@@ -92,9 +103,26 @@ export default function PortfolioSummary({
             tone="down"
           />
           <Mini
-            label="Supply APY"
+            label="Collateral"
+            value={totalCollateral != null ? formatPrice(totalCollateral) : "—"}
+          />
+          <Mini
+            label="Est. yield"
+            value={
+              estYieldDaily != null
+                ? `${formatPrice(estYieldDaily)}/day`
+                : "—"
+            }
+            tone="up"
+          />
+          <Mini
+            label="W. APY"
             value={apy != null ? formatApy(apy * 100) : "—"}
-            tone={apy != null ? "up" : undefined}
+            tone="up"
+          />
+          <Mini
+            label="Positions"
+            value={positionCount > 0 ? String(positionCount) : "—"}
           />
         </div>
 
@@ -119,7 +147,7 @@ export default function PortfolioSummary({
     >
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
         <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          NET VALUE
+          ACCOUNT SUMMARY
         </span>
         <div className="flex items-center gap-1.5 flex-wrap">
           <SourcePill label="Morpho" />
@@ -161,7 +189,7 @@ function Mini({
         {label}
       </div>
       <div
-        className={`font-mono tabular-nums text-[16px] md:text-[18px] mt-1 ${color}`}
+        className={`font-mono tabular-nums text-[14px] md:text-[16px] mt-1 ${color}`}
       >
         {value}
       </div>
