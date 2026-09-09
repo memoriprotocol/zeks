@@ -1,23 +1,27 @@
 "use client"
 
 /**
- * MarketList — dense list of all markets.
+ * MarketList — dense 8-column market table.
  *
- *   · Single beige surface, no row borders
- *   · Divider only between rows (1px border-border)
- *   · Logo · symbol · company · price · LLTV · borrow · liquidity · status
- *   · Each cell hides individually when its source field is missing
+ *   Columns: Asset · Oracle Price · LLTV · Supply APY · Borrow APY ·
+ *            Liquidity · Utilization · Status
  *
- *   No admin chrome. Read-only.
+ *   · Single beige surface, no row borders (thin dividers between rows)
+ *   · 16px radius · 20px card padding
+ *   · Row click navigates to /terminal/markets/[symbol]
+ *   · Each cell hides cleanly when its source field is missing
+ *
+ * No admin chrome. Read-only.
  */
 
 import * as React from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import AssetLogo from "@/components/asset-logo"
 import {
   formatPrice,
   formatApy,
   formatCompact,
+  formatPct,
 } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
 import type { StatusFilter } from "@/components/zeks/markets/markets-toolbar"
@@ -28,7 +32,13 @@ interface MarketListProps {
   status: StatusFilter
 }
 
+/** 8-col grid template, used by both header and rows. */
+const COL_TEMPLATE =
+  "minmax(0,1.7fr) minmax(0,1fr) minmax(0,0.7fr) minmax(0,0.8fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.7fr) minmax(0,0.7fr)"
+
 export function MarketList({ markets, query, status }: MarketListProps) {
+  const router = useRouter()
+
   const filtered = React.useMemo<LendingMarket[]>(() => {
     const q = query.trim().toLowerCase()
     return markets.filter((m) => {
@@ -44,27 +54,58 @@ export function MarketList({ markets, query, status }: MarketListProps) {
     })
   }, [markets, query, status])
 
+  const goTo = React.useCallback(
+    (symbol: string) => {
+      router.push(`/terminal/markets/${encodeURIComponent(symbol)}`)
+    },
+    [router],
+  )
+
   return (
     <div data-testid="market-list">
       <div
-        className="rounded-[14px] border border-border overflow-hidden"
-        style={{ backgroundColor: "var(--card-soft)" }}
+        className="border overflow-hidden"
+        style={{
+          backgroundColor: "var(--card-soft)",
+          borderColor: "var(--border)",
+          borderRadius: "var(--dash-card-radius)",
+        }}
       >
         {/* Column header */}
         <div
-          className="hidden md:grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_auto] gap-3 px-4 py-2 border-b border-border font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase"
+          className="hidden md:grid items-center border-b"
+          style={{
+            gridTemplateColumns: COL_TEMPLATE,
+            columnGap: "16px",
+            padding: "12px 20px",
+            borderColor: "var(--border)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
         >
           <span>Asset</span>
-          <span className="text-right">Price</span>
-          <span className="text-right">LLTV</span>
-          <span className="text-right">Borrow</span>
-          <span className="text-right">Liquidity</span>
-          <span className="text-right">Status</span>
-          <span className="w-[80px]"></span>
+          <span style={{ textAlign: "right" }}>Oracle Price</span>
+          <span style={{ textAlign: "right" }}>LLTV</span>
+          <span style={{ textAlign: "right" }}>Supply APY</span>
+          <span style={{ textAlign: "right" }}>Borrow APY</span>
+          <span style={{ textAlign: "right" }}>Liquidity</span>
+          <span style={{ textAlign: "right" }}>Utilization</span>
+          <span style={{ textAlign: "right" }}>Status</span>
         </div>
 
         {filtered.length === 0 ? (
-          <p className="font-mono text-[11px] tracking-wide text-muted-foreground/70 px-4 py-6">
+          <p
+            className="font-mono"
+            style={{
+              padding: "24px 20px",
+              fontSize: "11px",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.04em",
+            }}
+          >
             No markets match the current search or filter.
           </p>
         ) : (
@@ -72,20 +113,29 @@ export function MarketList({ markets, query, status }: MarketListProps) {
             {filtered.map((m, idx) => (
               <li
                 key={m.marketId ?? m.symbol}
-                className={
+                style={
                   idx === 0
-                    ? ""
-                    : "border-t border-border"
+                    ? undefined
+                    : { borderTop: "1px solid var(--border)" }
                 }
               >
-                <Row market={m} />
+                <Row market={m} onClick={() => goTo(m.symbol)} />
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <p className="font-mono text-[10px] tracking-wide text-muted-foreground/60 px-0.5 mt-3">
+      <p
+        className="font-mono"
+        style={{
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+          marginTop: "12px",
+          paddingLeft: "4px",
+          letterSpacing: "0.02em",
+        }}
+      >
         {filtered.length} / {markets.length} markets
       </p>
     </div>
@@ -94,119 +144,271 @@ export function MarketList({ markets, query, status }: MarketListProps) {
 
 /* ── Single dense row ─────────────────────────────────────────── */
 
-function Row({ market: m }: { market: LendingMarket }) {
-  const hasPrice = m.oraclePrice != null
-  const hasLltv = m.lltv != null
-  const hasBorrow = m.borrowApy != null
+function Row({
+  market: m,
+  onClick,
+}: {
+  market: LendingMarket
+  onClick: () => void
+}) {
   const liquidity = m.availableLiquidity ?? m.totalSupply ?? null
-  const hasLiq = liquidity != null
+  const utilizationPct = React.useMemo(() => {
+    if (m.utilization == null || !Number.isFinite(m.utilization)) return null
+    // Morpho Blue expresses utilization in basis points × 1e9; our
+    // normalized type stores a 0..1 ratio. To be safe, also accept
+    // percentages directly (values > 1).
+    const v =
+      m.utilization > 1 ? m.utilization / 100 : m.utilization
+    return v * 100
+  }, [m.utilization])
 
   return (
-    <div
-      className="grid grid-cols-1 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_auto] gap-x-3 gap-y-1 items-center px-4 py-2.5"
-      style={{ lineHeight: 1.4 }}
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid="market-list-row"
+      className="w-full text-left transition-colors cursor-pointer focus:outline-none focus-visible:bg-secondary/60"
+      style={{
+        background: "transparent",
+        border: "none",
+        padding: "var(--dash-card-pad)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = "var(--secondary)"
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "transparent"
+      }}
     >
-      {/* Asset */}
-      <Link
-        href={`/terminal/markets/${encodeURIComponent(m.symbol)}`}
-        className="flex items-center gap-2.5 min-w-0 hover:opacity-90"
+      {/* Desktop: 8-col grid */}
+      <div
+        className="hidden md:grid items-center"
+        style={{
+          gridTemplateColumns: COL_TEMPLATE,
+          columnGap: "16px",
+        }}
       >
+        <AssetCell m={m} />
+        <PriceCell value={m.oraclePrice} />
+        <LltvCell value={m.lltv} />
+        <ApyCell value={m.supplyApy} tone="up" />
+        <ApyCell value={m.borrowApy} tone="down" />
+        <LiquidityCell value={liquidity} />
+        <UtilizationCell value={utilizationPct} />
+        <StatusCell mode={m.sourceMode} live={m.status === "active"} />
+      </div>
+
+      {/* Mobile: stacked summary (still navigable) */}
+      <div className="md:hidden flex items-center gap-3">
         <AssetLogo
           symbol={m.symbol}
           name={m.name ?? m.symbol}
           src={m.logoUrl ?? undefined}
-          size={26}
+          size={28}
         />
         <div className="min-w-0 flex-1">
           <div
-            className="font-serif text-foreground truncate"
-            style={{ fontSize: "15px", lineHeight: 1.1 }}
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: "var(--font-card-symbol)",
+              color: "var(--foreground)",
+              lineHeight: 1.1,
+            }}
           >
             {m.symbol}
           </div>
           <div
-            className="font-mono text-muted-foreground/70 truncate"
-            style={{ fontSize: "10.5px", marginTop: "2px" }}
+            className="font-mono truncate"
+            style={{
+              fontSize: "var(--font-card-company)",
+              color: "var(--muted-foreground)",
+              marginTop: "4px",
+            }}
           >
             {m.name ?? m.symbol}
           </div>
         </div>
-      </Link>
+        <StatusCell
+          mode={m.sourceMode}
+          live={m.status === "active"}
+          compact
+        />
+      </div>
+    </button>
+  )
+}
 
-      {/* Price */}
-      <div className="md:text-right">
-        <span className="md:hidden font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase mr-2">
-          Price
-        </span>
-        <span
-          className="font-mono tabular-nums text-foreground"
-          style={{ fontSize: "13px" }}
+/* ── Cells ─────────────────────────────────────────────────────── */
+
+function AssetCell({ m }: { m: LendingMarket }) {
+  return (
+    <div className="flex items-center gap-2.5 min-w-0">
+      <AssetLogo
+        symbol={m.symbol}
+        name={m.name ?? m.symbol}
+        src={m.logoUrl ?? undefined}
+        size={28}
+      />
+      <div className="min-w-0 flex-1">
+        <div
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: "var(--font-card-symbol)",
+            color: "var(--foreground)",
+            lineHeight: 1.1,
+            letterSpacing: "-0.01em",
+          }}
+          className="truncate"
         >
-          {hasPrice ? formatPrice(m.oraclePrice as number) : "—"}
-        </span>
-      </div>
-
-      {/* LLTV */}
-      <div className="md:text-right">
-        <span className="md:hidden font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase mr-2">
-          LLTV
-        </span>
-        <span
-          className="font-mono tabular-nums text-foreground"
-          style={{ fontSize: "13px" }}
+          {m.symbol}
+        </div>
+        <div
+          className="font-mono truncate"
+          style={{
+            fontSize: "var(--font-card-company)",
+            color: "var(--muted-foreground)",
+            marginTop: "4px",
+            letterSpacing: "0.02em",
+          }}
         >
-          {hasLltv
-            ? `${((m.lltv as number) * 100).toFixed(1)}%`
-            : "—"}
-        </span>
+          {m.name ?? m.symbol}
+        </div>
       </div>
+    </div>
+  )
+}
 
-      {/* Borrow */}
-      <div className="md:text-right">
-        <span className="md:hidden font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase mr-2">
-          Borrow
-        </span>
-        <span
-          className={[
-            "font-mono tabular-nums",
-            hasBorrow ? "text-down" : "text-foreground",
-          ].join(" ")}
-          style={{ fontSize: "13px" }}
-        >
-          {hasBorrow ? formatApy(m.borrowApy as number) : "—"}
-        </span>
-      </div>
+function PriceCell({ value }: { value: number | null | undefined }) {
+  const has = value != null && Number.isFinite(value)
+  return (
+    <Cell align="right">
+      <span
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          color: "var(--foreground)",
+        }}
+      >
+        {has ? formatPrice(value as number) : "—"}
+      </span>
+    </Cell>
+  )
+}
 
-      {/* Liquidity */}
-      <div className="md:text-right">
-        <span className="md:hidden font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase mr-2">
-          Liquidity
-        </span>
-        <span
-          className="font-mono tabular-nums text-foreground"
-          style={{ fontSize: "13px" }}
-        >
-          {hasLiq ? formatCompact(liquidity as number) : "—"}
-        </span>
-      </div>
+function LltvCell({ value }: { value: number | null | undefined }) {
+  const has = value != null && Number.isFinite(value)
+  return (
+    <Cell align="right">
+      <span
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          color: "var(--foreground)",
+        }}
+      >
+        {has ? `${((value as number) * 100).toFixed(1)}%` : "—"}
+      </span>
+    </Cell>
+  )
+}
 
-      {/* Status — only meaningful markers */}
-      <div className="md:text-right">
-        <span className="md:hidden font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase mr-2">
-          Status
-        </span>
-        <StatusBadge mode={m.sourceMode} live={m.status === "active"} />
-      </div>
+function ApyCell({
+  value,
+  tone,
+}: {
+  value: number | null | undefined
+  tone: "up" | "down"
+}) {
+  const has = value != null && Number.isFinite(value)
+  return (
+    <Cell align="right">
+      <span
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          color: has ? (tone === "up" ? "var(--up)" : "var(--down)") : "var(--foreground)",
+          opacity: has ? 1 : 0.5,
+        }}
+      >
+        {has ? formatApy(value as number) : "—"}
+      </span>
+    </Cell>
+  )
+}
 
-      {/* CTA — compact, no admin button */}
-      <div className="md:w-[80px] md:text-right">
-        <Link
-          href={`/terminal/markets/${encodeURIComponent(m.symbol)}`}
-          className="inline-flex items-center justify-center rounded-[8px] border border-border text-foreground h-7 px-2.5 text-[11px] hover:bg-secondary/60 transition-colors"
-        >
-          Open
-        </Link>
-      </div>
+function LiquidityCell({ value }: { value: number | null }) {
+  const has = value != null && Number.isFinite(value)
+  return (
+    <Cell align="right">
+      <span
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          color: "var(--foreground)",
+        }}
+      >
+        {has ? formatCompact(value) : "—"}
+      </span>
+    </Cell>
+  )
+}
+
+function UtilizationCell({ value }: { value: number | null }) {
+  const has = value != null && Number.isFinite(value)
+  return (
+    <Cell align="right">
+      <span
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          color: "var(--foreground)",
+          opacity: has ? 1 : 0.5,
+        }}
+      >
+        {has ? `${formatPct(value)}` : "—"}
+      </span>
+    </Cell>
+  )
+}
+
+function StatusCell({
+  mode,
+  live,
+  compact,
+}: {
+  mode: LendingMarket["sourceMode"]
+  live: boolean
+  compact?: boolean
+}) {
+  return (
+    <Cell align="right">
+      <StatusBadge mode={mode} live={live} compact={compact} />
+    </Cell>
+  )
+}
+
+function Cell({
+  align,
+  children,
+}: {
+  align: "left" | "right"
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      style={{
+        textAlign: align,
+        display: "flex",
+        justifyContent: align === "right" ? "flex-end" : "flex-start",
+        minWidth: 0,
+      }}
+    >
+      {children}
     </div>
   )
 }
@@ -216,34 +418,81 @@ function Row({ market: m }: { market: LendingMarket }) {
 function StatusBadge({
   mode,
   live,
+  compact,
 }: {
   mode: LendingMarket["sourceMode"]
   live: boolean
+  compact?: boolean
 }) {
   if (mode === "real-morpho" && live) {
     return (
-      <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md font-mono text-[10px] tracking-wide border border-up/40 bg-up/10 text-up">
-        <span className="w-1 h-1 rounded-full bg-up" />
-        Live
+      <span
+        className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+        style={{
+          fontSize: "9px",
+          color: "var(--up)",
+          letterSpacing: "0.08em",
+          opacity: 0.95,
+          padding: "2px 5px",
+          border: "1px solid var(--up)",
+          borderRadius: "4px",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="rounded-full shrink-0"
+          style={{ width: "4px", height: "4px", backgroundColor: "var(--up)" }}
+        />
+        {compact ? "Live" : "LIVE"}
       </span>
     )
   }
   if (mode === "real-morpho-unlisted") {
     return (
-      <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md font-mono text-[10px] tracking-wide border border-border bg-transparent text-muted-foreground">
+      <span
+        className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+        style={{
+          fontSize: "9px",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.08em",
+          opacity: 0.85,
+          padding: "2px 5px",
+          border: "1px solid var(--border)",
+          borderRadius: "4px",
+        }}
+      >
         Unlisted
       </span>
     )
   }
   if (mode === "mock") {
     return (
-      <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md font-mono text-[10px] tracking-wide border border-border bg-transparent text-muted-foreground">
+      <span
+        className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+        style={{
+          fontSize: "9px",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.08em",
+          opacity: 0.85,
+          padding: "2px 5px",
+          border: "1px solid var(--border)",
+          borderRadius: "4px",
+        }}
+      >
         Mock
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md font-mono text-[10px] tracking-wide border border-border bg-transparent text-muted-foreground">
+    <span
+      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      style={{
+        fontSize: "9px",
+        color: "var(--muted-foreground)",
+        letterSpacing: "0.08em",
+        opacity: 0.7,
+      }}
+    >
       —
     </span>
   )

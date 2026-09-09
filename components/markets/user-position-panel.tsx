@@ -21,7 +21,6 @@
 
 import * as React from "react"
 import { useWallet } from "@/components/app/wallet/use-wallet"
-import type { EIP1193Provider } from "@/lib/wallet/types"
 import type { Address } from "@/lib/wallet/types-common"
 import { fetchUserLendingPosition } from "@/lib/markets/onchain"
 import type {
@@ -48,14 +47,13 @@ export default function UserPositionPanel({ market }: UserPositionPanelProps) {
   const refresh = React.useCallback(async () => {
     setLoading(true)
     try {
-      const provider =
-        (wallet.status === "connected" ? (window as unknown as {
-          ethereum?: EIP1193Provider
-        }).ethereum ?? null : null)
+      // ethCall now defaults to ROBINHOOD_PUBLIC_RPC_URL — no wallet RPC
+      // routing needed. The wallet address + chainId are still passed so
+      // the onchain service can classify network state correctly.
       const pos = await fetchUserLendingPosition(market, {
         walletAddress: wallet.address as Address | null,
         walletChainId: wallet.chainId,
-        walletProvider: provider,
+        // provider omitted — ethCall defaults to public RPC
       })
       setPosition(pos)
     } catch {
@@ -64,7 +62,7 @@ export default function UserPositionPanel({ market }: UserPositionPanelProps) {
     } finally {
       setLoading(false)
     }
-  }, [market, wallet.status, wallet.address, wallet.chainId])
+  }, [market, wallet.address, wallet.chainId])
 
   // Initial + on wallet change.
   React.useEffect(() => {

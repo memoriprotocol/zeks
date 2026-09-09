@@ -15,39 +15,50 @@ import {
   formatApy,
   formatUtilization,
 } from "@/lib/markets/format"
-import { fetchLendingMarkets } from "@/lib/markets/lending"
 import type { LendingMarket } from "@/lib/markets/lending"
 import { resolveProtocolContractsForChain } from "@/lib/markets/protocol/registry"
 import { ROBINHOOD_CHAIN_ID } from "@/lib/markets/types"
 
 const POLL_INTERVAL_MS = 60_000
 
-export default function BorrowLive() {
-  const [markets, setMarkets] = React.useState<LendingMarket[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
+interface ApiResponse {
+  ok: boolean
+  markets: LendingMarket[]
+  failedSymbols: string[]
+  fetchedAt: string
+  message?: string
+}
+
+interface BorrowLiveProps {
+  initialMarkets: LendingMarket[]
+  initialFetchedAt: string
+  initialError: string | null
+}
+
+export default function BorrowLive({
+  initialMarkets,
+  initialFetchedAt,
+  initialError,
+}: BorrowLiveProps) {
+  const [markets, setMarkets] = React.useState<LendingMarket[]>(initialMarkets)
+  const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(initialError)
 
   const refresh = React.useCallback(async () => {
     setLoading(true)
     try {
-      const r = await fetchLendingMarkets(undefined, { debug: false })
-      if (r.kind === "error") {
-        setError(r.message)
-        setMarkets([])
-      } else {
-        setMarkets(r.payload.markets)
-        setError(null)
-      }
+      const res = await fetch("/api/markets/lending")
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data: ApiResponse = await res.json()
+      if (!data.ok) throw new Error(data.message ?? "Unknown error")
+      setMarkets(data.markets)
+      setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
   }, [])
-
-  React.useEffect(() => {
-    void refresh()
-  }, [refresh])
 
   React.useEffect(() => {
     const id = window.setInterval(() => void refresh(), POLL_INTERVAL_MS)

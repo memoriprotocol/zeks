@@ -203,12 +203,20 @@ export async function publicEthCall<T = string>(
 /**
  * Adapter: pick the right transport.
  *
- *   - Wallet provider available + correct chain → wallet RPC.
- *   - Wallet provider available + wrong chain   → public RPC.
- *   - No wallet                                 → public RPC.
+ * Routing logic:
+ *   - When `preferWalletRpc` is true (legacy behaviour) AND the wallet
+ *     is on Robinhood Chain, use the wallet's eth_call.
+ *   - Otherwise always use the public RPC URL:
+ *     https://rpc.mainnet.chain.robinhood.com
  *
- * This is the single entry point components should use. No raw
- * fetch / window.ethereum in component code.
+ * Rationale for defaulting to public RPC:
+ *   The Robinhood Wallet browser extension (and potentially other
+ *   wallets) may route `eth_call` through an internal endpoint that
+ *   serves requests for other chains. Using the explicit public RPC
+ *   URL ensures all reads are served by the canonical, chain-validated
+ *   Robinhood Chain endpoint already used throughout ZEKS.
+ *
+ * This is a read-only operation — no signatures, no popups.
  */
 export async function ethCall<T = string>(
   args: EthCallArgs,
@@ -216,13 +224,21 @@ export async function ethCall<T = string>(
     provider?: EIP1193Provider | null
     chainId?: number | null
     timeoutMs?: number
+    /**
+     * When true, attempt the wallet's own eth_call endpoint first
+     * (legacy behaviour). When false (default), always use the public
+     * RPC URL — the correct canonical endpoint for Robinhood Chain.
+     */
+    preferWalletRpc?: boolean
   } = {},
 ): Promise<RpcReadResult<T>> {
-  const { provider, chainId } = options
+  const { preferWalletRpc = false } = options
   const useWallet =
-    provider && (chainId == null || chainId === ROBINHOOD_CHAIN_ID_DEC)
-  if (useWallet && provider) {
-    return walletEthCall<T>(provider, args, {
+    preferWalletRpc &&
+    options.provider &&
+    (options.chainId == null || options.chainId === ROBINHOOD_CHAIN_ID_DEC)
+  if (useWallet && options.provider) {
+    return walletEthCall<T>(options.provider, args, {
       timeoutMs: options.timeoutMs,
     })
   }
@@ -242,19 +258,96 @@ export function parseUint256(hex: string, byteOffset: number): bigint {
   return BigInt("0x" + slice)
 }
 
-/** Parse a fixed-length hex string returned by `name()` / `symbol()`. */
+/**
+ * Parse a hex-encoded string returned by `name()` / `symbol()`.
+ *
+ * Solidity's `string` ABI returns dynamic data with the layout
+ *   [offset=0x20][length][bytes...]
+ * where `offset` is a uint256 in the first 32-byte slot, `length`
+ * is the byte length of the string, and the bytes themselves live
+ * at `offset * 1` (relative to the start of the return data).
+ *
+ * Concrete example — AAPL token `symbol()` returns 96 bytes:
+ *   slot0:  0x...0020       (offset = 32)
+ *   slot1:  0x...0004       (length = 4)
+ *   slot2:  0x4141504c...   ("AAPL")
+ *
+ * Strings are decoded as UTF-8 (not Latin-1) because ERC20 `name()`
+ * commonly contains multi-byte glyphs (e.g. "Apple • Robinhood Token"
+ * where `•` is three bytes: `e2 80 a2`).
+ *
+ * Robustness:
+ *   - If the first slot is non-zero AND in the plausible offset
+ *     range [0x20, 0xffff], treat it as the dynamic-string offset
+ *     and re-read the length + bytes from there.
+ *   - Otherwise fall back to reading bytes at the given `byteOffset`
+ *     (legacy behaviour for fixed strings).
+ *   - Strings longer than 32 bytes are followed across multiple
+ *     32-byte slots until the declared length is consumed.
+ */
 export function parseShortString(hex: string, byteOffset: number): string {
   if (!hex || hex === "0x") return ""
   const stripped = hex.startsWith("0x") ? hex.slice(2) : hex
   if (stripped.length < (byteOffset + 32) * 2) return ""
-  // The string is right-padded with zeros. Read until the first
-  // zero byte or end of slot.
-  const slice = stripped.slice(byteOffset * 2, (byteOffset + 32) * 2)
-  let out = ""
-  for (let i = 0; i < slice.length; i += 2) {
-    const code = parseInt(slice.slice(i, i + 2), 16)
-    if (code === 0) break
-    out += String.fromCharCode(code)
+
+  // Decode the offset slot at the caller's position. Use BigInt to
+  // avoid precision loss on 32-byte values (parseInt caps at 53 bits).
+  const offsetSlotHex = stripped.slice(byteOffset * 2, (byteOffset + 32) * 2)
+  let offsetValue = 0
+  try {
+    offsetValue = Number(BigInt("0x" + offsetSlotHex))
+  } catch {
+    return ""
   }
-  return out
+
+  let stringStartByte = byteOffset
+  let stringByteLen: number | null = null
+  if (
+    Number.isFinite(offsetValue) &&
+    offsetValue >= 0x20 &&
+    offsetValue <= 0xffff &&
+    stripped.length >= (byteOffset + offsetValue + 32) * 2
+  ) {
+    const lenHex = stripped.slice(
+      (byteOffset + offsetValue) * 2,
+      (byteOffset + offsetValue + 32) * 2,
+    )
+    let len = 0
+    try {
+      len = Number(BigInt("0x" + lenHex))
+    } catch {
+      len = -1
+    }
+    if (Number.isFinite(len) && len >= 0 && len <= 1024) {
+      stringStartByte = byteOffset + offsetValue + 32
+      stringByteLen = len
+    }
+  }
+
+  // Read the byte range (either the declared dynamic-string bytes,
+  // or one fixed-size 32-byte slot at the caller's offset).
+  const byteCount = stringByteLen ?? 32
+  const hexByteLen = byteCount * 2
+  const startHexIdx = stringStartByte * 2
+  const dataHex = stripped.slice(startHexIdx, startHexIdx + hexByteLen)
+
+  // UTF-8 decode (browser + node). We deliberately do NOT decode
+  // char-by-char as Latin-1; ERC20 names commonly include glyphs
+  // such as `•` whose UTF-8 representation is three bytes.
+  try {
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(dataHex, "hex").toString("utf8").replace(/\0+$/, "")
+    }
+    if (typeof TextDecoder !== "undefined") {
+      const bytes = new Uint8Array(dataHex.length / 2)
+      for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(dataHex.substr(i * 2, 2), 16)
+      }
+      const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes)
+      return decoded.replace(/\0+$/, "")
+    }
+  } catch {
+    return ""
+  }
+  return ""
 }

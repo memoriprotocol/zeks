@@ -22,8 +22,6 @@ import {
   formatUtilization,
 } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
-import type { LendingServiceResult } from "@/lib/markets/lending/types"
-import { fetchLendingMarkets } from "@/lib/markets/lending"
 import { resolveProtocolContractsForChain } from "@/lib/markets/protocol/registry"
 import { ROBINHOOD_CHAIN_ID } from "@/lib/markets/types"
 
@@ -40,15 +38,33 @@ const FILTER_LABELS: Record<EarnFilter, string> = {
 
 type EarnSort = "apy-desc" | "liquidity-desc" | "utilization-asc"
 
-export default function EarnLive() {
+interface ApiResponse {
+  ok: boolean
+  markets: LendingMarket[]
+  failedSymbols: string[]
+  fetchedAt: string
+  message?: string
+}
+
+interface EarnLiveProps {
+  initialMarkets: LendingMarket[]
+  initialFetchedAt: string
+  initialError: string | null
+}
+
+export default function EarnLive({
+  initialMarkets,
+  initialFetchedAt,
+  initialError,
+}: EarnLiveProps) {
   const [state, setState] = React.useState<{
     loading: boolean
     error: string | null
-    result: LendingServiceResult | null
+    markets: LendingMarket[]
   }>({
-    loading: true,
-    error: null,
-    result: null,
+    loading: false,
+    error: initialError,
+    markets: initialMarkets,
   })
   const [filter, setFilter] = React.useState<EarnFilter>("all")
   const [query, setQuery] = React.useState("")
@@ -56,30 +72,26 @@ export default function EarnLive() {
   const refresh = React.useCallback(async () => {
     setState((s) => ({ ...s, loading: true }))
     try {
-      const r = await fetchLendingMarkets(undefined, { debug: false })
-      setState({ loading: false, error: null, result: r })
+      const res = await fetch("/api/markets/lending")
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data: ApiResponse = await res.json()
+      if (!data.ok) throw new Error(data.message ?? "Unknown error")
+      setState({ loading: false, error: null, markets: data.markets })
     } catch (err) {
       setState({
         loading: false,
         error: err instanceof Error ? err.message : String(err),
-        result: null,
+        markets: [],
       })
     }
   }, [])
-
-  React.useEffect(() => {
-    void refresh()
-  }, [refresh])
 
   React.useEffect(() => {
     const id = window.setInterval(() => void refresh(), POLL_INTERVAL_MS)
     return () => window.clearInterval(id)
   }, [refresh])
 
-  const allMarkets =
-    state.result && state.result.kind !== "error"
-      ? state.result.payload.markets
-      : []
+  const allMarkets = state.markets
 
   const contracts = resolveProtocolContractsForChain(ROBINHOOD_CHAIN_ID)
   const protocolReady =

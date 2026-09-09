@@ -3,36 +3,47 @@
 /**
  * Markets page (ZEKS visual system · locked composition)
  *
- *   · PageTitle "Markets"
- *   · MarketSummary card                 (104px · 3 metrics)
- *   · SectionTitle "Curated"
- *   · FeaturedMarkets grid               (4-col desktop · 8 tickers)
- *   · SectionTitle "All markets"
- *   · MarketsToolbar (search + filter)
- *   · MarketList (dense table)
+ *   1. Page title + short description
+ *   2. Compact market summary row
+ *   3. Search + filters (toolbar)
+ *   4. Dense market list / table (8 columns)
  *
- * Reuses: --content-max · --card-soft · --card-radius ·
- *         --dash-* tokens · PageTitle · SectionTitle · Section primitive.
- * No admin chrome. Read-only.
+ * Reuses locked tokens: --content-max · --card-soft · --dash-card-radius ·
+ * --dash-card-pad · PageTitle · SectionTitle · MarketSummary · MarketsToolbar.
+ * No admin chrome. Read-only. No backend changes.
  */
 
 import * as React from "react"
-import { PageTitle, SectionTitle } from "@/components/zeks/page-title"
+import {
+  PageTitle,
+} from "@/components/zeks/page-title"
 import { MarketSummary } from "@/components/zeks/markets/market-summary"
 import {
   MarketsToolbar,
   type StatusFilter,
 } from "@/components/zeks/markets/markets-toolbar"
-import { FeaturedMarkets } from "@/components/zeks/markets/featured-markets"
 import { MarketList } from "@/components/zeks/markets/market-list"
-import { fetchLendingMarkets } from "@/lib/markets/lending"
 import type {
   LendingMarket,
-  LendingServiceResult,
 } from "@/lib/markets/lending"
 
+interface ApiResponse {
+  ok: boolean
+  markets: LendingMarket[]
+  failedSymbols: string[]
+  fetchedAt: string
+  message?: string
+}
+
 interface MarketsPageClientProps {
-  initialResult: LendingServiceResult
+  initialResult: {
+    kind: "ok" | "partial" | "empty"
+    payload: { markets: LendingMarket[]; failedSymbols: string[]; fetchedAt: string }
+    message?: string
+  } | {
+    kind: "error"
+    message: string
+  }
   initialNowMs: number
 }
 
@@ -65,13 +76,12 @@ export default function MarketsPageClient({
 
   const refresh = React.useCallback(async () => {
     try {
-      const result = await fetchLendingMarkets(undefined, { debug: false })
-      if (result.kind === "error") {
-        setStale(true)
-        return
-      }
-      setMarkets(result.payload.markets)
-      setFetchedAt(result.payload.fetchedAt)
+      const res = await fetch("/api/markets/lending")
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data: ApiResponse = await res.json()
+      if (!data.ok) throw new Error(data.message ?? "Unknown error")
+      setMarkets(data.markets)
+      setFetchedAt(data.fetchedAt)
       setStale(false)
       setErrorMessage(null)
     } catch {
@@ -86,11 +96,8 @@ export default function MarketsPageClient({
     return () => window.clearInterval(id)
   }, [refresh])
 
-  // Featured toolbar state — independent of the full-list filter.
-  // (Featured is curated so it doesn't honor status filter.)
-  // Full-list toolbar state.
-  const [listQuery, setListQuery] = React.useState("")
-  const [listStatus, setListStatus] = React.useState<StatusFilter>("all")
+  const [query, setQuery] = React.useState("")
+  const [status, setStatus] = React.useState<StatusFilter>("all")
 
   return (
     <div
@@ -99,64 +106,64 @@ export default function MarketsPageClient({
       data-testid="markets-root"
     >
       <div
-        className="px-5 md:px-6 pb-12"
+        className="flex flex-col"
         style={{
-          paddingTop: "var(--dash-top-pad)",
-          display: "flex",
-          flexDirection: "column",
+          paddingTop: "var(--content-pad-y)",
+          paddingBottom: "var(--content-pad-y)",
           gap: "var(--dash-section-gap)",
         }}
       >
-        {/* 1 · Page title */}
-        <div className="flex items-end justify-between gap-3 flex-wrap">
-          <PageTitle>Markets</PageTitle>
-          <span className="font-mono text-[10.5px] tracking-wide text-muted-foreground/60">
-            {errorMessage
-              ? "Live data unavailable"
-              : `Updated ${relative(fetchedAt)}${stale ? " · stale" : ""}`}
-          </span>
-        </div>
+        {/* 1 · Page title + short description */}
+        <header className="flex flex-col" style={{ gap: "8px" }}>
+          <div className="flex items-end justify-between gap-3 flex-wrap">
+            <PageTitle>Markets</PageTitle>
+            <span
+              className="font-mono"
+              style={{
+                fontSize: "11px",
+                color: "var(--muted-foreground)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {errorMessage
+                ? "Live data unavailable"
+                : `Updated ${relative(fetchedAt)}${stale ? " · stale" : ""}`}
+            </span>
+          </div>
+          <p
+            style={{
+              fontSize: "var(--font-body)",
+              lineHeight: 1.5,
+              color: "var(--foreground)",
+              opacity: 0.72,
+              maxWidth: "62ch",
+            }}
+          >
+            Every Morpho Blue market on Robinhood Chain where a curated
+            tokenized equity is accepted as collateral. Click any row to
+            inspect the onchain market.
+          </p>
+        </header>
 
-        {/* 2 · Compact summary */}
+        {/* 2 · Compact market summary */}
         <MarketSummary markets={markets} />
 
-        {/* 3 · Curated tickers */}
-        <section className="flex flex-col gap-3">
-          <SectionTitle
-            trailing={
-              markets.length === 0
-                ? null
-                : "8 curated · priority order"
-            }
-          >
-            Curated
-          </SectionTitle>
-          <FeaturedMarkets markets={markets} />
-        </section>
+        {/* 3 · Search + filters */}
+        <MarketsToolbar
+          query={query}
+          onQueryChange={setQuery}
+          status={status}
+          onStatusChange={setStatus}
+          placeholder="Search markets (AAPL, TSLA, …)"
+          testId="markets-list-toolbar"
+        />
 
-        {/* 4 · All markets */}
-        <section className="flex flex-col gap-3">
-          <SectionTitle>All Markets</SectionTitle>
-          {errorMessage && markets.length === 0 ? (
-            <ServiceUnavailable onRetry={() => void refresh()} />
-          ) : (
-            <>
-              <MarketsToolbar
-                query={listQuery}
-                onQueryChange={setListQuery}
-                status={listStatus}
-                onStatusChange={setListStatus}
-                placeholder="Search markets (AAPL, TSLA, …)"
-                testId="markets-list-toolbar"
-              />
-              <MarketList
-                markets={markets}
-                query={listQuery}
-                status={listStatus}
-              />
-            </>
-          )}
-        </section>
+        {/* 4 · Dense market list / table */}
+        {errorMessage && markets.length === 0 ? (
+          <ServiceUnavailable onRetry={() => void refresh()} />
+        ) : (
+          <MarketList markets={markets} query={query} status={status} />
+        )}
       </div>
     </div>
   )
@@ -166,20 +173,56 @@ function ServiceUnavailable({ onRetry }: { onRetry: () => void }) {
   return (
     <div
       data-testid="markets-unavailable"
-      className="rounded-[14px] border border-border px-5 py-5"
-      style={{ backgroundColor: "var(--card-soft)" }}
+      className="border"
       role="alert"
+      style={{
+        padding: "var(--dash-card-pad)",
+        borderRadius: "var(--dash-card-radius)",
+        backgroundColor: "var(--card-soft)",
+        borderColor: "var(--border)",
+      }}
     >
-      <div className="font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase">
+      <div
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
         Data Unavailable
       </div>
-      <p className="text-[14px] text-foreground mt-2" style={{ lineHeight: 1.45 }}>
+      <p
+        style={{
+          fontSize: "var(--font-body)",
+          lineHeight: 1.45,
+          color: "var(--foreground)",
+          marginTop: "8px",
+        }}
+      >
         We could not reach Morpho for the live market universe.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-4 inline-flex items-center justify-center rounded-[8px] border border-primary/40 bg-primary/15 text-foreground h-8 px-3 text-[12px] font-medium hover:bg-primary/25 transition-colors"
+        className="inline-flex items-center justify-center transition-colors"
+        style={{
+          marginTop: "16px",
+          padding: "6px 12px",
+          fontSize: "12px",
+          fontFamily: "var(--font-mono)",
+          color: "var(--foreground)",
+          border: "1px solid var(--border)",
+          borderRadius: "5px",
+          background: "transparent",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "var(--secondary)"
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent"
+        }}
       >
         Retry
       </button>

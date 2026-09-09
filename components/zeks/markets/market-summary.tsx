@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * MarketSummary — compact 104px three-metric strip.
+ * MarketSummary — compact 3-metric strip.
  *
  *   · Active markets count
  *   · Total liquidity (USD)
@@ -9,6 +9,7 @@
  *
  * No admin chrome. Same beige surface as the rest of the
  * dashboard. Fields with no underlying data render as `—`.
+ * Uses locked tokens: --dash-card-radius · --dash-card-pad.
  */
 
 import * as React from "react"
@@ -52,13 +53,18 @@ export function MarketSummary({ markets }: MarketSummaryProps) {
     <div
       data-testid="markets-summary"
       aria-label="Market summary"
-      className="rounded-[14px] border border-border overflow-hidden"
+      className="border overflow-hidden"
       style={{
-        minHeight: "var(--dash-explainer-h)",
         backgroundColor: "var(--card-soft)",
+        borderColor: "var(--border)",
+        borderRadius: "var(--dash-card-radius)",
+        padding: "var(--dash-card-pad)",
       }}
     >
-      <div className="grid grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-3"
+        style={{ rowGap: "16px", columnGap: "16px" }}
+      >
         <SummaryCell label="Active Markets" value={String(stats.active)} />
         <SummaryCell
           label="Total Liquidity"
@@ -84,19 +90,26 @@ function SummaryCell({
   tone?: "down"
 }) {
   return (
-    <div
-      className="flex flex-col justify-center px-5 py-4"
-      style={{ minHeight: "var(--dash-explainer-h)" }}
-    >
-      <div className="font-mono text-[9.5px] tracking-wide text-muted-foreground/70 uppercase">
+    <div className="flex flex-col" style={{ minWidth: 0 }}>
+      <div
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
         {label}
       </div>
       <div
-        className={[
-          "font-serif tabular-nums leading-none mt-2",
-          tone === "down" ? "text-down" : "text-foreground",
-        ].join(" ")}
-        style={{ fontSize: "24px" }}
+        className="tabular-nums leading-none"
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontSize: "28px",
+          letterSpacing: "-0.02em",
+          color: tone === "down" ? "var(--down)" : "var(--foreground)",
+          marginTop: "8px",
+        }}
       >
         {value}
       </div>

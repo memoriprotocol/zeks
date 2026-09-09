@@ -1,12 +1,12 @@
 "use client"
 
 /**
- * MarketsToolbar — search + status filter + (optional) source filter.
+ * MarketsToolbar — search + status filter.
  *
  *   · Search input (flex-1, 240px min)
  *   · Status filter (All · Live · Borrowable)
  *
- * Reads/writes controlled state. Visual system matches Dashboard.
+ * Reads/writes controlled state. Uses locked design tokens.
  */
 
 import * as React from "react"
@@ -32,8 +32,9 @@ export function MarketsToolbar({
 }: MarketsToolbarProps) {
   return (
     <div
-      className="flex items-center gap-2.5 flex-wrap"
+      className="flex items-center flex-wrap"
       data-testid={testId ?? "markets-toolbar"}
+      style={{ gap: "10px" }}
     >
       <label className="relative flex-1 min-w-[240px]">
         <span className="sr-only">Search markets</span>
@@ -42,11 +43,25 @@ export function MarketsToolbar({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full h-9 rounded-[10px] border border-border bg-transparent pl-9 pr-3 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-foreground/40 transition-colors"
+          className="w-full rounded-md border outline-none transition-colors"
+          style={{
+            padding: "10px 12px 10px 32px",
+            fontSize: "var(--font-body)",
+            borderColor: "var(--border)",
+            color: "var(--foreground)",
+            background: "var(--background)",
+            borderRadius: "8px",
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
+          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
         />
         <span
           aria-hidden="true"
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 text-[12px]"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+          style={{
+            fontSize: "13px",
+            color: "var(--muted-foreground)",
+          }}
         >
           ⌕
         </span>
@@ -56,7 +71,18 @@ export function MarketsToolbar({
         value={status}
         onChange={(e) => onStatusChange(e.currentTarget.value as StatusFilter)}
         aria-label="Filter by status"
-        className="h-9 rounded-[10px] border border-border bg-transparent px-3 text-[12px] text-foreground outline-none focus:border-foreground/40 transition-colors"
+        className="rounded-md border outline-none cursor-pointer font-mono uppercase transition-colors"
+        style={{
+          padding: "8px 12px",
+          fontSize: "12px",
+          letterSpacing: "0.04em",
+          borderColor: "var(--border)",
+          color: "var(--foreground)",
+          background: "var(--background)",
+          borderRadius: "8px",
+        }}
+        onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
+        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
       >
         <option value="all">All</option>
         <option value="live">Live</option>
