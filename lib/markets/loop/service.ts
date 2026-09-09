@@ -232,52 +232,100 @@ export async function fetchYieldVenues(
 
 /**
  * Read ERC-4626 `totalAssets()` for each vault via the canonical
- * Robinhood RPC. Returns a Map<lowercasedAddress, raw totalAssets
- * in token base units>. Each vault's TVL is independent — no shared
- * Morpho pool is reported per-vault.
+ * Robinhood RPC. Returns a Map<lowercasedAddress, VaultOnchain>
+ * carrying the raw totalAssets + the underlying-asset decimals.
  *
- * Uses the public Robinhood Chain RPC at the URL already in
- * `lib/markets/onchain/rpc.ts`. Per-vault reads run concurrently with
- * a 5 s timeout. Reads that fail individually are simply absent
- * from the map — callers treat missing entries as null.
+ * Why underlying decimals matter: `totalAssets()` is denominated
+ * in the ERC-4626 *underlying asset's* base units (6 for USDG),
+ * NOT in the vault share-token decimals (18 for Loopr USDG
+ * vaults). Reading the onchain `asset().decimals()` for each
+ * vault is the only way to convert to a human figure safely —
+ * hard-coding either decimals is a fabrication risk.
+ *
+ * Per-vault reads run concurrently with a 5 s timeout. Any per-vault
+ * failure leaves that vault absent from the map; callers treat
+ * missing entries as null TVL.
  */
+interface VaultOnchain {
+  /** Raw totalAssets in underlying-asset base units. */
+  totalAssetsRaw: bigint
+  /** Decimals of the underlying asset (resolved via asset().decimals()). */
+  underlyingDecimals: number
+}
+
 async function fetchVaultTotalAssets(
   vaults: readonly VerifiedVault[],
   timeoutMs: number,
-): Promise<Map<string, bigint>> {
-  const out = new Map<string, bigint>()
+): Promise<Map<string, VaultOnchain>> {
+  const out = new Map<string, VaultOnchain>()
   await Promise.all(
     vaults.map(async (v) => {
       try {
-        const ctrl = new AbortController()
-        const t = setTimeout(() => ctrl.abort(), timeoutMs)
-        const res = await fetch(ROBINHOOD_PUBLIC_RPC_URL, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "eth_call",
-            params: [
-              { to: v.address, data: "0x01e1d114" }, // totalAssets()
-              "latest",
-            ],
-            id: 1,
-          }),
-          signal: ctrl.signal,
-          cache: "no-store",
-        })
-        clearTimeout(t)
-        if (!res.ok) return
-        const j = (await res.json()) as { result?: string }
-        if (!j.result || j.result === "0x" || j.result === "0x0") return
-        const total = parseUint256(j.result as `0x${string}`, 0)
-        out.set(v.address.toLowerCase(), total)
+        // Step 1 — resolve the underlying asset address via ERC-4626 asset().
+        const assetAddr = await callStatic(
+          v.address,
+          "0x38d52e0f", // asset()
+          timeoutMs,
+        )
+        if (!assetAddr || assetAddr === "0x") return
+
+        // ERC-4626 asset() returns the contract address, ABI-encoded
+        // as a 32-byte word left-padded with zeros.
+        const stripped = assetAddr.replace(/^0x/, "")
+        const addrHex =
+          "0x" + (stripped.length >= 40 ? stripped.slice(-40) : stripped)
+        if (!/^0x[0-9a-fA-F]{40}$/.test(addrHex)) return
+
+        // Step 2 — read decimals() of the underlying asset.
+        const decRaw = await callStatic(addrHex, "0x313ce567", timeoutMs)
+        if (!decRaw || decRaw === "0x") return
+        const decimals = Number(BigInt(decRaw))
+        if (!Number.isFinite(decimals) || decimals < 0 || decimals > 36) {
+          return
+        }
+
+        // Step 3 — read totalAssets() of the vault.
+        const taRaw = await callStatic(v.address, "0x01e1d114", timeoutMs)
+        if (!taRaw || taRaw === "0x") return
+        const totalAssetsRaw = parseUint256(taRaw as `0x${string}`, 0)
+        if (totalAssetsRaw === BigInt(0)) return
+
+        out.set(v.address.toLowerCase(), { totalAssetsRaw, underlyingDecimals: decimals })
       } catch {
         // silent — vault falls back to null TVL
       }
     }),
   )
   return out
+}
+
+async function callStatic(
+  to: string,
+  data: string,
+  timeoutMs: number,
+): Promise<string | null> {
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), timeoutMs)
+    const res = await fetch(ROBINHOOD_PUBLIC_RPC_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "eth_call",
+        params: [{ to, data }, "latest"],
+        id: 1,
+      }),
+      signal: ctrl.signal,
+      cache: "no-store",
+    })
+    clearTimeout(t)
+    if (!res.ok) return null
+    const j = (await res.json()) as { result?: string }
+    return j.result ?? null
+  } catch {
+    return null
+  }
 }
 
 /** Pick the canonical (highest-TVL) USDG Morpho market. */
@@ -316,21 +364,23 @@ function pickCanonicalUsdg(
 function buildVaultVenue(
   vault: VerifiedVault,
   canonical: MorphoMarket | null,
-  totalAssetsRaw: bigint | null,
+  onchain: VaultOnchain | null,
   fetchedAt: string,
 ): YieldVenue {
   const cfg = YIELD_VENUE_CONFIG.USDG
 
-  // Per-vault independent TVL: ERC-4626 totalAssets / 10^decimals.
-  // This is the share balance, not USD.
+  // Per-vault independent TVL:
+  //   totalAssets() returns underlying-asset base units.
+  //   We resolved underlyingDecimals via asset().decimals() — that
+  //   is the only safe conversion (hard-coding 6 or 18 would be a
+  //   fabrication risk if a future vault uses a different asset).
+  // The numeric TVL is in USDG, pegged 1:1 to USD.
   const tvl =
-    totalAssetsRaw != null
-      ? Number(totalAssetsRaw) / Math.pow(10, vault.decimals)
+    onchain != null
+      ? Number(onchain.totalAssetsRaw) / Math.pow(10, onchain.underlyingDecimals)
       : null
 
-  // Liquidity: ERC-4626 — no borrow-side, so TVL == liquidity
-  // (modulo share-per-asset ratio, which we treat as 1:1). We do
-  // NOT fabricate a borrow/liquidity subtraction.
+  // Liquidity: ERC-4626 — no borrow-side, so TVL == liquidity.
   const liquidity = tvl
 
   // APY: shared underlying USDG Morpho market supplyApy.

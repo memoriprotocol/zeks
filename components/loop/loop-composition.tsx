@@ -1,34 +1,34 @@
 "use client"
 
 /**
- * LoopComposition — ZEKS Loop main product page (v3)
+ * LoopComposition — ZEKS Loop product page (final rebuild).
  *
- * Loopr-style product flow:
+ * Reads from the existing `useLoopMarkets` hook. No new data sources.
+ * Layout follows the locked ZEKS design system (Dashboard reference):
  *
- *   1. STOCK COLLATERAL  — curated card grid (AAPL, SPCX, TSLA, NVDA,
- *                          GOOGL, AMZN, MSFT, META) with logo,
- *                          Chainlink price, LLTV, capital multiplier,
- *                          supply/borrow APY, liquidity, status.
- *                          Primary CTA: "Loop [SYMBOL]".
- *                          Secondary CTA: "View market".
- *   2. APPROVED YIELD VENUES — venue cards (name, APY, TVL, status,
- *                          source). Honest "unavailable" badge when
- *                          upstream data is missing.
- *   3. LOOP ECONOMICS PANEL — emerges on stock selection: collateral,
- *                          borrow APY, selected venue, venue APY,
- *                          estimated net carry, est. LTV, risk.
+ *   · 64px sidebar shell, max-w-6xl content, 28px desktop padding
+ *   · Section gap 32–40px, card gap 16px, card radius 16px, pad 20px
+ *   · Warm off-white (--card-soft) surface, thin borders, no giant
+ *     lime full-width buttons.
  *
- * Net carry: `venue APY − borrow APY − known costs`. When costs are
- * unknown we display "before fees — unavailable" instead of fake
- * precision.
+ * Page order (single visual column):
  *
- * Read-only. No supply/borrow/loop transactions. No guessed contracts.
+ *   1. Loop intro          — compact header (title + supporting copy + status)
+ *   2. Stock collateral    — 3-column card grid (one card per curated stock)
+ *   3. Yield venues        — 3 equal cards (one per verified vault)
+ *   4. Loop economics      — 2-column (carry panel + route visualization)
+ *
+ * No data is fabricated. Missing values render as "—". AMZN's real
+ * limitation (no Morpho market on Robinhood Chain) is rendered
+ * honestly. SPCX's missing Chainlink feed renders "—" for oracle.
  */
 
 import * as React from "react"
 import Link from "next/link"
 import AssetLogo from "@/components/asset-logo"
+import { PageTitle, SectionTitle } from "@/components/zeks/page-title"
 import { useLoopMarkets } from "@/components/loop/use-loop-markets"
+import { useNetworkStatus } from "@/components/zeks/use-network-status"
 import {
   CURATED_STOCKS,
   LOOP_ESTIMATED_FEES_PERCENT,
@@ -46,6 +46,7 @@ import {
   formatPrice,
   formatApy,
   formatCompact,
+  relativeUpdated,
 } from "@/lib/markets/format"
 
 const STOCK_PRIORITY = new Map<string, number>(
@@ -53,31 +54,13 @@ const STOCK_PRIORITY = new Map<string, number>(
 )
 
 export default function LoopComposition() {
-  const { markets, yieldVenues, loading, error } = useLoopMarkets()
+  const { markets, yieldVenues, loading, error, fetchedAt } = useLoopMarkets()
+  const network = useNetworkStatus()
 
   const [selectedSymbol, setSelectedSymbol] = React.useState<string | null>(null)
-  const [selectedVenueId, setSelectedVenueId] = React.useState<string | null>(
-    null,
-  )
+  const [selectedVenueId, setSelectedVenueId] = React.useState<string | null>(null)
 
-  // Stock selection — pick first live (preferred) curated market
-  React.useEffect(() => {
-    if (selectedSymbol || markets.length === 0) return
-    const live = markets.find((m) => m.sourceMode === "real-morpho")
-    setSelectedSymbol(live?.symbol ?? markets[0].symbol)
-  }, [markets, selectedSymbol])
-
-  // Venue selection — prefer live > unlisted > first
-  React.useEffect(() => {
-    if (selectedVenueId || yieldVenues.length === 0) return
-    const live =
-      yieldVenues.find((v) => v.status === "live") ??
-      yieldVenues.find((v) => v.status === "unlisted") ??
-      yieldVenues[0]
-    setSelectedVenueId(live.id)
-  }, [yieldVenues, selectedVenueId])
-
-  // Sort markets: curated priority first, then alphabetically
+  // Sort markets: curated priority first, then alphabetical
   const sortedMarkets = React.useMemo(() => {
     return markets.slice().sort((a, b) => {
       const sa = a.symbol.toUpperCase()
@@ -91,78 +74,91 @@ export default function LoopComposition() {
     })
   }, [markets])
 
+  // Default selection — first live curated market (real Morpho preferred),
+  // then first unlisted, then first row.
+  React.useEffect(() => {
+    if (selectedSymbol || sortedMarkets.length === 0) return
+    const live =
+      sortedMarkets.find((m) => m.sourceMode === "real-morpho") ??
+      sortedMarkets.find((m) => m.sourceMode === "real-morpho-unlisted") ??
+      sortedMarkets[0]
+    if (live) setSelectedSymbol(live.symbol)
+  }, [sortedMarkets, selectedSymbol])
+
+  React.useEffect(() => {
+    if (selectedVenueId || yieldVenues.length === 0) return
+    const live =
+      yieldVenues.find((v) => v.status === "live") ??
+      yieldVenues.find((v) => v.status === "candidate") ??
+      yieldVenues[0]
+    if (live) setSelectedVenueId(live.id)
+  }, [yieldVenues, selectedVenueId])
+
   const selectedMarket =
-    markets.find((m) => m.symbol === selectedSymbol) ?? null
+    sortedMarkets.find((m) => m.symbol === selectedSymbol) ?? null
   const selectedVenue =
     yieldVenues.find((v) => v.id === selectedVenueId) ?? null
 
-  const position = React.useMemo(() => {
-    if (!selectedMarket || !selectedVenue) return null
-    return {
-      market: selectedMarket,
-      venue: selectedVenue,
-      collateralAmount: null,
-      loanAmount: null,
-      estimatedLtv: null,
-    }
-  }, [selectedMarket, selectedVenue])
-
-  const carry: NetCarry | null | undefined = position
-    ? computeNetCarry(position, LOOP_ESTIMATED_FEES_PERCENT)
-    : undefined
-
-  const estimatedLtvFrac =
-    selectedMarket?.lltv != null ? selectedMarket.lltv * 0.5 : null
-
-  const risk: LoopRiskStatus =
-    selectedMarket?.lltv != null
-      ? assessLoopRisk(estimatedLtvFrac, selectedMarket.lltv)
-      : "unknown"
-
   const liveVenueCount = yieldVenues.filter((v) => v.status === "live").length
+  const liveMarketCount = markets.filter(
+    (m) =>
+      m.sourceMode === "real-morpho" || m.sourceMode === "real-morpho-unlisted",
+  ).length
 
   return (
     <div
-      className="w-full max-w-[1200px] mx-auto space-y-4"
+      className="w-full mx-auto flex flex-col"
+      style={{
+        maxWidth: "var(--content-max)",
+        gap: "var(--dash-section-gap)",
+      }}
       data-loop-composition
     >
-      {/* ── Section 1 — STOCK COLLATERAL ──────────────────────────── */}
-      <section
-        aria-label="Stock collateral grid"
-        data-testid="loop-stock-grid"
-        className="rounded-2xl border border-border bg-card overflow-hidden"
-      >
-        <header className="px-5 py-3 border-b border-border flex items-baseline justify-between gap-2 flex-wrap">
-          <div className="flex items-baseline gap-3">
-            <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-              STOCK COLLATERAL
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              Curated Robinhood Chain stock tokens · Morpho Blue
-            </span>
-          </div>
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-            {markets.length} markets · {CURATED_STOCKS.length} curated
-          </span>
-        </header>
+      {/* 1 · Loop intro */}
+      <LoopIntro
+        marketCount={markets.length}
+        liveMarketCount={liveMarketCount}
+        liveVenueCount={liveVenueCount}
+        totalVenues={yieldVenues.length}
+        network={network}
+        fetchedAt={fetchedAt}
+      />
 
-        {loading && markets.length === 0 ? (
-          <EmptyState text="Loading markets…" tone="muted" />
-        ) : error && markets.length === 0 ? (
-          <EmptyState text={`Error: ${error}`} tone="error" />
+      {/* 2 · Stock collateral */}
+      <section className="flex flex-col">
+        <SectionTitle
+          trailing={
+            loading && markets.length === 0
+              ? "Loading…"
+              : error
+                ? "Live data unavailable"
+                : fetchedAt
+                  ? `Updated ${relativeUpdated(fetchedAt)}`
+                  : "—"
+          }
+        >
+          Stock Collateral
+        </SectionTitle>
+        {loading && sortedMarkets.length === 0 ? (
+          <PanelEmpty text="Loading markets…" />
         ) : sortedMarkets.length === 0 ? (
-          <EmptyState text="No stock markets available." tone="muted" />
+          <PanelEmpty text="No stock markets available." />
         ) : (
-          <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-px bg-border border-t border-border">
+          <ul
+            className="grid"
+            style={{
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "var(--dash-card-gap)",
+            }}
+          >
             {sortedMarkets.map((m) => (
-              <li
-                key={m.marketId ?? m.symbol}
-                className="bg-card"
-              >
+              <li key={m.marketId ?? m.symbol} className="h-full">
                 <StockCard
                   market={m}
                   active={selectedSymbol === m.symbol}
                   onSelect={setSelectedSymbol}
+                  selectedVenue={selectedVenue}
                 />
               </li>
             ))}
@@ -170,35 +166,23 @@ export default function LoopComposition() {
         )}
       </section>
 
-      {/* ── Section 2 — APPROVED YIELD VENUES ─────────────────────── */}
-      <section
-        aria-label="Approved yield venues"
-        data-testid="loop-yield-venues"
-        className="rounded-2xl border border-border bg-card overflow-hidden"
-      >
-        <header className="px-5 py-3 border-b border-border flex items-baseline justify-between gap-2 flex-wrap">
-          <div className="flex items-baseline gap-3">
-            <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-              APPROVED YIELD VENUES
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              Where borrowed stablecoin is routed for yield
-            </span>
-          </div>
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-            {liveVenueCount} live · {yieldVenues.length} total
-          </span>
-        </header>
-
+      {/* 3 · Yield venues */}
+      <section className="flex flex-col">
+        <SectionTitle trailing={`${liveVenueCount} live · ${yieldVenues.length} total`}>
+          Yield Venues
+        </SectionTitle>
         {yieldVenues.length === 0 ? (
-          <EmptyState text="Loading venues…" tone="muted" />
+          <PanelEmpty text="Loading venues…" />
         ) : (
-          <ul className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border border-t border-border">
+          <ul
+            className="grid"
+            style={{
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: "var(--dash-card-gap)",
+            }}
+          >
             {yieldVenues.map((v) => (
-              <li
-                key={v.id}
-                className="bg-card"
-              >
+              <li key={v.id} className="h-full">
                 <VenueCard
                   venue={v}
                   active={selectedVenueId === v.id}
@@ -210,123 +194,394 @@ export default function LoopComposition() {
         )}
       </section>
 
-      {/* ── Section 3 — LOOP ECONOMICS PANEL ──────────────────────── */}
-      <section
-        aria-label="Loop economics"
-        data-testid="loop-economics"
-        className="rounded-2xl border border-border bg-card overflow-hidden"
-      >
-        <header className="px-5 py-3 border-b border-border flex items-baseline justify-between gap-2 flex-wrap">
-          <div className="flex items-baseline gap-3">
-            <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-              LOOP ECONOMICS
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              Estimated carry for the selected pair
-            </span>
-          </div>
-          {!selectedMarket || !selectedVenue ? (
-            <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-              Select a stock and venue above
-            </span>
-          ) : (
-            <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-              {selectedMarket.symbol} → {selectedVenue.asset ?? "stablecoin"} → {selectedVenue.name}
-            </span>
-          )}
-        </header>
-
-        {selectedMarket && selectedVenue ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-px bg-border border-t border-border">
-            {/* left: carry hero */}
-            <CarryHero
-              market={selectedMarket}
-              venue={selectedVenue}
-              carry={carry ?? null}
-              estimatedLtv={estimatedLtvFrac}
-              risk={risk}
-            />
-            {/* right: detail tiles */}
-            <DetailGrid
-              market={selectedMarket}
-              venue={selectedVenue}
-              carry={carry ?? null}
-              estimatedLtv={estimatedLtvFrac}
-            />
-          </div>
-        ) : (
-          <div className="p-6">
-            <p className="font-serif text-[28px] text-foreground/40 leading-tight">
-              Pick a stock collateral card and an approved yield venue.
-            </p>
-          </div>
-        )}
+      {/* 4 · Loop economics */}
+      <section className="flex flex-col">
+        <SectionTitle>Loop Economics</SectionTitle>
+        <LoopEconomics
+          market={selectedMarket}
+          venue={selectedVenue}
+        />
       </section>
     </div>
   )
 }
 
 /* ════════════════════════════════════════════════════════════════════
- * Stock card
+ * 1 · Loop intro
+ * ═══════════════════════════════════════════════════════════════════ */
+
+function LoopIntro({
+  marketCount,
+  liveMarketCount,
+  liveVenueCount,
+  totalVenues,
+  network,
+  fetchedAt,
+}: {
+  marketCount: number
+  liveMarketCount: number
+  liveVenueCount: number
+  totalVenues: number
+  network: ReturnType<typeof useNetworkStatus>
+  fetchedAt: string | null
+}) {
+  return (
+    <header
+      className="flex items-end justify-between gap-6 flex-wrap"
+      style={{ marginBottom: "var(--dash-heading-gap)" }}
+      data-loop-intro
+    >
+      {/* Left — title + supporting copy */}
+      <div className="min-w-0 max-w-[640px]">
+        <PageTitle>Loop</PageTitle>
+        <p
+          className="mt-2"
+          style={{
+            fontSize: "var(--font-body)",
+            color: "var(--muted-foreground)",
+            lineHeight: 1.55,
+          }}
+        >
+          Deposit tokenized stock as collateral. Borrow stablecoin. Route
+          capital into a yield venue. Net carry = venue yield − borrow
+          rate − costs.
+        </p>
+        <p
+          className="font-mono mt-2"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Read-only · Robinhood Chain · Morpho Blue
+        </p>
+      </div>
+
+      {/* Right — compact status */}
+      <ul
+        className="flex items-center gap-5 flex-wrap"
+        style={{
+          padding: "10px 14px",
+          border: "1px solid var(--border)",
+          borderRadius: "10px",
+          backgroundColor: "var(--card-soft)",
+        }}
+      >
+        <IntroStat
+          label="Curated"
+          value={`${marketCount}/8`}
+          tone={marketCount === 8 ? "up" : "muted"}
+        />
+        <IntroStat
+          label="Live markets"
+          value={String(liveMarketCount)}
+          tone={liveMarketCount > 0 ? "up" : "muted"}
+        />
+        <IntroStat
+          label="Live venues"
+          value={`${liveVenueCount}/${totalVenues}`}
+          tone={liveVenueCount > 0 ? "up" : "muted"}
+        />
+        <IntroDivider />
+        <IntroStatus
+          label="Morpho"
+          state={network.morphoApi}
+        />
+        <IntroStatus
+          label="RH RPC"
+          state={network.robinhoodRpc}
+        />
+        <IntroStatus
+          label="Chainlink"
+          state={network.chainlink === "ready" ? "live" : "unknown"}
+        />
+      </ul>
+    </header>
+  )
+}
+
+function IntroStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone: "up" | "muted"
+}) {
+  return (
+    <li className="flex flex-col gap-1">
+      <span
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "13px",
+          color:
+            tone === "up" ? "var(--foreground)" : "var(--muted-foreground)",
+        }}
+      >
+        {value}
+      </span>
+    </li>
+  )
+}
+
+function IntroDivider() {
+  return (
+    <li
+      aria-hidden="true"
+      style={{
+        width: "1px",
+        height: "24px",
+        backgroundColor: "var(--border)",
+      }}
+    />
+  )
+}
+
+function IntroStatus({
+  label,
+  state,
+}: {
+  label: string
+  state: "live" | "unreachable" | "unknown"
+}) {
+  const color =
+    state === "live"
+      ? "var(--up)"
+      : state === "unreachable"
+        ? "var(--down)"
+        : "var(--muted-foreground)"
+  return (
+    <li className="flex items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className="rounded-full"
+        style={{
+          width: "6px",
+          height: "6px",
+          backgroundColor: color,
+        }}
+      />
+      <span
+        className="font-mono"
+        style={{
+          fontSize: "11px",
+          color: "var(--foreground)",
+        }}
+      >
+        {label}
+      </span>
+    </li>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * 2 · Stock collateral card
  * ═══════════════════════════════════════════════════════════════════ */
 
 function StockCard({
   market: m,
   active,
   onSelect,
+  selectedVenue,
 }: {
   market: LoopMarket
   active: boolean
   onSelect: (s: string) => void
+  selectedVenue: YieldVenue | null
 }) {
-  const statusLabel = marketStatus(m)
+  // Compute live carry if both sides have data.
+  const liveCarry: NetCarry | null = React.useMemo(() => {
+    if (!selectedVenue) return null
+    const venueApy = selectedVenue.apy
+    const borrowApy = m.borrowApy
+    if (venueApy == null || borrowApy == null) return null
+    return {
+      venueApy,
+      borrowApy,
+      gross: venueApy - borrowApy,
+      fees: LOOP_ESTIMATED_FEES_PERCENT,
+      feesUnknown: false,
+      incomplete: false,
+      net: venueApy - borrowApy - LOOP_ESTIMATED_FEES_PERCENT,
+      profitable: venueApy - borrowApy - LOOP_ESTIMATED_FEES_PERCENT > 0,
+    }
+  }, [selectedVenue, m.borrowApy])
+
+  const isMock = m.sourceMode === "mock"
+  const isUnlisted = m.sourceMode === "real-morpho-unlisted"
+
   return (
     <article
       aria-label={`${m.name ?? m.symbol} market`}
-      data-testid="loop-stock-card"
-      className={
-        "relative h-full p-4 flex flex-col gap-3 transition-colors " +
-        (active ? "bg-accent/40 ring-1 ring-primary/40" : "hover:bg-secondary/30")
-      }
+      className="flex flex-col h-full"
+      style={{
+        padding: "var(--dash-card-pad)",
+        borderRadius: "var(--dash-card-radius)",
+        backgroundColor: active ? "var(--accent)" : "var(--card-soft)",
+        border: `1px solid ${active ? "var(--foreground)" : "var(--border)"}`,
+        minHeight: "var(--dash-card-min-h)",
+        transition: "background-color 160ms ease, border-color 160ms ease",
+        cursor: "pointer",
+      }}
+      onClick={() => onSelect(m.symbol)}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = "var(--background)"
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = active
+          ? "var(--accent)"
+          : "var(--card-soft)"
+      }}
+      data-loop-stock-card
     >
-      <button
-        type="button"
-        onClick={() => onSelect(m.symbol)}
-        className="absolute inset-0 z-0 cursor-pointer"
-        aria-label={`Select ${m.symbol} for loop economics`}
-      />
-      <div className="relative z-10 flex items-start gap-3">
+      {/* 1 · Header — logo · symbol · company · status */}
+      <header className="flex items-center gap-3">
         <AssetLogo
           symbol={m.symbol}
           name={m.name ?? m.symbol}
           src={m.logoUrl ?? undefined}
-          size={36}
+          size={40}
+          shape="rounded"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="font-serif text-[20px] leading-none text-foreground">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: "var(--font-card-symbol)",
+                color: "var(--foreground)",
+                lineHeight: 1.1,
+                letterSpacing: "-0.01em",
+              }}
+            >
               {m.symbol}
             </span>
-            <span className="font-mono text-[10px] tracking-wider text-muted-foreground/70 truncate">
-              {m.name ?? m.symbol}
-            </span>
-            <StatusPip mode={m.sourceMode} />
+            <SourceChip mode={m.sourceMode} />
           </div>
-          <div className="font-mono tabular-nums text-[18px] text-foreground mt-1.5">
-            {m.oraclePrice != null ? formatPrice(m.oraclePrice) : "—"}
+          <div
+            className="font-mono truncate"
+            style={{
+              fontSize: "var(--font-card-company)",
+              color: "var(--muted-foreground)",
+              marginTop: "4px",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {cleanCompany(m.name) ?? m.symbol}
           </div>
-          <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 mt-0.5">
-            Chainlink oracle
-          </div>
+        </div>
+      </header>
+
+      {/* 2 · Oracle price */}
+      <div
+        style={{
+          paddingTop: "14px",
+          paddingBottom: "12px",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <div
+          className="font-mono uppercase"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {m.oraclePrice != null ? "Chainlink Oracle" : "Chainlink Oracle"}
+        </div>
+        <div
+          className="tabular-nums leading-tight"
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: "28px",
+            letterSpacing: "-0.02em",
+            color:
+              m.oraclePrice != null ? "var(--foreground)" : "var(--muted-foreground)",
+            marginTop: "2px",
+            opacity: m.oraclePrice != null ? 1 : 0.55,
+          }}
+        >
+          {m.oraclePrice != null ? formatPrice(m.oraclePrice) : "—"}
+        </div>
+        <div
+          className="font-mono"
+          style={{
+            fontSize: "10px",
+            color: "var(--muted-foreground)",
+            marginTop: "4px",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {m.oraclePrice != null
+            ? "Robinhood Chain · live"
+            : "No Chainlink feed deployed"}
         </div>
       </div>
 
-      <div className="relative z-10 grid grid-cols-2 gap-px bg-border rounded-lg overflow-hidden border border-border">
-        <StockStat
-          label="MAX LTV · LLTV"
+      {/* 3 · Risk / market block */}
+      <dl
+        className="grid grid-cols-3"
+        style={{
+          columnGap: "8px",
+          paddingTop: "12px",
+          paddingBottom: "12px",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <StatField
+          label="LLTV"
           value={m.lltv != null ? `${(m.lltv * 100).toFixed(1)}%` : "—"}
         />
-        <StockStat
+        <StatField
+          label="Borrow APY"
+          value={m.borrowApy != null ? formatApy(m.borrowApy) : "—"}
+          tone={m.borrowApy != null ? "down" : undefined}
+        />
+        <StatField
+          label={m.supplyApy != null ? "Supply APY" : "Supply APY"}
+          value={m.supplyApy != null ? formatApy(m.supplyApy) : "—"}
+          tone={m.supplyApy != null ? "up" : undefined}
+          muted={m.supplyApy == null && isMock}
+        />
+      </dl>
+
+      {/* 4 · Liquidity + capital */}
+      <dl
+        className="grid grid-cols-2"
+        style={{
+          columnGap: "8px",
+          paddingTop: "12px",
+          paddingBottom: "12px",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <StatField
+          label="Liquidity"
+          value={
+            m.availableLiquidityUsd != null
+              ? formatCompact(m.availableLiquidityUsd)
+              : m.totalSupplyUsd != null
+                ? formatCompact(m.totalSupplyUsd)
+                : "—"
+          }
+        />
+        <StatField
           label={STOCK_TOKEN_CAPITAL_LABEL}
           value={
             m.rhMultiplier != null
@@ -334,95 +589,179 @@ function StockCard({
               : "—"
           }
         />
-        <StockStat
-          label="SUPPLY APY"
-          value={m.supplyApy != null ? formatApy(m.supplyApy) : "—"}
-          tone={m.supplyApy != null ? "up" : "muted"}
-        />
-        <StockStat
-          label="BORROW APY"
-          value={m.borrowApy != null ? formatApy(m.borrowApy) : "—"}
-          tone={m.borrowApy != null ? "down" : "muted"}
-        />
-      </div>
+      </dl>
 
-      <div className="relative z-10 flex items-baseline justify-between gap-2 pt-2 border-t border-border">
-        <div>
-          <div className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-            LIQUIDITY
-          </div>
-          <div className="font-mono tabular-nums text-[14px] text-foreground">
-            {m.availableLiquidityUsd != null
-              ? formatCompact(m.availableLiquidityUsd)
-              : m.totalSupplyUsd != null
-                ? formatCompact(m.totalSupplyUsd)
+      {/* 5 · Strategy block */}
+      <div
+        style={{
+          paddingTop: "12px",
+          paddingBottom: "12px",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <div
+          className="font-mono uppercase"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          Strategy
+        </div>
+        {isMock ? (
+          <p
+            className="font-mono"
+            style={{
+              fontSize: "11.5px",
+              color: "var(--muted-foreground)",
+              marginTop: "4px",
+              lineHeight: 1.5,
+            }}
+          >
+            No Morpho market for this collateral on Robinhood Chain.
+            Carry and venue routing unavailable.
+          </p>
+        ) : !selectedVenue ? (
+          <p
+            className="font-mono"
+            style={{
+              fontSize: "11.5px",
+              color: "var(--muted-foreground)",
+              marginTop: "4px",
+              lineHeight: 1.5,
+            }}
+          >
+            Select a yield venue below to preview carry.
+          </p>
+        ) : (
+          <div
+            className="flex items-baseline justify-between gap-2"
+            style={{ marginTop: "4px" }}
+          >
+            <span
+              className="font-mono"
+              style={{
+                fontSize: "11.5px",
+                color: "var(--foreground)",
+              }}
+            >
+              {selectedVenue.name}
+            </span>
+            <span
+              className="tabular-nums"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "12.5px",
+                color:
+                  liveCarry?.net != null
+                    ? liveCarry.profitable
+                      ? "var(--up)"
+                      : "var(--down)"
+                    : "var(--muted-foreground)",
+              }}
+            >
+              {liveCarry?.net != null
+                ? `${liveCarry.profitable ? "+" : ""}${formatApy(liveCarry.net)}`
                 : "—"}
+            </span>
           </div>
-        </div>
-        <div className="text-right">
-          <div className="font-mono text-[10px] tracking-wider text-muted-foreground/60">
-            STATUS
+        )}
+        {liveCarry?.gross != null && !isMock ? (
+          <div
+            className="font-mono"
+            style={{
+              fontSize: "10px",
+              color: "var(--muted-foreground)",
+              marginTop: "2px",
+              letterSpacing: "0.02em",
+            }}
+          >
+            gross {liveCarry.gross >= 0 ? "+" : ""}
+            {liveCarry.gross.toFixed(2)}% · fees {LOOP_ESTIMATED_FEES_PERCENT.toFixed(2)}%
           </div>
-          <div className="font-mono text-[12px] text-foreground">
-            {statusLabel}
+        ) : null}
+        {isUnlisted ? (
+          <div
+            className="font-mono"
+            style={{
+              fontSize: "10px",
+              color: "var(--muted-foreground)",
+              marginTop: "2px",
+              letterSpacing: "0.02em",
+            }}
+          >
+            Morpho · unlisted (real onchain market, listed flag off)
           </div>
-        </div>
+        ) : null}
       </div>
 
-      <div className="relative z-10 mt-1 flex items-center gap-2">
+      {/* 6 · Footer — compact primary Configure → + quiet secondary View market → */}
+      <div
+        className="flex items-center gap-2"
+        style={{ marginTop: "auto", paddingTop: "14px" }}
+      >
         <button
           type="button"
-          onClick={() => onSelect(m.symbol)}
-          data-testid="loop-stock-card-cta"
-          className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-primary text-primary-foreground px-3 py-2 text-[12px] font-medium hover:bg-primary/90 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect(m.symbol)
+          }}
+          className="inline-flex items-center justify-center gap-1.5 transition-colors"
+          style={{
+            height: "34px",
+            padding: "0 16px",
+            fontSize: "12px",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 500,
+            borderRadius: "6px",
+            backgroundColor: "var(--primary)",
+            color: "var(--primary-foreground)",
+            border: "none",
+            cursor: "pointer",
+            lineHeight: 1,
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "rgba(183,243,74,0.85)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "var(--primary)")
+          }
         >
-          Loop {m.symbol}
+          Configure →
         </button>
         <Link
           href={`/terminal/markets/${encodeURIComponent(m.symbol)}`}
-          className="rounded-lg border border-border bg-secondary/30 text-foreground px-3 py-2 text-[12px] hover:bg-secondary/50 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center justify-center transition-colors"
+          style={{
+            height: "34px",
+            padding: "0 14px",
+            fontSize: "12px",
+            fontFamily: "var(--font-sans)",
+            borderRadius: "6px",
+            border: "1px solid var(--border)",
+            color: "var(--muted-foreground)",
+            backgroundColor: "transparent",
+            textDecoration: "none",
+            lineHeight: 1,
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.color = "var(--foreground)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.color = "var(--muted-foreground)")
+          }
         >
-          View market
+          View market →
         </Link>
       </div>
     </article>
   )
 }
 
-function StockStat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone?: "up" | "down" | "muted"
-}) {
-  return (
-    <div className="bg-card px-3 py-2">
-      <div className="font-mono text-[9.5px] tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
-      <div
-        className={
-          "font-mono tabular-nums text-[13px] mt-1 " +
-          (tone === "up"
-            ? "text-up"
-            : tone === "down"
-              ? "text-down"
-              : tone === "muted"
-                ? "text-muted-foreground"
-                : "text-foreground")
-        }
-      >
-        {value}
-      </div>
-    </div>
-  )
-}
-
 /* ════════════════════════════════════════════════════════════════════
- * Venue card
+ * 3 · Yield venue card
  * ═══════════════════════════════════════════════════════════════════ */
 
 function VenueCard({
@@ -434,89 +773,245 @@ function VenueCard({
   active: boolean
   onSelect: (id: string) => void
 }) {
-  const unavailable = v.status === "unavailable" || v.apy == null
   return (
     <article
-      aria-label={`${v.name} yield venue`}
-      data-testid="loop-venue-card"
-      className={
-        "relative h-full p-4 flex flex-col gap-3 transition-colors " +
-        (active ? "bg-accent/40 ring-1 ring-primary/40" : "hover:bg-secondary/30")
-      }
+      className="flex flex-col h-full"
+      style={{
+        padding: "var(--dash-card-pad)",
+        borderRadius: "var(--dash-card-radius)",
+        backgroundColor: active ? "var(--accent)" : "var(--card-soft)",
+        border: `1px solid ${active ? "var(--foreground)" : "var(--border)"}`,
+        minHeight: "var(--dash-card-min-h)",
+        transition: "background-color 160ms ease, border-color 160ms ease",
+        cursor: "pointer",
+      }}
+      onClick={() => onSelect(v.id)}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = "var(--background)"
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = active
+          ? "var(--accent)"
+          : "var(--card-soft)"
+      }}
+      data-loop-venue-card
     >
-      <button
-        type="button"
-        onClick={() => onSelect(v.id)}
-        className="absolute inset-0 z-0 cursor-pointer"
-        aria-label={`Select ${v.name}`}
-      />
-      <div className="relative z-10 flex items-baseline justify-between gap-2">
-        <div>
-          <span className="font-serif text-[18px] leading-none text-foreground">
-            {v.name}
-          </span>
-          <span className="ml-2 font-mono text-[10px] tracking-wider text-muted-foreground/70">
-            {v.asset ?? "stablecoin"}
-          </span>
-        </div>
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/60 flex items-center gap-1.5">
-          <span
-            className={
-              "w-1.5 h-1.5 rounded-full " +
-              (v.status === "live"
-                ? "bg-up"
-                : v.status === "unlisted"
-                  ? "bg-amber-500"
-                  : "bg-muted-foreground/40")
-            }
-          />
-          {venueStatusLabel(v)}
-        </span>
-      </div>
-
-      <div className="relative z-10 grid grid-cols-2 gap-px bg-border rounded-lg overflow-hidden border border-border">
-        <div className="bg-card px-3 py-2.5">
-          <div className="font-mono text-[9.5px] tracking-wider text-muted-foreground/70">
-            APY
-          </div>
+      {/* Header */}
+      <header
+        className="flex items-start justify-between gap-2"
+        style={{ paddingBottom: "12px" }}
+      >
+        <div className="min-w-0 flex-1">
           <div
-            className={
-              "font-mono tabular-nums text-[18px] mt-1 " +
-              (unavailable ? "text-muted-foreground/60" : "text-up")
-            }
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: "var(--font-card-symbol)",
+              color: "var(--foreground)",
+              lineHeight: 1.1,
+              letterSpacing: "-0.01em",
+            }}
           >
-            {v.apy != null ? formatApy(v.apy) : "—"}
+            {v.name}
           </div>
+          {v.asset ? (
+            <div
+              className="font-mono truncate"
+              style={{
+                fontSize: "var(--font-card-company)",
+                color: "var(--muted-foreground)",
+                marginTop: "4px",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {v.asset} · {riskLabel(v.risk)}
+            </div>
+          ) : null}
         </div>
-        <div className="bg-card px-3 py-2.5">
-          <div className="font-mono text-[9.5px] tracking-wider text-muted-foreground/70">
-            TVL
-          </div>
-          <div className="font-mono tabular-nums text-[18px] mt-1 text-foreground">
-            {formatCompact(v.tvl)}
-          </div>
+        <StatusChip status={v.status} />
+      </header>
+
+      {/* APY hero */}
+      <div
+        style={{
+          paddingTop: "12px",
+          paddingBottom: "12px",
+          borderTop: "1px solid var(--border)",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <div
+          className="font-mono uppercase"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          Supply APY
+        </div>
+        <div
+          className="tabular-nums leading-tight"
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: "28px",
+            letterSpacing: "-0.02em",
+            color: v.apy != null ? "var(--up)" : "var(--muted-foreground)",
+            marginTop: "2px",
+            opacity: v.apy != null ? 1 : 0.55,
+          }}
+        >
+          {v.apy != null ? formatApy(v.apy) : "—"}
         </div>
       </div>
 
-      <div className="relative z-10 flex items-baseline justify-between gap-2 text-[11px] font-mono tracking-wider text-muted-foreground/70">
-        <span>{v.tagline}</span>
-        <span>source · {v.source}</span>
-      </div>
+      {/* Stat strip */}
+      <dl
+        className="grid grid-cols-2"
+        style={{
+          columnGap: "12px",
+          paddingTop: "12px",
+          paddingBottom: "12px",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <StatField
+          label="TVL"
+          value={formatVaultTvl(v)}
+        />
+        <StatField
+          label="Liquidity"
+          value={v.liquidity != null ? formatCompact(v.liquidity) : "—"}
+        />
+      </dl>
 
-      {unavailable ? (
-        <div className="relative z-10 mt-auto rounded-md border border-border bg-secondary/30 px-2.5 py-1.5 font-mono text-[10px] tracking-wider text-amber-700 dark:text-amber-300">
-          Venue data not live — no APY for this asset
-        </div>
-      ) : null}
+      {/* Footer */}
+      <div
+        className="flex items-center justify-between"
+        style={{ marginTop: "auto", paddingTop: "12px" }}
+      >
+        <span
+          className="font-mono uppercase"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {sourceLabel(v.source)}
+        </span>
+        {v.marketId ? (
+          <span
+            className="font-mono truncate"
+            style={{
+              fontSize: "11px",
+              color: "var(--muted-foreground)",
+              opacity: 0.7,
+              fontVariantNumeric: "tabular-nums",
+              maxWidth: "110px",
+            }}
+            title={v.marketId}
+          >
+            {shortMarketId(v.marketId)}
+          </span>
+        ) : null}
+      </div>
     </article>
   )
 }
 
 /* ════════════════════════════════════════════════════════════════════
- * Economics
+ * 4 · Loop economics
  * ═══════════════════════════════════════════════════════════════════ */
 
-function CarryHero({
+function LoopEconomics({
+  market,
+  venue,
+}: {
+  market: LoopMarket | null
+  venue: YieldVenue | null
+}) {
+  if (!market || !venue) {
+    return (
+      <div
+        className="flex items-center gap-2"
+        style={{
+          padding: "16px 20px",
+          borderRadius: "var(--dash-card-radius)",
+          border: "1px solid var(--border)",
+          backgroundColor: "var(--card-soft)",
+        }}
+        data-loop-economics-empty
+      >
+        <span
+          className="font-mono"
+          style={{
+            fontSize: "11px",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Pick a stock collateral card and an approved yield venue to see
+          the carry breakdown.
+        </span>
+      </div>
+    )
+  }
+
+  const position = { market, venue, collateralAmount: null, loanAmount: null, estimatedLtv: null }
+  const carry = computeNetCarry(position, LOOP_ESTIMATED_FEES_PERCENT)
+  const estimatedLtvFrac = market.lltv != null ? market.lltv * 0.5 : null
+  const risk: LoopRiskStatus =
+    market.lltv != null
+      ? assessLoopRisk(estimatedLtvFrac, market.lltv)
+      : "unknown"
+
+  return (
+    <div
+      className="grid"
+      style={{
+        gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 0.9fr)",
+        gap: "var(--dash-card-gap)",
+      }}
+      data-loop-economics
+    >
+      {/* LEFT · Carry breakdown */}
+      <section
+        className="flex flex-col"
+        style={{
+          padding: "var(--dash-card-pad)",
+          borderRadius: "var(--dash-card-radius)",
+          backgroundColor: "var(--card-soft)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <CarryPanel
+          market={market}
+          venue={venue}
+          carry={carry}
+          estimatedLtv={estimatedLtvFrac}
+          risk={risk}
+        />
+      </section>
+
+      {/* RIGHT · Route visualization */}
+      <section
+        className="flex flex-col"
+        style={{
+          padding: "var(--dash-card-pad)",
+          borderRadius: "var(--dash-card-radius)",
+          backgroundColor: "var(--card-soft)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <RouteVisualization market={market} venue={venue} />
+      </section>
+    </div>
+  )
+}
+
+function CarryPanel({
   market,
   venue,
   carry,
@@ -525,333 +1020,642 @@ function CarryHero({
 }: {
   market: LoopMarket
   venue: YieldVenue
-  carry: NetCarry | null
+  carry: NetCarry
   estimatedLtv: number | null
   risk: LoopRiskStatus
 }) {
-  const net = carry?.net ?? null
-  const gross = carry?.gross ?? null
+  const net = carry.net
+  const gross = carry.gross
   const showNet = net != null
   const showGross = !showNet && gross != null
   const showNone = !showNet && !showGross
 
   return (
-    <div className="bg-card p-6 flex flex-col gap-4">
+    <>
+      {/* Hero — estimated carry */}
       <div>
-        <div className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          {showNet ? "ESTIMATED NET CARRY" : "CARRY (BEFORE FEES)"}
+        <div
+          className="font-mono uppercase"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {showNet ? "Estimated net carry" : "Carry (before fees)"}
         </div>
 
         {showNet ? (
           <>
             <div
-              data-testid="loop-net-carry"
-              className={
-                "font-serif leading-none tabular-nums tracking-tight mt-2 " +
-                "text-[64px] md:text-[88px] " +
-                (carry?.profitable ? "text-up" : "text-down")
-              }
+              className="tabular-nums leading-none tracking-tight mt-2"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: "56px",
+                color: carry.profitable ? "var(--up)" : "var(--down)",
+                letterSpacing: "-0.03em",
+              }}
             >
-              {formatApy(net)}
+              {`${carry.profitable ? "+" : ""}${formatApy(net)}`}
             </div>
-            <div className="mt-2 font-mono text-[10px] tracking-wider text-muted-foreground/70">
-              {market.symbol} → {venue.asset ?? "stablecoin"} → {venue.name}
+            <div
+              className="font-mono"
+              style={{
+                fontSize: "11px",
+                color: "var(--muted-foreground)",
+                marginTop: "8px",
+                letterSpacing: "0.02em",
+              }}
+            >
+              gross {gross != null ? `${gross >= 0 ? "+" : ""}${gross.toFixed(2)}%` : "—"}
+              {" · "}
+              fees {carry.fees != null ? `${carry.fees.toFixed(2)}%` : "—"}
             </div>
           </>
         ) : showGross ? (
           <>
             <div
-              className={
-                "font-serif leading-none tabular-nums tracking-tight mt-2 " +
-                "text-[64px] md:text-[88px] " +
-                ((gross ?? 0) > 0 ? "text-up" : "text-down")
-              }
+              className="tabular-nums leading-none tracking-tight mt-2"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: "56px",
+                color: gross >= 0 ? "var(--up)" : "var(--down)",
+                letterSpacing: "-0.03em",
+              }}
             >
-              {formatApy(gross)}
+              {`${gross >= 0 ? "+" : ""}${formatApy(gross)}`}
             </div>
-            <div className="mt-2 font-mono text-[10px] tracking-wider text-amber-700 dark:text-amber-300">
-              before fees — unavailable
-            </div>
-            <div className="mt-1 font-mono text-[10px] tracking-wider text-muted-foreground/70">
-              {market.symbol} → {venue.asset ?? "stablecoin"} → {venue.name}
+            <div
+              className="font-mono"
+              style={{
+                fontSize: "11px",
+                color: "var(--muted-foreground)",
+                marginTop: "8px",
+                letterSpacing: "0.02em",
+              }}
+            >
+              before fees — fees unavailable
             </div>
           </>
         ) : (
           <>
-            <div className="font-serif leading-none tabular-nums tracking-tight mt-2 text-[64px] md:text-[88px] text-foreground/40">
+            <div
+              className="tabular-nums leading-none tracking-tight mt-2"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: "56px",
+                color: "var(--muted-foreground)",
+                opacity: 0.4,
+                letterSpacing: "-0.03em",
+              }}
+            >
               —
             </div>
-            <div className="mt-2 font-mono text-[10px] tracking-wider text-muted-foreground/70">
-              Insufficient data to estimate carry
+            <div
+              className="font-mono"
+              style={{
+                fontSize: "11px",
+                color: "var(--muted-foreground)",
+                marginTop: "8px",
+              }}
+            >
+              Insufficient data — both venue and borrow APY required.
             </div>
           </>
         )}
       </div>
 
-      <div className="pt-4 border-t border-border grid grid-cols-3 gap-4">
-        <RiskBlock
-          label="EST. LTV"
-          value={
-            estimatedLtv != null
-              ? `${(estimatedLtv * 100).toFixed(1)}%`
-              : "—"
-          }
-          sub="50% of LLTV"
+      {/* Breakdown rows */}
+      <dl
+        className="grid grid-cols-2"
+        style={{
+          columnGap: "16px",
+          rowGap: "12px",
+          paddingTop: "20px",
+          paddingBottom: "20px",
+          borderTop: "1px solid var(--border)",
+          borderBottom: "1px solid var(--border)",
+          marginTop: "16px",
+        }}
+      >
+        <DetailRow
+          label="Borrow APY"
+          value={carry.borrowApy != null ? formatApy(carry.borrowApy) : "—"}
         />
-        <RiskBlock
+        <DetailRow
+          label="Venue APY"
+          value={carry.venueApy != null ? formatApy(carry.venueApy) : "—"}
+        />
+        <DetailRow
+          label="Est. LTV"
+          value={
+            estimatedLtv != null ? `${(estimatedLtv * 100).toFixed(1)}%` : "—"
+          }
+        />
+        <DetailRow
           label="LLTV"
-          value={
-            market.lltv != null ? `${(market.lltv * 100).toFixed(1)}%` : "—"
+          value={market.lltv != null ? `${(market.lltv * 100).toFixed(1)}%` : "—"}
+        />
+      </dl>
+
+      {/* Risk */}
+      <div
+        className="flex items-center justify-between"
+        style={{ paddingTop: "14px" }}
+      >
+        <div>
+          <div
+            className="font-mono uppercase"
+            style={{
+              fontSize: "var(--font-micro)",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.06em",
+            }}
+          >
+            Risk indicator
+          </div>
+          <div
+            className="tabular-nums"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "14px",
+              color: "var(--foreground)",
+              marginTop: "4px",
+            }}
+          >
+            {riskLabelFull(risk)}
+          </div>
+        </div>
+        <div className="text-right">
+          <div
+            className="font-mono uppercase"
+            style={{
+              fontSize: "var(--font-micro)",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.06em",
+            }}
+          >
+            Target util
+          </div>
+          <div
+            className="tabular-nums"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "14px",
+              color: "var(--foreground)",
+              marginTop: "4px",
+            }}
+          >
+            {estimatedLtv != null ? `${(estimatedLtv * 100).toFixed(1)}%` : "—"}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer — read-only note */}
+      <div
+        className="font-mono"
+        style={{
+          marginTop: "auto",
+          paddingTop: "16px",
+          fontSize: "10px",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.04em",
+        }}
+      >
+        Supply · Borrow · Loop transactions — coming soon
+      </div>
+    </>
+  )
+}
+
+function RouteVisualization({
+  market,
+  venue,
+}: {
+  market: LoopMarket
+  venue: YieldVenue
+}) {
+  return (
+    <>
+      <div
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
+        Loop route
+      </div>
+
+      <div
+        className="flex flex-col"
+        style={{
+          marginTop: "14px",
+          gap: "0",
+        }}
+      >
+        <RouteStep
+          label="Collateral"
+          primary={market.symbol}
+          secondary={cleanCompany(market.name) ?? market.symbol}
+        />
+        <RouteArrow caption="deposit as Morpho collateral" />
+
+        <RouteStep
+          label="Borrow"
+          primary={venue.asset ?? "USDG"}
+          secondary={
+            market.borrowApy != null
+              ? `${formatApy(market.borrowApy)} borrow APY`
+              : "borrow APY —"
           }
-          sub="max borrow"
         />
-        <RiskBlock
-          label="RISK"
-          value={<RiskBadge risk={risk} />}
-          sub={riskSub(risk)}
+        <RouteArrow caption="route into verified vault" />
+
+        <RouteStep
+          label="Yield venue"
+          primary={venue.name}
+          secondary={
+            venue.apy != null
+              ? `${formatApy(venue.apy)} supply APY`
+              : "APY —"
+          }
         />
+        <RouteArrow caption="compounds into USDG supply" />
+
+        <RouteStep
+          label="Net"
+          primary={
+            <span
+              className="tabular-nums"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: "24px",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {venue.apy != null && market.borrowApy != null
+                ? `${venue.apy - market.borrowApy - LOOP_ESTIMATED_FEES_PERCENT >= 0 ? "+" : ""}${(venue.apy - market.borrowApy - LOOP_ESTIMATED_FEES_PERCENT).toFixed(2)}%`
+                : "—"}
+            </span>
+          }
+          secondary="net carry · before oracle price"
+        />
+      </div>
+
+      {/* Footer note */}
+      <div
+        className="font-mono"
+        style={{
+          marginTop: "auto",
+          paddingTop: "16px",
+          fontSize: "10px",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.04em",
+        }}
+      >
+        Onchain verified vaults · Robinhood Chain
+      </div>
+    </>
+  )
+}
+
+function RouteStep({
+  label,
+  primary,
+  secondary,
+}: {
+  label: string
+  primary: React.ReactNode
+  secondary: string
+}) {
+  return (
+    <div
+      className="flex items-baseline justify-between gap-2"
+      style={{
+        paddingTop: "10px",
+        paddingBottom: "10px",
+        borderBottom: "1px solid var(--border)",
+      }}
+    >
+      <div className="min-w-0">
+        <div
+          className="font-mono uppercase"
+          style={{
+            fontSize: "var(--font-micro)",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: "16px",
+            color: "var(--foreground)",
+            marginTop: "2px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {primary}
+        </div>
+      </div>
+      <div
+        className="font-mono truncate"
+        style={{
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+          textAlign: "right",
+          maxWidth: "60%",
+        }}
+      >
+        {secondary}
       </div>
     </div>
   )
 }
 
-function DetailGrid({
-  market,
-  venue,
-  carry,
-  estimatedLtv,
-}: {
-  market: LoopMarket
-  venue: YieldVenue
-  carry: NetCarry | null
-  estimatedLtv: number | null
-}) {
+function RouteArrow({ caption }: { caption: string }) {
   return (
-    <div className="bg-card p-6 flex flex-col gap-4">
-      <div>
-        <div className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          LOOP BREAKDOWN
-        </div>
-        <p className="text-[12px] text-muted-foreground mt-1 max-w-md leading-relaxed">
-          Loop {market.symbol} → borrow {venue.asset ?? "stablecoin"} → earn
-          {" "}
-          {venue.name} yield. Carry = venue − borrow − costs.
-        </p>
-      </div>
-
-      <ul className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-        <DetailRow label="COLLATERAL" value={market.symbol} sub={market.name ?? market.symbol} />
-        <DetailRow
-          label="BORROW APY"
-          value={carry?.borrowApy != null ? formatApy(carry.borrowApy) : "—"}
-          tone="down"
-          sub="Morpho · variable"
-        />
-        <DetailRow
-          label="YIELD VENUE"
-          value={venue.name}
-          sub={venue.tagline}
-        />
-        <DetailRow
-          label="VENUE APY"
-          value={carry?.venueApy != null ? formatApy(carry.venueApy) : "—"}
-          tone="up"
-          sub={`source · ${venue.source}`}
-        />
-        <DetailRow
-          label="EST. NET CARRY"
-          value={carry?.net != null ? formatApy(carry.net) : "—"}
-          tone={carry?.net != null ? (carry.profitable ? "up" : "down") : "muted"}
-          sub={
-            carry?.feesUnknown
-              ? "before fees — fees unavailable"
-              : carry?.net != null
-                ? `${carry.fees?.toFixed(2) ?? "0"}% fee estimate`
-                : "costs unknown"
-          }
-        />
-        <DetailRow
-          label="EST. LTV"
-          value={
-            estimatedLtv != null
-              ? `${(estimatedLtv * 100).toFixed(1)}%`
-              : "—"
-          }
-          sub="target utilization"
-        />
-      </ul>
-
-      <div className="mt-auto rounded-full bg-secondary px-3 py-1.5 border border-border self-start">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          Supply / Borrow / Loop — coming soon
-        </span>
-      </div>
+    <div
+      className="flex items-center gap-2"
+      style={{
+        paddingTop: "4px",
+        paddingBottom: "4px",
+        paddingLeft: "10px",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          display: "inline-block",
+          width: "1px",
+          height: "16px",
+          backgroundColor: "var(--border-strong)",
+        }}
+      />
+      <span
+        className="font-mono"
+        style={{
+          fontSize: "10px",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.04em",
+        }}
+      >
+        {caption}
+      </span>
     </div>
   )
 }
 
 /* ════════════════════════════════════════════════════════════════════
- * Detail row / badge helpers
+ * Atoms
  * ═══════════════════════════════════════════════════════════════════ */
+
+function SourceChip({ mode }: { mode: LoopMarket["sourceMode"] }) {
+  const isLive = mode === "real-morpho"
+  const isUnlisted = mode === "real-morpho-unlisted"
+  const label = isLive ? "LIVE" : isUnlisted ? "UNLISTED" : "MOCK"
+  const color = isLive
+    ? "var(--up)"
+    : isUnlisted
+      ? "var(--muted-foreground)"
+      : "var(--down)"
+  return (
+    <span
+      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      style={{
+        fontSize: "9px",
+        color,
+        letterSpacing: "0.08em",
+        opacity: 0.85,
+        padding: "2px 5px",
+        border: `1px solid ${color}`,
+        borderRadius: "4px",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="rounded-full shrink-0"
+        style={{ width: "4px", height: "4px", backgroundColor: color }}
+      />
+      {label}
+    </span>
+  )
+}
+
+function StatusChip({ status }: { status: YieldVenue["status"] }) {
+  const label = statusText(status)
+  const color = statusTone(status)
+  return (
+    <span
+      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      style={{
+        fontSize: "9px",
+        color,
+        letterSpacing: "0.08em",
+        opacity: 0.85,
+        padding: "2px 5px",
+        border: `1px solid ${color}`,
+        borderRadius: "4px",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="rounded-full shrink-0"
+        style={{ width: "4px", height: "4px", backgroundColor: color }}
+      />
+      {label}
+    </span>
+  )
+}
+
+function StatField({
+  label,
+  value,
+  tone,
+  muted,
+}: {
+  label: string
+  value: string
+  tone?: "up" | "down"
+  muted?: boolean
+}) {
+  const color = muted
+    ? "var(--muted-foreground)"
+    : tone === "up"
+      ? "var(--up)"
+      : tone === "down"
+        ? "var(--down)"
+        : "var(--foreground)"
+  return (
+    <div>
+      <dt
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.04em",
+        }}
+      >
+        {label}
+      </dt>
+      <dd
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "12.5px",
+          color,
+          marginTop: "3px",
+        }}
+      >
+        {value}
+      </dd>
+    </div>
+  )
+}
 
 function DetailRow({
   label,
   value,
-  tone,
-  sub,
 }: {
   label: string
-  value: React.ReactNode
-  sub?: string
-  tone?: "up" | "down" | "muted"
-}) {
-  return (
-    <li className="px-3.5 py-2.5 bg-card flex items-baseline justify-between gap-3">
-      <div>
-        <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
-          {label}
-        </div>
-        {sub ? (
-          <div className="font-mono text-[10px] tracking-wider text-muted-foreground/60 mt-0.5">
-            {sub}
-          </div>
-        ) : null}
-      </div>
-      <div
-        className={
-          "font-mono tabular-nums text-[14px] " +
-          (tone === "up"
-            ? "text-up"
-            : tone === "down"
-              ? "text-down"
-              : tone === "muted"
-                ? "text-muted-foreground"
-                : "text-foreground")
-        }
-      >
-        {value}
-      </div>
-    </li>
-  )
-}
-
-function RiskBlock({
-  label,
-  value,
-  sub,
-}: {
-  label: string
-  value: React.ReactNode
-  sub?: string
+  value: string
 }) {
   return (
     <div>
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+      <div
+        className="font-mono uppercase"
+        style={{
+          fontSize: "var(--font-micro)",
+          color: "var(--muted-foreground)",
+          letterSpacing: "0.06em",
+        }}
+      >
         {label}
       </div>
-      <div className="font-mono tabular-nums text-[20px] text-foreground mt-1">
+      <div
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "14px",
+          color: "var(--foreground)",
+          marginTop: "3px",
+        }}
+      >
         {value}
       </div>
-      {sub ? (
-        <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 mt-0.5">
-          {sub}
-        </div>
-      ) : null}
     </div>
   )
 }
 
-function RiskBadge({ risk }: { risk: LoopRiskStatus }) {
-  if (risk === "unknown") {
-    return <span className="text-muted-foreground/50">—</span>
-  }
-  const label =
-    risk === "safe" ? "Safe" : risk === "warning" ? "Caution" : "Danger"
-  const tone =
-    risk === "safe"
-      ? "text-up"
-      : risk === "warning"
-        ? "text-amber-500"
-        : "text-down"
-  return <span className={tone}>{label}</span>
-}
-
-function riskSub(risk: LoopRiskStatus): string {
-  if (risk === "safe") return "≤50% of LLTV"
-  if (risk === "warning") return "50–80% of LLTV"
-  if (risk === "danger") return ">80% of LLTV"
-  return "—"
-}
-
-/* ════════════════════════════════════════════════════════════════════
- * Status / pip / state helpers
- * ═══════════════════════════════════════════════════════════════════ */
-
-function StatusPip({
-  mode,
-}: {
-  mode: LoopMarket["sourceMode"]
-}) {
-  if (mode === "real-morpho")
-    return (
-      <span
-        className="w-1.5 h-1.5 rounded-full bg-up"
-        title="live Morpho"
-      />
-    )
-  if (mode === "real-morpho-unlisted")
-    return (
-      <span
-        className="w-1.5 h-1.5 rounded-full bg-amber-500"
-        title="unlisted"
-      />
-    )
-  return (
-    <span
-      className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40"
-      title="mock"
-    />
-  )
-}
-
-function EmptyState({
-  text,
-  tone,
-}: {
-  text: string
-  tone: "muted" | "error"
-}) {
+function PanelEmpty({ text }: { text: string }) {
   return (
     <div
-      className={
-        "px-5 py-6 font-mono text-[11px] " +
-        (tone === "error" ? "text-down" : "text-muted-foreground/70")
-      }
+      className="font-mono"
+      style={{
+        padding: "20px",
+        fontSize: "12px",
+        color: "var(--muted-foreground)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--dash-card-radius)",
+        backgroundColor: "var(--card-soft)",
+      }}
     >
       {text}
     </div>
   )
 }
 
-function marketStatus(m: LoopMarket): string {
-  return m.sourceMode === "real-morpho"
-    ? "Live"
-    : m.sourceMode === "real-morpho-unlisted"
-      ? "Unlisted"
-      : "Mock"
+/* ════════════════════════════════════════════════════════════════════
+ * Helpers
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Format a vault's onchain `totalAssets()` share-token value into a
+ * human-readable USDG figure.
+ *
+ * The raw value coming from `fetchVaultTotalAssets` is in share-token
+ * base units (18 decimals for Loopr USDG vaults). We:
+ *
+ *   1. Convert to token units via the vault's `decimals` (always 18
+ *      for verified vaults — see `lib/markets/protocol/verified-vaults.ts`).
+ *   2. Tag as USDG because every verified vault wraps USDG supply.
+ *   3. Use the same compact / grouped formatting as `formatCompact`.
+ *
+ * If the raw value is null or not finite, return "—".
+ */
+function formatVaultTvl(venue: YieldVenue): string {
+  if (venue.tvl == null || !Number.isFinite(venue.tvl)) return "—"
+  const abs = Math.abs(venue.tvl)
+  if (abs === 0) return "$0"
+  if (abs >= 1_000_000_000) return `$${(abs / 1_000_000_000).toFixed(2)}B USDG`
+  if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(2)}M USDG`
+  if (abs >= 1_000) return `$${(abs / 1_000).toFixed(2)}K USDG`
+  if (abs >= 1) return `$${venue.tvl.toFixed(2)} USDG`
+  // Sub-unit: format with up to 6 decimals to avoid precision noise.
+  return `$${venue.tvl.toFixed(6)} USDG`
 }
 
-function venueStatusLabel(v: YieldVenue): string {
-  switch (v.status) {
-    case "live":
-      return "Live"
-    case "unlisted":
-      return "Unlisted"
-    case "stale":
-      return "Stale"
-    case "mock":
-      return "Mock"
-    default:
-      return "Unavailable"
+function cleanCompany(name: string | null | undefined): string | null {
+  if (!name) return null
+  // Strip the " · Robinhood Token" suffix for cleaner display.
+  const stripped = name.split(" · Robinhood")[0]
+  return stripped.trim() || null
+}
+
+function statusText(s: YieldVenue["status"]): string {
+  switch (s) {
+    case "live":        return "LIVE"
+    case "candidate":   return "CANDIDATE"
+    case "inactive":    return "INACTIVE"
+    case "stale":       return "STALE"
+    case "unlisted":    return "UNLISTED"
+    case "unavailable": return "UNAVAILABLE"
+    case "mock":        return "MOCK"
   }
+}
+
+function statusTone(s: YieldVenue["status"]): string {
+  switch (s) {
+    case "live":        return "var(--up)"
+    case "candidate":   return "var(--muted-foreground)"
+    case "inactive":    return "var(--down)"
+    case "stale":       return "var(--muted-foreground)"
+    case "unlisted":    return "var(--muted-foreground)"
+    case "unavailable": return "var(--down)"
+    case "mock":        return "var(--down)"
+  }
+}
+
+function riskLabel(r: YieldVenue["risk"]): string {
+  switch (r) {
+    case "low":    return "low risk"
+    case "medium": return "med risk"
+    case "high":   return "high risk"
+  }
+}
+
+function riskLabelFull(r: LoopRiskStatus): string {
+  switch (r) {
+    case "safe":    return "Safe — ≤50% of LLTV"
+    case "warning": return "Caution — 50–80% of LLTV"
+    case "danger":  return "Danger — >80% of LLTV"
+    case "unknown": return "—"
+  }
+}
+
+function sourceLabel(s: YieldVenue["source"]): string {
+  switch (s) {
+    case "morpho-supply":     return "Morpho · live"
+    case "verified-onchain":  return "Verified · onchain"
+    case "mock":              return "Mock"
+  }
+}
+
+function shortMarketId(id: string): string {
+  if (id.length <= 14) return id
+  return `${id.slice(0, 8)}…${id.slice(-4)}`
 }
