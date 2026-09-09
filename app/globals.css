@@ -213,6 +213,18 @@
   50%       { opacity: 0.35; }
 }
 
+/* Feed row insert: fade + slide + transient highlight flash */
+@keyframes zeks-row-insert {
+  0%   { opacity: 0; transform: translateY(-4px); }
+  60%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes zeks-row-highlight {
+  0%   { background-color: rgba(183, 243, 74, 0.18); }
+  100% { background-color: transparent; }
+}
+
 .zeks-anim-slide-in {
   animation: zeks-slide-in 300ms ease-out both;
 }
@@ -221,6 +233,13 @@
 }
 .zeks-anim-pulse {
   animation: zeks-pulse 2.2s ease-in-out infinite;
+}
+.zeks-anim-row-insert {
+  animation: zeks-row-insert 220ms ease-out both;
+}
+.zeks-anim-row-highlight {
+  /* Slightly longer than the insert so the row flashes once. */
+  animation: zeks-row-highlight 1.4s ease-out both;
 }
 
 /* ── Ticker marquee (continuous linear scroll) ──────────────── */

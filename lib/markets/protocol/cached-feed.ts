@@ -17,7 +17,7 @@ import {
   type ProtocolFeedResult,
 } from "@/lib/markets/protocol/feed"
 
-const CACHE_TTL_MS = 10_000
+const CACHE_TTL_MS = 2_000
 const TRAILING_BLOCKS = 1_000 // warm-window on top of the cached head
 
 interface CacheEntry {

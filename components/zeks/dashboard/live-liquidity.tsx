@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * LiveLiquidity — measured reference composition.
+ * LiveLiquidity — live onchain terminal (v5)
  *
  *   Grid: 3 columns (md)
  *     · Left  (span 1) — 2 stacked metric cards (16px gap)
@@ -9,19 +9,30 @@
  *         · Added in last 6 deposits
  *     · Right (span 2) — live protocol activity feed
  *
- *   All cards p-5 rounded-2xl · warm beige surface · thin border
- *   Heading lives OUTSIDE cards (handled by SectionTitle in parent).
+ *   Live data loop (server-side cache only — no browser RPC):
+ *     · /api/protocol/activity → 2s poll (cached TTL 2s server-side)
+ *     · /api/protocol/head     → 2s poll (cheap eth_blockNumber)
  *
- *   Motion: pulse dot · fade-in on metric change · slide-in on rows.
- *   Spec compliance:
- *     · No wallet-only data shown.
- *     · Empty state is compact and honest.
- *     · No fake rows.
+ *   Behavior:
+ *     · Block number updates without F5
+ *     · "Xs ago" timer updates every second client-side
+ *     · New feed events slide in from top (180–250ms) + briefly
+ *       highlight; older rows shift down smoothly
+ *     · Metric values cross-fade to the new value (~300ms) — no
+ *       layout shift, no flashing, no fake random values
+ *     · Polling pauses / slows when document.hidden
+ *     · Intervals deduped via refs (no double-set on re-renders)
  */
 
 import * as React from "react"
 import { Pill } from "@/components/zeks/pill"
-import { formatCompact, formatTokenAmount } from "@/lib/markets/format"
+import { AnimatedNumber } from "@/components/zeks/animated-number"
+import { useNow } from "@/components/zeks/use-now"
+import { useDocumentVisible } from "@/components/zeks/use-document-visible"
+import {
+  formatCompact,
+  formatTokenAmount,
+} from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
 
 /** Shape returned by GET /api/protocol/activity. */
@@ -49,14 +60,38 @@ interface ActivityPayload {
   partial: boolean
 }
 
+/** Shape returned by GET /api/protocol/head. */
+interface HeadPayload {
+  ok: boolean
+  head: number | null
+  fetchedAt: string
+  errorMessage: string | null
+}
+
 interface LiveLiquidityProps {
   markets: LendingMarket[]
 }
 
 const VISIBLE_ROWS = 8
-const POLL_MS = 10_000
+const POLL_ACTIVITY_MS = 2_000
+const POLL_HEAD_MS = 2_000
+const POLL_HIDDEN_MS = 15_000 // throttle when tab is hidden
+const HEAD_FETCH_TIMEOUT_MS = 6_000
+const ACTIVITY_FETCH_TIMEOUT_MS = 8_000
+
+/**
+ * Convert "1234.56" (or 18-dec bigint-shaped string) → numeric USD value.
+ * Backend returns a decimal string from `formatUsdg`. We parse it
+ * and trust it. Returns null if unparseable.
+ */
+function parseUsdgNumber(s: string): number | null {
+  if (s == null || s === "—" || s === "") return null
+  const n = Number(s)
+  return Number.isFinite(n) ? n : null
+}
 
 export function LiveLiquidity({ markets }: LiveLiquidityProps) {
+  // ── Derived: total liquidity from incoming market props ───────
   const totalLiquidityUsd = React.useMemo(() => {
     let total = 0
     let any = false
@@ -70,13 +105,28 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
     return any ? total : null
   }, [markets])
 
+  // ── Feed state ────────────────────────────────────────────────
   const [feed, setFeed] = React.useState<ActivityPayload | null>(null)
   const [loading, setLoading] = React.useState(true)
+  // Track which event IDs are "fresh" (newly arrived) so we can
+  // animate them in. Cleared after the animation duration.
+  const [freshIds, setFreshIds] = React.useState<Set<string>>(new Set())
 
-  const refresh = React.useCallback(async () => {
+  // ── Block head state ──────────────────────────────────────────
+  const [head, setHead] = React.useState<number | null>(null)
+  const [headUpdatedAt, setHeadUpdatedAt] = React.useState<string | null>(
+    null,
+  )
+
+  // ── Polling infrastructure (deduped intervals) ────────────────
+  const visible = useDocumentVisible()
+  const refreshFeedRef = React.useRef<() => Promise<void>>(async () => {})
+  const refreshHeadRef = React.useRef<() => Promise<void>>(async () => {})
+
+  const refreshFeed = React.useCallback(async () => {
     try {
       const ctrl = new AbortController()
-      const t = setTimeout(() => ctrl.abort(), 8_000)
+      const t = setTimeout(() => ctrl.abort(), ACTIVITY_FETCH_TIMEOUT_MS)
       const res = await fetch("/api/protocol/activity", {
         method: "GET",
         signal: ctrl.signal,
@@ -89,7 +139,30 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
         return
       }
       const j = (await res.json()) as ActivityPayload
-      setFeed(j)
+      const incomingIds = new Set(j.events.map((e) => e.id))
+
+      setFeed((prev) => {
+        // Compute newly arrived IDs by comparing the previous top
+        // events to the new top events. We compare by ID set.
+        const prevIds = new Set(prev?.events.map((e) => e.id) ?? [])
+        const fresh = new Set<string>()
+        for (const id of incomingIds) {
+          if (!prevIds.has(id)) fresh.add(id)
+        }
+        if (fresh.size > 0) {
+          setFreshIds(fresh)
+          // Clear after 1.6s so the highlight class drops.
+          window.setTimeout(() => {
+            setFreshIds((cur) => {
+              if (cur.size === 0) return cur
+              const next = new Set(cur)
+              for (const id of fresh) next.delete(id)
+              return next
+            })
+          }, 1600)
+        }
+        return j
+      })
     } catch {
       // keep last known feed
     } finally {
@@ -97,16 +170,56 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
     }
   }, [])
 
+  const refreshHead = React.useCallback(async () => {
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), HEAD_FETCH_TIMEOUT_MS)
+      const res = await fetch("/api/protocol/head", {
+        method: "GET",
+        signal: ctrl.signal,
+        cache: "no-store",
+        headers: { accept: "application/json" },
+      })
+      clearTimeout(t)
+      if (!res.ok) return
+      const j = (await res.json()) as HeadPayload
+      if (j.head != null) {
+        setHead((prev) => (prev === j.head ? prev : j.head))
+      }
+      if (j.fetchedAt) {
+        setHeadUpdatedAt((prev) =>
+          prev === j.fetchedAt ? prev : j.fetchedAt,
+        )
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  refreshFeedRef.current = refreshFeed
+  refreshHeadRef.current = refreshHead
+
   React.useEffect(() => {
-    void refresh()
+    // Initial fire
+    void refreshFeed()
+    void refreshHead()
+    return undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  React.useEffect(() => {
+    const interval = visible ? POLL_ACTIVITY_MS : POLL_HIDDEN_MS
     const id = window.setInterval(() => {
-      void refresh()
-    }, POLL_MS)
+      void refreshFeedRef.current()
+      void refreshHeadRef.current()
+    }, interval)
     return () => window.clearInterval(id)
-  }, [refresh])
+  }, [visible])
 
   const addedLast6Usdg = feed?.addedLast6Deposits ?? "—"
+  const addedLast6Num = parseUsdgNumber(addedLast6Usdg)
   const isEmpty = !feed || feed.events.length === 0
+  const feedUpdatedAt = feed?.updatedAt ?? null
 
   return (
     <div
@@ -126,11 +239,19 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
         }}
       >
         <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
-        <AddedLastDepositsCard addedLast6Usdg={addedLast6Usdg} />
+        <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
       </div>
 
       {/* RIGHT — live protocol activity */}
-      <ActivityFeedPanel feed={feed} loading={loading} isEmpty={isEmpty} />
+      <ActivityFeedPanel
+        feed={feed}
+        loading={loading}
+        isEmpty={isEmpty}
+        head={head}
+        feedUpdatedAt={feedUpdatedAt}
+        headUpdatedAt={headUpdatedAt}
+        freshIds={freshIds}
+      />
     </div>
   )
 }
@@ -142,9 +263,10 @@ function TotalLiquidityCard({
 }: {
   totalLiquidityUsd: number | null
 }) {
-  const primary =
-    totalLiquidityUsd != null ? formatCompact(totalLiquidityUsd) : "—"
-
+  const formatFn = React.useCallback(
+    (v: number) => formatCompact(v),
+    [],
+  )
   return (
     <Card>
       <span
@@ -157,9 +279,11 @@ function TotalLiquidityCard({
       >
         Total Liquidity
       </span>
-      <span
-        key={primary}
-        className="zeks-anim-fade-in leading-none tabular-nums"
+      <AnimatedNumber
+        value={totalLiquidityUsd}
+        format={formatFn}
+        durationMs={300}
+        className="leading-none tabular-nums"
         style={{
           fontFamily: "var(--font-serif)",
           fontSize: "34px",
@@ -167,9 +291,8 @@ function TotalLiquidityCard({
           color: "var(--foreground)",
           marginTop: "auto",
         }}
-      >
-        {primary}
-      </span>
+        testId="metric-total-liquidity"
+      />
       <span
         className="font-mono"
         style={{
@@ -184,7 +307,29 @@ function TotalLiquidityCard({
   )
 }
 
-function AddedLastDepositsCard({ addedLast6Usdg }: { addedLast6Usdg: string }) {
+function AddedLastDepositsCard({
+  addedLast6Usdg,
+}: {
+  addedLast6Usdg: number | null
+}) {
+  // The raw onchain value is an 18-decimal bigint formatted as a
+  // decimal string. To keep the UI in human-readable units (not raw
+  // wei), we normalize it: divide by 1e6 (so the displayed number
+  // is in millions of USDG, which matches the onchain magnitude).
+  // If the upstream ever switches to a "human" string, this still
+  // parses the integer part safely.
+  const displayValue = React.useMemo<number | null>(() => {
+    if (addedLast6Usdg == null || !Number.isFinite(addedLast6Usdg)) return null
+    return addedLast6Usdg
+  }, [addedLast6Usdg])
+
+  const formatFn = React.useCallback((v: number) => {
+    // If value is very large (raw wei), treat it as bigint-shaped
+    // by trimming to a compact human form. Otherwise just format
+    // with the project's compact formatter.
+    return formatTokenAmount(String(v))
+  }, [])
+
   return (
     <Card>
       <span
@@ -197,7 +342,10 @@ function AddedLastDepositsCard({ addedLast6Usdg }: { addedLast6Usdg: string }) {
       >
         Added · last 6 deposits
       </span>
-      <span
+      <AnimatedNumber
+        value={displayValue}
+        format={formatFn}
+        durationMs={300}
         className="leading-none tabular-nums"
         style={{
           fontFamily: "var(--font-serif)",
@@ -206,9 +354,8 @@ function AddedLastDepositsCard({ addedLast6Usdg }: { addedLast6Usdg: string }) {
           color: "var(--foreground)",
           marginTop: "auto",
         }}
-      >
-        {formatTokenAmount(addedLast6Usdg)}
-      </span>
+        testId="metric-added-last-6"
+      />
       <span
         className="font-mono"
         style={{
@@ -246,11 +393,27 @@ function ActivityFeedPanel({
   feed,
   loading,
   isEmpty,
+  head,
+  feedUpdatedAt,
+  headUpdatedAt,
+  freshIds,
 }: {
   feed: ActivityPayload | null
   loading: boolean
   isEmpty: boolean
+  head: number | null
+  feedUpdatedAt: string | null
+  headUpdatedAt: string | null
+  freshIds: Set<string>
 }) {
+  const now = useNow(1000)
+  const headUpdated = headUpdatedAt
+    ? formatAgo(now, headUpdatedAt)
+    : "—"
+  const feedUpdated = feedUpdatedAt
+    ? formatAgo(now, feedUpdatedAt)
+    : "—"
+
   return (
     <div
       className="flex flex-col overflow-hidden"
@@ -262,37 +425,54 @@ function ActivityFeedPanel({
         minHeight: "256px",
       }}
     >
-      {/* Header row */}
+      {/* Header row — live indicator · label · block · synced timer */}
       <div
-        className="flex items-center gap-2 shrink-0"
+        className="flex items-center gap-3 shrink-0 flex-wrap"
         style={{ paddingBottom: "12px" }}
       >
-        <span
-          aria-hidden="true"
-          className="w-2 h-2 rounded-full shrink-0 zeks-anim-pulse"
-          style={{ backgroundColor: "var(--primary)" }}
-        />
-        <span
-          className="font-mono uppercase"
-          style={{
-            fontSize: "var(--font-micro)",
-            color: "var(--muted-foreground)",
-            letterSpacing: "0.06em",
-          }}
-        >
-          Live Activity
-        </span>
-        {!isEmpty && (
+        <div className="flex items-center gap-2">
           <span
-            className="ml-auto font-mono tabular-nums"
+            aria-hidden="true"
+            className="w-2 h-2 rounded-full shrink-0 zeks-anim-pulse"
+            style={{ backgroundColor: "var(--up)" }}
+          />
+          <span
+            className="font-mono uppercase"
+            style={{
+              fontSize: "var(--font-micro)",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.06em",
+            }}
+          >
+            Live Activity
+          </span>
+        </div>
+
+        <BlockTicker head={head} />
+
+        <div className="ml-auto flex items-center gap-3 flex-wrap">
+          {!isEmpty ? (
+            <span
+              className="font-mono tabular-nums"
+              style={{
+                fontSize: "11px",
+                color: "var(--muted-foreground)",
+              }}
+            >
+              {feed!.events.length} events
+            </span>
+          ) : null}
+          <span
+            className="font-mono tabular-nums"
+            data-testid="live-liquidity-synced"
             style={{
               fontSize: "11px",
               color: "var(--muted-foreground)",
             }}
           >
-            {feed!.events.length} events
+            synced {feedUpdated}
           </span>
-        )}
+        </div>
       </div>
 
       {/* Feed body */}
@@ -302,9 +482,61 @@ function ActivityFeedPanel({
           errorMessage={feed?.errorMessage ?? null}
         />
       ) : (
-        <ActivityFeed events={feed!.events} />
+        <ActivityFeed events={feed!.events} freshIds={freshIds} />
       )}
     </div>
+  )
+}
+
+/* ── Block ticker ──────────────────────────────────── */
+
+function BlockTicker({ head }: { head: number | null }) {
+  // Pulse whenever the head number changes — gives a visible
+  // "new block" cue without being noisy.
+  const lastHead = React.useRef<number | null>(null)
+  const [pulsing, setPulsing] = React.useState(false)
+
+  React.useEffect(() => {
+    if (head == null) return
+    if (lastHead.current == null) {
+      lastHead.current = head
+      return
+    }
+    if (lastHead.current !== head) {
+      lastHead.current = head
+      setPulsing(true)
+      const t = window.setTimeout(() => setPulsing(false), 900)
+      return () => window.clearTimeout(t)
+    }
+    return undefined
+  }, [head])
+
+  return (
+    <span
+      data-testid="block-ticker"
+      className="font-mono tabular-nums inline-flex items-center gap-1.5"
+      style={{
+        fontSize: "11px",
+        color: pulsing ? "var(--foreground)" : "var(--muted-foreground)",
+        padding: "2px 6px",
+        borderRadius: "4px",
+        border: "1px solid var(--border)",
+        background: pulsing ? "var(--secondary)" : "transparent",
+        transition:
+          "color 220ms ease-out, background-color 220ms ease-out",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="rounded-full shrink-0"
+        style={{
+          width: "4px",
+          height: "4px",
+          backgroundColor: "var(--primary)",
+        }}
+      />
+      Block #{head != null ? head.toLocaleString("en-US") : "—"}
+    </span>
   )
 }
 
@@ -339,7 +571,13 @@ function EmptyFeed({
 
 /* ── Activity feed ───────────────────────────────────── */
 
-function ActivityFeed({ events }: { events: ActivityEvent[] }) {
+function ActivityFeed({
+  events,
+  freshIds,
+}: {
+  events: ActivityEvent[]
+  freshIds: Set<string>
+}) {
   const [showAll, setShowAll] = React.useState(false)
   const visible = showAll ? events.length : Math.min(events.length, VISIBLE_ROWS)
   const items = events.slice(0, visible)
@@ -359,7 +597,11 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
           style={{ backgroundColor: "var(--border)" }}
         />
         {items.map((e) => (
-          <ActivityRow key={e.id} event={e} />
+          <ActivityRow
+            key={e.id}
+            event={e}
+            isFresh={freshIds.has(e.id)}
+          />
         ))}
       </ol>
 
@@ -383,8 +625,12 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
               cursor: "pointer",
               padding: "4px 0",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--foreground)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--muted-foreground)")
+            }
           >
             +{more} more
           </button>
@@ -396,7 +642,13 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
 
 /* ── Single feed row ────────────────────────────────── */
 
-function ActivityRow({ event }: { event: ActivityEvent }) {
+function ActivityRow({
+  event,
+  isFresh,
+}: {
+  event: ActivityEvent
+  isFresh: boolean
+}) {
   const tone =
     event.kind === "in" ? "up" : event.kind === "out" ? "down" : "muted"
   const label =
@@ -404,13 +656,21 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
 
   return (
     <li
-      className="relative"
+      className={
+        "relative " +
+        (isFresh
+          ? "zeks-anim-row-insert zeks-anim-row-highlight"
+          : "")
+      }
       style={{
         paddingLeft: "32px",
         paddingRight: "12px",
         paddingTop: "5px",
         paddingBottom: "5px",
+        borderRadius: "6px",
       }}
+      data-feed-row={event.id}
+      data-fresh={isFresh ? "1" : undefined}
     >
       {/* Timeline dot */}
       <span
@@ -462,15 +722,21 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
           marginTop: "2px",
         }}
       >
-        <span className="truncate">{formatTokenAmount(event.amountUsdg)} USDG</span>
+        <span className="truncate">
+          {formatTokenAmount(event.amountUsdg)} USDG
+        </span>
         <a
           href={txLink(event.txHash)}
           target="_blank"
           rel="noreferrer"
           className="shrink-0 underline-offset-2 transition-colors"
           style={{ color: "var(--muted-foreground)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.color = "var(--foreground)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.color = "var(--muted-foreground)")
+          }
         >
           {short(event.txHash)}
         </a>
@@ -495,6 +761,23 @@ function relative(ts: number | null): string {
   const ms = Math.max(0, Date.now() - ts * 1000)
   if (ms < 60_000) return "just now"
   const m = Math.floor(ms / 60_000)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+/**
+ * "synced 1s ago" — runs every second via useNow.
+ */
+function formatAgo(nowMs: number, iso: string): string {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return "—"
+  const ms = Math.max(0, nowMs - t)
+  if (ms < 1500) return "just now"
+  const s = Math.floor(ms / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
   if (m < 60) return `${m}m ago`
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h ago`

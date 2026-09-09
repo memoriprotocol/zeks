@@ -1,14 +1,15 @@
 "use client"
 
 /**
- * Dashboard — measured reference composition.
+ * Dashboard — measured reference composition (live realtime edition).
  *
  *   1. Dashboard title  (26px serif · -0.04em)
  *   2. Announcement banner (rounded-2xl · mb-4)
  *   3. Product explainer (rounded-2xl · mb-8)
- *   4. Live Liquidity (3-col grid: 1fr / 2fr)
+ *   4. Live Liquidity (3-col grid: 1fr / 2fr) — internal live loop (2s)
  *   5. Stock Opportunities (3-col cards · equal height · spread + lime CTA)
- *   6. Yield Venues (same card system)
+ *      — refreshed every 3s via /api/markets/lending
+ *   6. Yield Venues — refreshed every 5s via /api/loop/markets
  *
  *   Content max width: var(--content-max) ≈ max-w-6xl (1152px)
  *   Section gap: 32-40 (use 36)
@@ -22,6 +23,9 @@ import { ProductExplainer } from "@/components/zeks/dashboard/product-explainer"
 import { LiveLiquidity } from "@/components/zeks/dashboard/live-liquidity"
 import { StockOpportunities } from "@/components/zeks/dashboard/stock-opportunities"
 import { YieldVenues } from "@/components/zeks/dashboard/yield-venues"
+import { LiveSyncedTag } from "@/components/zeks/live-synced-tag"
+import { useMarketSummary } from "@/components/zeks/dashboard/use-market-summary"
+import { useLoopVenues } from "@/components/zeks/dashboard/use-loop-venues"
 import type { LendingMarket } from "@/lib/markets/lending"
 import type { YieldVenue } from "@/lib/markets/loop/types"
 
@@ -35,13 +39,34 @@ interface DashboardProps {
 }
 
 export function Dashboard({
-  markets,
-  marketsFetchedAt,
-  marketsError,
+  markets: serverMarkets,
+  marketsFetchedAt: serverMarketsFetchedAt,
+  marketsError: serverMarketsError,
   stockMarketCount,
-  yieldVenues,
-  yieldVenuesFetchedAt,
+  yieldVenues: serverYieldVenues,
+  yieldVenuesFetchedAt: serverYieldVenuesFetchedAt,
 }: DashboardProps) {
+  // ── Live market summary — refreshes every 3s via internal cache ──
+  const {
+    markets,
+    fetchedAt: marketsFetchedAt,
+    error: marketsLiveError,
+  } = useMarketSummary({
+    markets: serverMarkets,
+    fetchedAt: serverMarketsFetchedAt,
+  })
+
+  // ── Live yield venues — refreshes every 5s via /api/loop/markets ──
+  const {
+    venues: yieldVenues,
+    fetchedAt: yieldVenuesFetchedAt,
+    error: yieldVenuesError,
+  } = useLoopVenues({
+    venues: serverYieldVenues,
+    fetchedAt: serverYieldVenuesFetchedAt,
+  })
+
+  const marketsError = marketsLiveError ?? serverMarketsError
   const defaultVenueApy = React.useMemo<number | null>(() => {
     const live = yieldVenues.filter(
       (v) => v.apy != null && v.status === "live",
@@ -84,9 +109,11 @@ export function Dashboard({
       <section className="flex flex-col">
         <SectionTitle
           trailing={
-            marketsError
-              ? "Live data unavailable"
-              : `Updated ${relative(marketsFetchedAt)}`
+            marketsError ? (
+              <LiveSyncedTag fetchedAt={null} prefix="Live data unavailable" />
+            ) : (
+              <LiveSyncedTag fetchedAt={marketsFetchedAt} prefix="Updated" />
+            )
           }
         >
           Stock Opportunities
@@ -101,9 +128,14 @@ export function Dashboard({
       <section className="flex flex-col">
         <SectionTitle
           trailing={
-            yieldVenuesFetchedAt
-              ? `Updated ${relative(yieldVenuesFetchedAt)}`
-              : "—"
+            yieldVenuesError ? (
+              <LiveSyncedTag fetchedAt={null} prefix="Live data unavailable" />
+            ) : (
+              <LiveSyncedTag
+                fetchedAt={yieldVenuesFetchedAt}
+                prefix="Updated"
+              />
+            )
           }
         >
           Yield Venues
@@ -115,15 +147,4 @@ export function Dashboard({
       </section>
     </div>
   )
-}
-
-function relative(iso: string | null | undefined): string {
-  if (!iso) return "—"
-  const t = Date.parse(iso)
-  if (!Number.isFinite(t)) return "—"
-  const ms = Math.max(0, Date.now() - t)
-  if (ms < 60_000) return "just now"
-  const m = Math.floor(ms / 60_000)
-  if (m < 60) return `${m}m ago`
-  return `${Math.floor(m / 60)}h ago`
 }
