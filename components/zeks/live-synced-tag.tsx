@@ -6,6 +6,15 @@
  *   · Calls useNow(1000) so the relative timer ticks every second.
  *   · Supports `null` / `undefined` ⇒ renders "—".
  *
+ * Hydration safety:
+ *   On the server and during the first client paint (before the
+ *   useEffect runs) the relative time would differ between SSR
+ *   and client (server Date.now() != client Date.now()). To keep
+ *   the markup stable we suppress the relative part until the
+ *   client has produced its first `now`. The container element
+ *   (a span with the dot + prefix) is always present so layout
+ *   does not jump.
+ *
  * Uses the project's typography tokens (font-mono, 11px muted).
  */
 
@@ -32,6 +41,10 @@ export function LiveSyncedTag({
   const now = useNow(1000)
   const text = React.useMemo(() => {
     if (!fetchedAt) return "—"
+    // Suppress relative time until the client has produced its
+    // first `now`. This keeps SSR / first-paint markup identical
+    // between server and client.
+    if (now == null) return prefix
     const t = Date.parse(fetchedAt)
     if (!Number.isFinite(t)) return "—"
     const ms = Math.max(0, now - t)

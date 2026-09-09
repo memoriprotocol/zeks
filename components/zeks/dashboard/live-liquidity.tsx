@@ -381,12 +381,13 @@ function ActivityFeedPanel({
   freshIds: Set<string>
 }) {
   const now = useNow(1000)
-  const headUpdated = headUpdatedAt
-    ? formatAgo(now, headUpdatedAt)
-    : "—"
-  const feedUpdated = feedUpdatedAt
-    ? formatAgo(now, feedUpdatedAt)
-    : "—"
+  // Hydration-safe: if `now` is still null (server / first client
+  // paint before useEffect), render an empty string rather than
+  // computing a relative time that could mismatch SSR.
+  const headUpdated =
+    now == null || !headUpdatedAt ? "—" : formatAgo(now, headUpdatedAt)
+  const feedUpdated =
+    now == null || !feedUpdatedAt ? "—" : formatAgo(now, feedUpdatedAt)
 
   return (
     <div
@@ -549,6 +550,9 @@ function ActivityFeed({
   const visible = showAll ? events.length : Math.min(events.length, VISIBLE_ROWS)
   const items = events.slice(0, visible)
   const more = events.length - visible
+  // `now` is null on the server / first client paint — relative
+  // timestamps then render as "—" so SSR / client markup matches.
+  const now = useNow(1000)
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -568,6 +572,7 @@ function ActivityFeed({
             key={e.id}
             event={e}
             isFresh={freshIds.has(e.id)}
+            now={now}
           />
         ))}
       </ol>
@@ -612,9 +617,11 @@ function ActivityFeed({
 function ActivityRow({
   event,
   isFresh,
+  now,
 }: {
   event: ActivityEvent
   isFresh: boolean
+  now: number | null
 }) {
   const tone =
     event.kind === "in" ? "up" : event.kind === "out" ? "down" : "muted"
@@ -676,7 +683,7 @@ function ActivityRow({
           className="ml-auto font-mono tabular-nums shrink-0"
           style={{ fontSize: "11px", color: "var(--muted-foreground)" }}
         >
-          {relative(event.timestamp)}
+          {relative(event.timestamp, now)}
         </span>
       </div>
 
@@ -723,9 +730,10 @@ function txLink(hash: string): string {
   return `https://explorer.robinhood.com/tx/${hash}`
 }
 
-function relative(ts: number | null): string {
+function relative(ts: number | null, nowMs: number | null): string {
   if (ts == null) return "—"
-  const ms = Math.max(0, Date.now() - ts * 1000)
+  if (nowMs == null) return "—" // hydration-safe: same on SSR + first paint
+  const ms = Math.max(0, nowMs - ts * 1000)
   if (ms < 60_000) return "just now"
   const m = Math.floor(ms / 60_000)
   if (m < 60) return `${m}m ago`
