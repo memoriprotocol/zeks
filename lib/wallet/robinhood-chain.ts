@@ -9,7 +9,14 @@
  * Values match the official Robinhood Chain public config
  * (chainId 4663, native currency ETH, public RPC, Blockscout
  * block explorer).
+ *
+ * The Blockscout base URL is the single source of truth defined in
+ * `lib/explorer/robinhood-chain.ts`; everything here derives from
+ * it so URLs never drift between the wallet config, the page UI,
+ * and the shared helpers.
  */
+
+import { ROBINHOOD_CHAIN_EXPLORER_BASE } from "@/lib/explorer/robinhood-chain"
 
 export const ROBINHOOD_CHAIN_ID_HEX = "0x1237" // 4663
 export const ROBINHOOD_CHAIN_ID_DEC = 4663
@@ -23,9 +30,12 @@ export const ROBINHOOD_CHAIN_CONFIG = {
     decimals: 18,
   },
   rpcUrls: ["https://rpc.mainnet.chain.robinhood.com"],
-  blockExplorerUrls: ["https://robinhoodchain.blockscout.com"],
+  blockExplorerUrls: [ROBINHOOD_CHAIN_EXPLORER_BASE],
   infoUrls: ["https://robinhood.com"],
 } as const
 
-export const ROBINHOOD_BLOCKSCOUT_BASE =
-  "https://robinhoodchain.blockscout.com"
+/**
+ * Legacy alias kept for wallet integrations that read the raw base
+ * string. Prefer importing from `@/lib/explorer/robinhood-chain`.
+ */
+export const ROBINHOOD_BLOCKSCOUT_BASE = ROBINHOOD_CHAIN_EXPLORER_BASE

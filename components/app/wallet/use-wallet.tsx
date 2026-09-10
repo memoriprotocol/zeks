@@ -47,6 +47,7 @@ import {
 } from "@/lib/wallet/robinhood-chain"
 import type { EIP1193Provider, EIP1193RpcError } from "@/lib/wallet/types"
 import type { Address } from "@/lib/wallet/types-common"
+import { explorerAddressUrl } from "@/lib/explorer/robinhood-chain"
 import {
   buildCanonicalWalletList,
   findWalletByRdns,
@@ -929,9 +930,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const openExplorer = React.useCallback(() => {
     if (!address) return
     if (typeof window === "undefined") return
-    window.open(
-      `https://robinhoodchain.blockscout.com/address/${address}`,
-      "_blank",
+    window.open(explorerAddressUrl(address), "_blank",
       "noopener,noreferrer",
     )
   }, [address])
