@@ -24,6 +24,7 @@ import {
   useProtocolActivity,
   type ProtocolActivityEvent,
 } from "@/components/activity/use-protocol-activity"
+import { explorerTxUrl } from "@/lib/explorer/robinhood-chain"
 import { formatTokenAmount } from "@/lib/markets/format"
 import { safeFormatBlock } from "@/lib/markets/fmt"
 
@@ -224,7 +225,7 @@ function ActivityRow({
       className={isFresh ? "zeks-anim-row-insert" : undefined}
     >
       <Link
-        href={`https://explorer.robinhood.com/tx/${event.txHash}`}
+        href={explorerTxUrl(event.txHash)}
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center justify-between gap-3 px-4 h-11 hover:bg-secondary/30 transition-colors"

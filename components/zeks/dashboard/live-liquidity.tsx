@@ -34,6 +34,7 @@ import {
   formatTokenAmount,
 } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
+import { explorerTxUrl } from "@/lib/explorer/robinhood-chain"
 
 /** Shape returned by GET /api/protocol/activity. */
 interface ActivityEvent {
@@ -726,7 +727,7 @@ function short(hash: string): string {
 }
 
 function txLink(hash: string): string {
-  return `https://explorer.robinhood.com/tx/${hash}`
+  return explorerTxUrl(hash)
 }
 
 function relative(ts: number | null, nowMs: number | null): string {

@@ -17,6 +17,7 @@
 import * as React from "react"
 import PortfolioEmptyState from "./portfolio-empty-state"
 import type { ActivityItem } from "@/lib/markets/activity"
+import { explorerTxUrl } from "@/lib/explorer/robinhood-chain"
 
 interface PortfolioActivityProps {
   dataUnavailable: boolean
@@ -174,7 +175,7 @@ export default function PortfolioActivity({
                 >
                   <td className="py-2.5 pr-3">
                     <a
-                      href={`https://explorer.robinhood.com/tx/${it.hash}`}
+                      href={explorerTxUrl(it.hash)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="underline hover:text-foreground"

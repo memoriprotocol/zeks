@@ -21,6 +21,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { useMarketActivity } from "@/components/markets/use-market-activity"
 import type { LendingMarket } from "@/lib/markets/lending"
+import { explorerTxUrl } from "@/lib/explorer/robinhood-chain"
 
 interface MarketActivitySectionProps {
   market: LendingMarket
@@ -77,7 +78,7 @@ export default function MarketActivitySection({
             {items.map((a) => (
               <li key={a.hash}>
                 <Link
-                  href={`https://explorer.robinhood.com/tx/${a.hash}`}
+                  href={explorerTxUrl(a.hash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-between gap-3 px-3 py-2 rounded-md hover:bg-secondary/30 transition-colors"

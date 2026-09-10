@@ -34,6 +34,7 @@ import {
   type MarketAsset,
   type MarketQuote,
 } from "@/lib/markets/client"
+import { explorerAddressUrl } from "@/lib/explorer/robinhood-chain"
 
 const REFRESH_INTERVAL_MS = 20_000
 
@@ -628,7 +629,7 @@ function ContractRow({ address }: { address: string | null }) {
   const shortened = shortenAddress(address)
   const valid = /^0x[0-9a-fA-F]{6,}$/.test(address)
   const explorerUrl = valid
-    ? `https://explorer.robinhood.com/address/${address}`
+    ? explorerAddressUrl(address)
     : null
 
   const onCopy = async () => {

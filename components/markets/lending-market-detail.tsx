@@ -36,6 +36,7 @@ import {
 import { ROBINHOOD_CHAIN_ID } from "@/lib/markets/client"
 import type { LendingMarket } from "@/lib/markets/lending"
 import { LENDING_SOURCE } from "@/lib/markets/lending"
+import { explorerAddressUrl } from "@/lib/explorer/robinhood-chain"
 
 interface LendingMarketDetailProps {
   market: LendingMarket
@@ -114,7 +115,7 @@ export default function LendingMarketDetail({
             />
             {market.contractAddress ? (
               <Link
-                href={`https://explorer.robinhood.com/address/${market.contractAddress}`}
+                href={explorerAddressUrl(market.contractAddress)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
