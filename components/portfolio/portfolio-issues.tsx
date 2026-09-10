@@ -9,7 +9,7 @@
  */
 
 import * as React from "react"
-import type { PortfolioIssue } from "@/lib/markets/portfolio"
+import type { PortfolioIssue } from "./use-portfolio"
 
 export default function PortfolioIssues({
   issues,
@@ -36,17 +36,15 @@ export default function PortfolioIssues({
 
 function labelFor(issue: PortfolioIssue): string {
   switch (issue.kind) {
-    case "wallet-disconnected":
-      return "Connect your wallet to view your portfolio."
     case "wrong-network":
       return "Switch to Robinhood Chain to view your portfolio."
     case "morpho-unavailable":
-      return "Live data unavailable."
     case "rpc-unavailable":
-      return "Live data unavailable."
     case "missing-token-info":
       return "Live data unavailable."
     case "no-position":
       return "No active positions."
+    default:
+      return "Live data unavailable."
   }
 }

@@ -36,6 +36,9 @@ export interface PortfolioLeg {
   contractAddress: Address | null
   /** Raw bigint balance (token smallest units). */
   balanceRaw: bigint
+  /** ERC20 decimals when known. `null` for Morpho legs whose decimals
+      are reported by the API (unknown to the UI). */
+  balanceDecimals: number | null
   /** USD value as reported by the source. null when unavailable. */
   balanceUsd: number | null
   /** For Morpho legs: the market id (32-byte hex). */
@@ -66,6 +69,10 @@ export interface PortfolioSnapshot {
   netValueUsd: number | null
   weightedSupplyApy: number | null
   weightedBorrowApy: number | null
+  /** Annualized yield estimate: suppliedUsd × (weightedSupplyApy / 100). */
+  estimatedYieldUsd: number | null
+  /** Convenience: supplied.length + borrowed.length + collateral.length. */
+  positionCount: number
   issues: PortfolioIssue[]
   fetchedAt: string
 }
@@ -143,6 +150,7 @@ export async function buildPortfolioSnapshot(
         symbol: p.loanAssetSymbol,
         contractAddress: (p.loanAssetAddress || null) as Address | null,
         balanceRaw: p.supplyAssetsRaw,
+        balanceDecimals: null,
         balanceUsd: p.supplyAssetsUsd,
         marketId: p.marketId,
         supplyApy: p.marketSupplyApy,
@@ -157,6 +165,7 @@ export async function buildPortfolioSnapshot(
         symbol: p.loanAssetSymbol,
         contractAddress: (p.loanAssetAddress || null) as Address | null,
         balanceRaw: p.borrowAssetsRaw,
+        balanceDecimals: null,
         balanceUsd: p.borrowAssetsUsd,
         marketId: p.marketId,
         supplyApy: p.marketSupplyApy,
@@ -170,6 +179,7 @@ export async function buildPortfolioSnapshot(
         symbol: p.collateralAssetSymbol ?? "?",
         contractAddress: (p.collateralAssetAddress || null) as Address | null,
         balanceRaw: p.collateralRaw,
+        balanceDecimals: null,
         balanceUsd: p.collateralUsd,
         marketId: p.marketId,
         supplyApy: p.marketSupplyApy,
@@ -212,6 +222,7 @@ export async function buildPortfolioSnapshot(
       symbol: info.value.symbol,
       contractAddress: addr as Address,
       balanceRaw: r.value,
+      balanceDecimals: info.value.decimals,
       balanceUsd: null, // wallet balance USD requires an oracle price
       marketId: null,
       supplyApy: null,
@@ -232,6 +243,13 @@ export async function buildPortfolioSnapshot(
   // 5. Weighted APY by USD value. null when we cannot compute.
   const weightedSupplyApy = weightedApy(supplied)
   const weightedBorrowApy = weightedApy(borrowed)
+
+  const estimatedYieldUsd =
+    totalSuppliedUsd != null && weightedSupplyApy != null
+      ? (totalSuppliedUsd * weightedSupplyApy) / 100
+      : null
+  const positionCount =
+    supplied.length + borrowed.length + collateral.length
 
   if (positions.length === 0 && !issues.some((i) => i.kind !== "morpho-unavailable")) {
     issues.push({ kind: "no-position" })
@@ -254,6 +272,8 @@ export async function buildPortfolioSnapshot(
     netValueUsd,
     weightedSupplyApy,
     weightedBorrowApy,
+    estimatedYieldUsd,
+    positionCount,
     issues,
     fetchedAt,
   }
@@ -321,6 +341,8 @@ function emptySnapshot(
     netValueUsd: null,
     weightedSupplyApy: null,
     weightedBorrowApy: null,
+    estimatedYieldUsd: null,
+    positionCount: 0,
     issues,
     fetchedAt,
   }
