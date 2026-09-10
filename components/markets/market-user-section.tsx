@@ -109,7 +109,7 @@ function PositionCard({
   return (
     <section
       aria-label="Your position in this market"
-      className="rounded-2xl border border-border bg-card p-5 md:p-6 min-w-0"
+      className="zeks-card min-w-0"
       data-market-user-section
     >
       <header className="flex items-baseline justify-between gap-2">
@@ -276,7 +276,7 @@ function Empty({
 
 function LoadingCard() {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 md:p-6 min-w-0">
+    <section className="zeks-card min-w-0">
       <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
         POSITION
       </span>

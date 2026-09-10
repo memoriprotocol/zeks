@@ -124,7 +124,7 @@ export default function UserPositionPanel({ market }: UserPositionPanelProps) {
   // ── Render: rich state ───────────────────────────────────────
   return (
     <section
-      className="bg-card border border-border rounded-xl p-5"
+      className="zeks-card"
       aria-label="Your position"
       data-position-panel
     >
@@ -180,7 +180,7 @@ function StateCard({
 }) {
   return (
     <section
-      className="bg-card border border-border rounded-xl p-5"
+      className="zeks-card"
       aria-label={label.toLowerCase()}
     >
       <p className="text-[10px] font-mono text-muted-foreground tracking-wider">

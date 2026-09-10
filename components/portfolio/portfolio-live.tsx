@@ -37,7 +37,11 @@ export default function PortfolioLive() {
   const noDataYet = !snapshot
 
   return (
-    <div className="space-y-3" data-portfolio-live>
+    <div
+      className="zeks-grid"
+      style={{ gap: "var(--page-section-gap)" }}
+      data-portfolio-live
+    >
       {/* 1 · Account Summary — full-width hero */}
       <PortfolioSummary
         dataUnavailable={noDataYet}
@@ -47,7 +51,7 @@ export default function PortfolioLive() {
       <PortfolioIssues issues={snapshot?.issues ?? []} />
 
       {/* 2 · Positions (left) + Wallet + Activity (right) */}
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-3">
+      <div className="zeks-grid zeks-grid-12">
         {/* LEFT: all positions */}
         <PortfolioPositions
           dataUnavailable={noDataYet}
@@ -56,7 +60,10 @@ export default function PortfolioLive() {
         />
 
         {/* RIGHT: wallet snapshot + recent activity */}
-        <div className="space-y-3 min-w-0">
+        <div
+          className="zeks-grid"
+          style={{ gap: "var(--page-section-gap)", minWidth: 0 }}
+        >
           <PortfolioWalletSnapshot />
           <PortfolioActivity
             dataUnavailable={activity.length === 0 && !activityUnsupported}
@@ -69,7 +76,7 @@ export default function PortfolioLive() {
       </div>
 
       {/* 3 · Earn / Borrow breakdown — compact separate sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="zeks-grid zeks-grid-2">
         <PortfolioEarnPositions
           dataUnavailable={noDataYet || (snapshot?.supplied.length ?? 0) === 0}
           snapshot={snapshot ?? null}

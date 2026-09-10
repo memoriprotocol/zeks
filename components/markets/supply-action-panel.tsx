@@ -436,7 +436,7 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
 
   return (
     <section
-      className="rounded-2xl border border-border bg-card p-5"
+      className="zeks-card"
       aria-label="Supply action"
       data-supply-panel
     >

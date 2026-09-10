@@ -223,11 +223,8 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
 
   return (
     <div
-      className="grid"
-      style={{
-        gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)",
-        gap: "var(--dash-card-gap)",
-      }}
+      className="zeks-grid"
+      style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)" }}
       data-testid="section-live-liquidity"
     >
       {/* LEFT — 2 stacked metric cards */}
@@ -235,7 +232,8 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
         className="grid"
         style={{
           gridTemplateRows: "1fr 1fr",
-          gap: "var(--dash-card-gap)",
+          gap: "var(--page-card-gap)",
+          minHeight: "256px",
         }}
       >
         <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
@@ -347,13 +345,13 @@ function AddedLastDepositsCard({
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="flex flex-col"
+      className="flex flex-col h-full"
       style={{
         padding: "var(--dash-card-pad)",
         borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
-        minHeight: "120px",
+        minHeight: "0",
       }}
     >
       {children}
@@ -398,6 +396,7 @@ function ActivityFeedPanel({
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
         minHeight: "256px",
+        height: "100%",
       }}
     >
       {/* Header row — live indicator · label · block · synced timer */}

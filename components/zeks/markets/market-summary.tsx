@@ -53,17 +53,11 @@ export function MarketSummary({ markets }: MarketSummaryProps) {
     <div
       data-testid="markets-summary"
       aria-label="Market summary"
-      className="border overflow-hidden"
-      style={{
-        backgroundColor: "var(--card-soft)",
-        borderColor: "var(--border)",
-        borderRadius: "var(--dash-card-radius)",
-        padding: "var(--dash-card-pad)",
-      }}
+      className="zeks-card"
     >
       <div
         className="grid grid-cols-1 sm:grid-cols-3"
-        style={{ rowGap: "16px", columnGap: "16px" }}
+        style={{ rowGap: "var(--page-card-gap)", columnGap: "var(--page-card-gap)" }}
       >
         <SummaryCell label="Active Markets" value={String(stats.active)} />
         <SummaryCell

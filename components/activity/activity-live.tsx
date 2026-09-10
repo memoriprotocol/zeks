@@ -63,21 +63,29 @@ export default function ActivityLive() {
           : "Live"
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto">
-      <div className="mb-4">
-        <span
-          className="font-mono text-[10px] tracking-wider text-muted-foreground/80"
-          data-testid="activity-eyebrow"
-        >
-          ACTIVITY
-        </span>
-        <h1 className="font-serif text-3xl md:text-[34px] leading-[1.1] tracking-tight text-foreground mt-1.5">
-          Activity
-        </h1>
-        <p className="text-[13px] text-muted-foreground mt-1.5 max-w-md leading-relaxed">
-          Verified Loopr vault transfers on Robinhood Chain.
-        </p>
-      </div>
+    <div className="zeks-page">
+      <header className="zeks-block" style={{ gap: "var(--page-title-gap)" }}>
+        <div className="zeks-block" style={{ gap: "6px" }}>
+          <span
+            className="zeks-label"
+            data-testid="activity-eyebrow"
+          >
+            Activity
+          </span>
+          <h1 className="zeks-display">Activity</h1>
+          <p
+            style={{
+              fontSize: "var(--font-body)",
+              color: "var(--muted-foreground)",
+              maxWidth: "52ch",
+              marginTop: "2px",
+              lineHeight: 1.5,
+            }}
+          >
+            Verified Loopr vault transfers on Robinhood Chain.
+          </p>
+        </div>
+      </header>
 
       <div className="flex items-center gap-3 flex-wrap mb-3">
         <StatusPill

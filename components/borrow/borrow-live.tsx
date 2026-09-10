@@ -118,16 +118,22 @@ export default function BorrowLive({
   const canLoadMore = rows.length > visible
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto" data-borrow-live>
-      <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
-        <div>
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            BORROW
-          </span>
-          <h1 className="font-serif text-3xl md:text-[34px] leading-[1.1] tracking-tight text-foreground mt-1.5">
+    <div className="zeks-page" data-borrow-live>
+      <header className="zeks-page-title-row" style={{ alignItems: "flex-start" }}>
+        <div className="zeks-block" style={{ gap: "6px" }}>
+          <span className="zeks-label">Borrow</span>
+          <h1 className="zeks-display">
             Borrow against tokenized collateral
           </h1>
-          <p className="text-[13px] text-muted-foreground mt-1.5 max-w-md leading-relaxed">
+          <p
+            style={{
+              fontSize: "var(--font-body)",
+              color: "var(--muted-foreground)",
+              maxWidth: "52ch",
+              marginTop: "2px",
+              lineHeight: 1.5,
+            }}
+          >
             Live Morpho borrow markets on Robinhood Chain. Borrow against
             tokenized assets with variable APY.
           </p>
@@ -148,7 +154,7 @@ export default function BorrowLive({
           />
           Borrow {protocolReady ? "available" : "coming soon"}
         </span>
-      </div>
+      </header>
 
       {/* Stat strip */}
       {rows.length > 0 ? (

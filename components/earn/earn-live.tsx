@@ -107,17 +107,23 @@ export default function EarnLive({
   const avgApy = average(rows.map((m) => m.supplyApy))
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto" data-earn-live>
+    <div className="zeks-page" data-earn-live>
       {/* Page heading — strong serif, no admin chrome */}
-      <div className="mb-5 flex items-baseline justify-between gap-3 flex-wrap">
-        <div>
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            EARN
-          </span>
-          <h1 className="font-serif text-3xl md:text-[34px] leading-[1.1] tracking-tight text-foreground mt-1.5">
+      <header className="zeks-page-title-row" style={{ alignItems: "flex-start" }}>
+        <div className="zeks-block" style={{ gap: "6px" }}>
+          <span className="zeks-label">Earn</span>
+          <h1 className="zeks-display">
             Earn yield
           </h1>
-          <p className="text-[13px] text-muted-foreground mt-1.5 max-w-md leading-relaxed">
+          <p
+            style={{
+              fontSize: "var(--font-body)",
+              color: "var(--muted-foreground)",
+              maxWidth: "52ch",
+              marginTop: "2px",
+              lineHeight: 1.5,
+            }}
+          >
             Supply tokenized assets to Morpho markets on Robinhood Chain
             and earn variable APY.
           </p>
@@ -138,7 +144,7 @@ export default function EarnLive({
           />
           Supply {protocolReady ? "available" : "coming soon"}
         </span>
-      </div>
+      </header>
 
       {/* Hero: featured opportunity */}
       {featured ? <EarnHero market={featured} /> : null}

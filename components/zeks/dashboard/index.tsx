@@ -80,15 +80,13 @@ export function Dashboard({
 
   return (
     <div
-      className="w-full mx-auto flex flex-col"
-      style={{
-        maxWidth: "var(--content-max)",
-        gap: "var(--dash-section-gap)",
-      }}
+      className="zeks-page"
       data-testid="dashboard-root"
     >
       {/* 1 · Page title */}
-      <PageTitle>Dashboard</PageTitle>
+      <div className="zeks-block" style={{ gap: "var(--page-title-gap)" }}>
+        <PageTitle>Dashboard</PageTitle>
+      </div>
 
       {/* 2 · Announcement banner */}
       <AnnouncementBanner />
@@ -100,13 +98,13 @@ export function Dashboard({
       />
 
       {/* 4 · Live Liquidity */}
-      <section className="flex flex-col">
+      <section className="zeks-block">
         <SectionTitle>Live Liquidity</SectionTitle>
         <LiveLiquidity markets={markets} />
       </section>
 
       {/* 5 · Stock Opportunities */}
-      <section className="flex flex-col">
+      <section className="zeks-block">
         <SectionTitle
           trailing={
             marketsError ? (
@@ -125,7 +123,7 @@ export function Dashboard({
       </section>
 
       {/* 6 · Yield Venues */}
-      <section className="flex flex-col">
+      <section className="zeks-block">
         <SectionTitle
           trailing={
             yieldVenuesError ? (

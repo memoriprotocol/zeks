@@ -34,20 +34,26 @@ export default function PortfolioPageClient({}: PortfolioPageClientProps) {
     status === "disconnected" ||
     status === "connecting"
   return (
-    <div className="w-full" data-wallet-status={status}>
+    <div className="zeks-page" data-wallet-status={status}>
       {/* ── Page header ──────────────────────────────────────────────────── */}
-      <div className="mb-5">
-        <div className="text-[10px] font-mono text-muted-foreground tracking-wider">
-          PORTFOLIO
+      <header className="zeks-block" style={{ gap: "var(--page-title-gap)" }}>
+        <div className="zeks-block" style={{ gap: "6px" }}>
+          <span className="zeks-label">Portfolio</span>
+          <h1 className="zeks-display">Your portfolio</h1>
+          <p
+            style={{
+              fontSize: "var(--font-body)",
+              color: "var(--muted-foreground)",
+              maxWidth: "56ch",
+              marginTop: "2px",
+              lineHeight: 1.5,
+            }}
+          >
+            Wallet positions, supplied assets, debt and collateral on Robinhood
+            Chain.
+          </p>
         </div>
-        <h1 className="font-serif text-2xl md:text-3xl leading-tight text-foreground mt-1.5">
-          Your portfolio
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1.5 max-w-xl leading-relaxed">
-          Wallet positions, supplied assets, debt and collateral on Robinhood
-          Chain.
-        </p>
-      </div>
+      </header>
 
       {/* ── Wallet gate ─────────────────────────────────────────────────── */}
       {isWrongNetwork ? (

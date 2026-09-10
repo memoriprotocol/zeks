@@ -45,11 +45,11 @@ export default function LendingMarketDetail({
   market,
 }: LendingMarketDetailProps) {
   return (
-    <div className="w-full max-w-[1080px] mx-auto" data-market-detail>
+    <div className="zeks-page" data-market-detail>
       {/* Breadcrumb */}
       <nav
         aria-label="Breadcrumb"
-        className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-muted-foreground mb-4"
+        className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-muted-foreground"
       >
         <Link
           href="/terminal/markets"
@@ -64,7 +64,7 @@ export default function LendingMarketDetail({
       {/* ── 1. HEADER + HERO ──────────────────────────────────────── */}
       <section
         aria-label="Market header"
-        className="rounded-2xl border border-border bg-card p-5 md:p-6"
+        className="zeks-card"
       >
         <div className="flex items-start gap-4 flex-wrap">
           <AssetLogo
@@ -161,7 +161,8 @@ export default function LendingMarketDetail({
       {/* ── 2. METRICS GRID ──────────────────────────────────────────── */}
       <section
         aria-label="Market metrics"
-        className="mt-3 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-px bg-border border border-border rounded-2xl overflow-hidden"
+        className="zeks-card p-0 overflow-hidden"
+        style={{ padding: 0 }}
       >
         <MetricCell label="TVL" value={formatCompact(market.tvl ?? market.totalSupply)} />
         <MetricCell label="Total Supply" value={formatCompact(market.totalSupply)} />
@@ -185,13 +186,13 @@ export default function LendingMarketDetail({
       </section>
 
       {/* ── 3. SUPPLY ACTION + STRUCTURE ─────────────────────────── */}
-      <div className="mt-3 grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3">
+      <div className="zeks-grid zeks-grid-12">
         <SupplyActionPanel market={market} />
         <MarketStructureCard market={market} />
       </div>
 
       {/* ── 4. USER POSITION (live, per-market) ───────────────────── */}
-      <section className="mt-3" aria-label="Your position in this market">
+      <section aria-label="Your position in this market">
         <div className="flex items-baseline justify-between gap-2 mb-2">
           <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
             YOUR POSITION
@@ -200,14 +201,14 @@ export default function LendingMarketDetail({
             Morpho
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3">
+        <div className="zeks-grid zeks-grid-12">
           <MarketUserSection market={market} />
           <UserPositionPanel market={market} />
         </div>
       </section>
 
       {/* ── 5. ACTIVITY (compact feed) ─────────────────────────────── */}
-      <section className="mt-3" aria-label="Market activity">
+      <section aria-label="Market activity">
         <MarketActivitySection market={market} />
       </section>
     </div>
@@ -276,9 +277,9 @@ function MarketStructureCard({ market }: { market: LendingMarket }) {
   return (
     <section
       aria-label="Market structure"
-      className="rounded-2xl border border-border bg-card overflow-hidden"
+      className="zeks-card p-0 overflow-hidden"
     >
-      <header className="px-5 py-3 border-b border-border flex items-baseline justify-between gap-2">
+      <header className="px-4 py-3 border-b border-border flex items-baseline justify-between gap-2">
         <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
           STRUCTURE
         </span>

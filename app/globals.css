@@ -67,7 +67,7 @@
   --shell-strip-h:    40px;        /* py-2.5 ticker strip */
   --content-max:    1152px;        /* ~max-w-6xl */
   --content-pad-x:    28px;        /* desktop gutter */
-  --content-pad-y:    28px;        /* desktop top/bottom */
+  --content-pad-y:    24px;        /* desktop top/bottom */
 
   /* ── Spacing scale (tokenized) ─────────────────────────── */
   --space-1:  4px;
@@ -79,15 +79,23 @@
   --space-7: 32px;
   --space-8: 40px;
 
+  /* Page rhythm tokens — shared across every read-only page. */
+  --page-title-gap:    20px;       /* page title → first block */
+  --page-section-gap:  28px;       /* major sections on a page */
+  --page-heading-gap:  12px;       /* section heading → content */
+  --page-card-gap:     14px;       /* between cards in a grid */
+  --page-card-pad:     18px;       /* card padding */
+  --page-card-radius:  14px;       /* card radius (slightly tighter) */
+
   /* Dashboard rhythm tokens (measured reference spec) */
-  --dash-section-gap:  36px;       /* major section separation 32-40 */
-  --dash-card-gap:     16px;       /* between cards */
+  --dash-section-gap:  28px;       /* major section separation */
+  --dash-card-gap:     14px;       /* between cards */
   --dash-heading-gap:  12px;       /* section heading -> content */
-  --dash-card-pad:     20px;       /* p-5 */
-  --dash-card-radius:  16px;       /* rounded-2xl */
-  --dash-card-min-h:   240px;      /* equal visual height */
-  --dash-banner-mb:    16px;       /* mb-4 */
-  --dash-explainer-mb: 32px;       /* mb-8 */
+  --dash-card-pad:     18px;       /* p-5 / card padding */
+  --dash-card-radius:  14px;       /* rounded-2xl */
+  --dash-card-min-h:   220px;      /* equal visual height */
+  --dash-banner-mb:    12px;       /* mb-4 */
+  --dash-explainer-mb: 24px;       /* mb-8 */
 
   /* ── Typography scale (measured reference spec) ─────────── */
   --font-dash-title:   26px;       /* serif, -0.04em */
@@ -169,6 +177,72 @@
     font-variant-numeric: lining-nums tabular-nums;
     font-weight: 400;
     letter-spacing: -0.015em;
+  }
+
+  /* ── Page-level layout primitives ──────────────────────── */
+  /* Shared container + rhythm for every read-only page. */
+  .zeks-page {
+    width: 100%;
+    margin-inline: auto;
+    max-width: var(--content-max);
+    padding-left: var(--content-pad-x);
+    padding-right: var(--content-pad-x);
+    padding-top: var(--content-pad-y);
+    padding-bottom: var(--content-pad-y);
+    display: flex;
+    flex-direction: column;
+    gap: var(--page-section-gap);
+  }
+  /* Compact flow — used when a page contains many sub-sections. */
+  .zeks-page-tight {
+    width: 100%;
+    margin-inline: auto;
+    max-width: var(--content-max);
+    padding-left: var(--content-pad-x);
+    padding-right: var(--content-pad-x);
+    padding-top: 20px;
+    padding-bottom: var(--content-pad-y);
+    display: flex;
+    flex-direction: column;
+    gap: var(--page-section-gap);
+  }
+  .zeks-page-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .zeks-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--page-heading-gap);
+  }
+  /* Card surface — shared by every read-only page. */
+  .zeks-card {
+    background-color: var(--card-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--page-card-radius);
+    padding: var(--page-card-pad);
+  }
+  /* Equal-height card grid */
+  .zeks-grid {
+    display: grid;
+    gap: var(--page-card-gap);
+  }
+  .zeks-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .zeks-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zeks-grid-12 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+  .zeks-grid-21 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+
+  @media (max-width: 900px) {
+    .zeks-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .zeks-grid-12,
+    .zeks-grid-21 { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .zeks-grid-3,
+    .zeks-grid-2 { grid-template-columns: minmax(0, 1fr); }
   }
 }
 

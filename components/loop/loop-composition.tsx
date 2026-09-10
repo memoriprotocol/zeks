@@ -107,11 +107,7 @@ export default function LoopComposition() {
 
   return (
     <div
-      className="w-full mx-auto flex flex-col"
-      style={{
-        maxWidth: "var(--content-max)",
-        gap: "var(--dash-section-gap)",
-      }}
+      className="zeks-page"
       data-loop-composition
     >
       {/* 1 · Loop intro */}

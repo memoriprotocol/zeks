@@ -101,70 +101,61 @@ export default function MarketsPageClient({
 
   return (
     <div
-      className="w-full mx-auto"
-      style={{ maxWidth: "var(--content-max)" }}
+      className="zeks-page"
       data-testid="markets-root"
     >
-      <div
-        className="flex flex-col"
-        style={{
-          paddingTop: "var(--content-pad-y)",
-          paddingBottom: "var(--content-pad-y)",
-          gap: "var(--dash-section-gap)",
-        }}
-      >
-        {/* 1 · Page title + short description */}
-        <header className="flex flex-col" style={{ gap: "8px" }}>
-          <div className="flex items-end justify-between gap-3 flex-wrap">
-            <PageTitle>Markets</PageTitle>
-            <span
-              className="font-mono"
-              style={{
-                fontSize: "11px",
-                color: "var(--muted-foreground)",
-                letterSpacing: "0.04em",
-              }}
-            >
-              {errorMessage
-                ? "Live data unavailable"
-                : `Updated ${relative(fetchedAt)}${stale ? " · stale" : ""}`}
-            </span>
-          </div>
-          <p
+      {/* 1 · Page title + short description */}
+      <header className="zeks-block" style={{ gap: "var(--page-title-gap)" }}>
+        <div className="zeks-page-title-row">
+          <PageTitle>Markets</PageTitle>
+          <span
+            className="font-mono"
             style={{
-              fontSize: "var(--font-body)",
-              lineHeight: 1.5,
-              color: "var(--foreground)",
-              opacity: 0.72,
-              maxWidth: "62ch",
+              fontSize: "11px",
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.04em",
             }}
           >
-            Every Morpho Blue market on Robinhood Chain where a curated
-            tokenized equity is accepted as collateral. Click any row to
-            inspect the onchain market.
-          </p>
-        </header>
+            {errorMessage
+              ? "Live data unavailable"
+              : `Updated ${relative(fetchedAt)}${stale ? " · stale" : ""}`}
+          </span>
+        </div>
+        <p
+          style={{
+            fontSize: "var(--font-body)",
+            lineHeight: 1.5,
+            color: "var(--foreground)",
+            opacity: 0.72,
+            maxWidth: "62ch",
+            marginTop: "-2px",
+          }}
+        >
+          Every Morpho Blue market on Robinhood Chain where a curated
+          tokenized equity is accepted as collateral. Click any row to
+          inspect the onchain market.
+        </p>
+      </header>
 
-        {/* 2 · Compact market summary */}
-        <MarketSummary markets={markets} />
+      {/* 2 · Compact market summary */}
+      <MarketSummary markets={markets} />
 
-        {/* 3 · Search + filters */}
-        <MarketsToolbar
-          query={query}
-          onQueryChange={setQuery}
-          status={status}
-          onStatusChange={setStatus}
-          placeholder="Search markets (AAPL, TSLA, …)"
-          testId="markets-list-toolbar"
-        />
+      {/* 3 · Search + filters */}
+      <MarketsToolbar
+        query={query}
+        onQueryChange={setQuery}
+        status={status}
+        onStatusChange={setStatus}
+        placeholder="Search markets (AAPL, TSLA, …)"
+        testId="markets-list-toolbar"
+      />
 
-        {/* 4 · Dense market list / table */}
-        {errorMessage && markets.length === 0 ? (
-          <ServiceUnavailable onRetry={() => void refresh()} />
-        ) : (
-          <MarketList markets={markets} query={query} status={status} />
-        )}
-      </div>
+      {/* 4 · Dense market list / table */}
+      {errorMessage && markets.length === 0 ? (
+        <ServiceUnavailable onRetry={() => void refresh()} />
+      ) : (
+        <MarketList markets={markets} query={query} status={status} />
+      )}
     </div>
   )
 }

@@ -41,9 +41,9 @@ export default function MarketActivitySection({
     <section
       aria-label="Activity"
       data-market-activity
-      className="rounded-2xl border border-border bg-card overflow-hidden"
+      className="zeks-card p-0 overflow-hidden"
     >
-      <header className="px-5 md:px-6 py-3 border-b border-border flex items-baseline justify-between gap-2">
+      <header className="px-4 py-3 border-b border-border flex items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-3">
           <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
             ACTIVITY
