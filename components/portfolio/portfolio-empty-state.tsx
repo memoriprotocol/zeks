@@ -3,15 +3,15 @@
 /**
  * PortfolioEmptyState
  *
- * Compact, deliberate empty-state atom used across every Portfolio
- * shell section. Renders inside a single bordered surface — never
- * a giant blank box.
+ * Deliberate empty-state atom used across every Portfolio shell
+ * section. Uses the shared `.zeks-empty` token for consistent
+ * rhythm with the rest of the page — never a giant blank box.
  *
  * Variants:
- *   - "unavailable"  — connected wallet but the data source is not
- *                      available. Default product-state copy.
- *   - "loading"      — transient state during initial hydration.
- *   - "neutral"      — generic placeholder, no specific reason.
+ *   - "unavailable" — connected wallet but the data source is not
+ *                     available. Default product-state copy.
+ *   - "loading"     — transient state during initial hydration.
+ *   - "neutral"     — generic placeholder, no specific reason.
  *
  * No fake numbers, balances, PnL, yield, debt, or transactions.
  */
@@ -31,30 +31,23 @@ export default function PortfolioEmptyState({
   description,
   testId,
 }: PortfolioEmptyStateProps) {
+  if (variant === "loading") {
+    return (
+      <div className="zeks-empty" data-testid={testId} data-variant={variant}>
+        <span className="flex items-center gap-2 zeks-meta">
+          <span className="zeks-live-dot" data-live="true" />
+          {title}
+        </span>
+      </div>
+    )
+  }
+
   return (
-    <div
-      className="rounded-md border border-dashed border-border/70 px-4 py-5"
-      data-testid={testId}
-      data-variant={variant}
-    >
-      {variant === "loading" ? (
-        <div className="flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
-          <span className="relative inline-flex w-1.5 h-1.5 shrink-0">
-            <span className="absolute inset-0 rounded-full opacity-70 animate-ping bg-muted-foreground" />
-            <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground" />
-          </span>
-          <span>{title}</span>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          <div className="text-[11px] font-mono text-foreground">{title}</div>
-          {description ? (
-            <div className="text-[10px] font-mono text-muted-foreground/70">
-              {description}
-            </div>
-          ) : null}
-        </div>
-      )}
+    <div className="zeks-empty" data-testid={testId} data-variant={variant}>
+      <span className="font-mono text-[12px] text-foreground">{title}</span>
+      {description ? (
+        <span className="zeks-dim">{description}</span>
+      ) : null}
     </div>
   )
 }

@@ -129,18 +129,14 @@ export default function EarnLive({
           </p>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium ${
-            protocolReady
-              ? "bg-primary/15 text-foreground"
-              : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+          className={`zeks-chip ${
+            protocolReady ? "" : "zeks-status-muted"
           }`}
         >
           <span
             aria-hidden="true"
-            className={
-              "w-1.5 h-1.5 rounded-full " +
-              (protocolReady ? "bg-primary" : "bg-amber-500")
-            }
+            className="zeks-chip-dot"
+            style={{ backgroundColor: protocolReady ? "var(--up)" : "var(--muted-foreground)" }}
           />
           Supply {protocolReady ? "available" : "coming soon"}
         </span>
@@ -162,28 +158,24 @@ export default function EarnLive({
       </div>
 
       {/* Filter / search row */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {(Object.keys(FILTER_LABELS) as EarnFilter[]).map((key) => {
-          const active = key === filter
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilter(key)}
-              aria-pressed={active}
-              data-earn-filter={key}
-              className={
-                "h-8 px-3 rounded-md text-[12px] font-medium transition-colors " +
-                (active
-                  ? "bg-ink text-ink-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground")
-              }
-            >
-              {FILTER_LABELS[key]}
-            </button>
-          )
-        })}
-        <label className="flex-1 flex items-center gap-2 h-8 px-3 rounded-md bg-card border border-border text-[12px] text-muted-foreground max-w-xs ml-auto">
+      <div className="zeks-toolbar mt-1">
+        <div className="zeks-segment" role="group" aria-label="Filter opportunities">
+          {(Object.keys(FILTER_LABELS) as EarnFilter[]).map((key) => {
+            const active = key === filter
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                aria-pressed={active}
+                data-earn-filter={key}
+              >
+                {FILTER_LABELS[key]}
+              </button>
+            )
+          })}
+        </div>
+        <label className="zeks-search zeks-toolbar-search">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -203,7 +195,6 @@ export default function EarnLive({
             aria-label="Search earn opportunities"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-foreground"
           />
         </label>
       </div>
@@ -218,8 +209,8 @@ export default function EarnLive({
           Live data unavailable
         </div>
       ) : null}
-      <section className="mt-3 rounded-2xl border border-border bg-card overflow-hidden" data-earn-grid>
-        <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] px-5 py-2 text-[10px] font-mono tracking-wider text-muted-foreground/70 border-b border-border">
+      <section className="zeks-surface overflow-hidden" data-earn-grid>
+        <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] px-4 py-2 zeks-meta border-b border-border">
           <span>Market</span>
           <span className="text-right">Supply APY</span>
           <span className="text-right hidden md:inline">Liquidity</span>
@@ -259,10 +250,8 @@ export default function EarnLive({
         )}
       </section>
 
-      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-mono tracking-wider text-muted-foreground/60">
-        <span>
-          Filter · {FILTER_LABELS[filter]} · Morpho
-        </span>
+      <div className="zeks-footer-nav">
+        <span>Filter · {FILTER_LABELS[filter]} · Morpho</span>
         <span aria-hidden="true">·</span>
         <span>{loading ? "Refreshing…" : "Live"}</span>
         {fetchedAt ? (
@@ -274,7 +263,7 @@ export default function EarnLive({
         <button
           type="button"
           onClick={() => void refresh()}
-          className="ml-auto hover:text-foreground transition-colors"
+          className="ml-auto"
         >
           ↻ Refresh
         </button>

@@ -219,7 +219,7 @@ function AssetHeader({
     <section
       aria-label="Asset header"
       data-testid="asset-detail-header"
-      className="rounded-2xl border border-border bg-card p-5"
+      className="zeks-surface-padded"
     >
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4 min-w-0">
@@ -295,7 +295,7 @@ function PriceSummary({
     <section
       aria-label={`${asset.symbol} price summary`}
       data-testid="asset-price-summary"
-      className="rounded-2xl border border-border bg-card p-5"
+      className="zeks-surface-padded"
     >
       <div className="flex items-baseline gap-3 text-[10px] font-mono tracking-wider text-muted-foreground">
         <span>REFERENCE PRICE</span>
@@ -416,7 +416,7 @@ function MarketDataPanel({
     <section
       aria-label="Market data"
       data-testid="asset-market-data"
-      className="rounded-2xl border border-border bg-card p-5"
+      className="zeks-surface-padded"
     >
       <header className="flex items-baseline justify-between gap-3">
         <h2 className="font-serif text-[18px] md:text-[20px] leading-tight text-foreground">
@@ -525,7 +525,7 @@ function TokenDetailsPanel({
     <aside
       aria-label="Token details"
       data-testid="asset-token-details"
-      className="rounded-2xl border border-border bg-card p-5"
+      className="zeks-surface-padded"
     >
       <header>
         <h2 className="font-serif text-[18px] md:text-[20px] leading-tight text-foreground">

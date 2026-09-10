@@ -32,21 +32,26 @@ const PRIMARY_NAV: NavItem[] = [
 ]
 
 /**
- * AppSidebar — 64px icon-only rail (measured reference spec).
+ * AppSidebar — 64px icon-only rail.
  *
  * Slim chrome · tooltip labels on hover.
+ * - Brand block aligned to header (48px).
+ * - Nav items have a 44px hit area and 36px visual badge, both
+ *   horizontally centered in the rail.
  */
 export default function AppSidebar({ current }: AppSidebarProps) {
   return (
     <aside
-      className="hidden md:flex shrink-0 flex-col border-r border-border bg-sidebar zeks-shell-sidebar"
+      className="hidden md:flex shrink-0 flex-col bg-sidebar zeks-shell-sidebar"
       aria-label="Primary navigation"
+      style={{ borderRight: "1px solid var(--border)" }}
     >
-      {/* Brand */}
+      {/* Brand — aligned to header height */}
       <Link
         href="/terminal"
         aria-label="ZEKS"
-        className="h-12 flex items-center justify-center border-b border-sidebar-border"
+        className="h-12 flex items-center justify-center"
+        style={{ borderBottom: "1px solid var(--border)" }}
       >
         <span
           aria-hidden="true"
@@ -59,8 +64,8 @@ export default function AppSidebar({ current }: AppSidebarProps) {
 
       {/* Primary nav */}
       <nav
-        className="flex-1 py-2 flex flex-col items-stretch gap-1"
-        style={{ padding: "8px 8px" }}
+        className="flex-1 py-2 flex flex-col items-center gap-px"
+        style={{ paddingTop: 12, paddingBottom: 12 }}
       >
         {PRIMARY_NAV.map((item) => {
           const Icon = item.icon
@@ -73,20 +78,41 @@ export default function AppSidebar({ current }: AppSidebarProps) {
               aria-label={item.label}
               title={item.label}
               className={
-                "group relative flex items-center justify-center rounded-md transition-colors " +
+                "group relative flex items-center justify-center transition-colors " +
                 (active
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60")
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground")
               }
-              style={{ height: "36px", width: "48px", alignSelf: "center" }}
+              style={{
+                height: "44px",
+                width: "100%",
+              }}
             >
-              {active ? (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-primary"
-                />
-              ) : null}
-              <Icon className="w-[16px] h-[16px] shrink-0" />
+              <span
+                className="relative flex items-center justify-center rounded-md"
+                style={{
+                  height: 36,
+                  width: 40,
+                  backgroundColor: active ? "var(--secondary)" : "transparent",
+                  transition: "background-color 140ms ease-out",
+                }}
+              >
+                {active ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute"
+                    style={{
+                      left: -12,
+                      top: 7,
+                      bottom: 7,
+                      width: 2,
+                      borderRadius: "0 2px 2px 0",
+                      backgroundColor: "var(--primary)",
+                    }}
+                  />
+                ) : null}
+                <Icon className="w-[16px] h-[16px] shrink-0" />
+              </span>
             </Link>
           )
         })}

@@ -139,18 +139,12 @@ export default function BorrowLive({
           </p>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium ${
-            protocolReady
-              ? "bg-primary/15 text-foreground"
-              : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-          }`}
+          className={`zeks-chip ${protocolReady ? "" : "zeks-status-muted"}`}
         >
           <span
             aria-hidden="true"
-            className={
-              "w-1.5 h-1.5 rounded-full " +
-              (protocolReady ? "bg-primary" : "bg-amber-500")
-            }
+            className="zeks-chip-dot"
+            style={{ backgroundColor: protocolReady ? "var(--up)" : "var(--muted-foreground)" }}
           />
           Borrow {protocolReady ? "available" : "coming soon"}
         </span>
@@ -158,40 +152,50 @@ export default function BorrowLive({
 
       {/* Stat strip */}
       {rows.length > 0 ? (
-        <div className="grid grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden">
-          <Stat label="Markets" value={String(rows.length)} />
-          <Stat label="Total Liquidity" value={formatPrice(totalLiquidity)} />
-          <Stat label="Avg Borrow APY" value={formatApy(avgApy)} tone="down" />
+        <div className="zeks-kpi-strip">
+          <div>
+            <span className="zeks-kpi-label">Markets</span>
+            <span className="zeks-kpi-value">{rows.length}</span>
+          </div>
+          <div>
+            <span className="zeks-kpi-label">Total Liquidity</span>
+            <span className="zeks-kpi-value">{formatPrice(totalLiquidity)}</span>
+          </div>
+          <div>
+            <span className="zeks-kpi-label">Avg Borrow APY</span>
+            <span
+              className="zeks-kpi-value"
+              style={{ color: avgApy != null ? "var(--down)" : undefined }}
+            >
+              {formatApy(avgApy)}
+            </span>
+          </div>
         </div>
       ) : null}
 
       {/* Filter / search / sort row */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {(Object.keys(FILTER_LABELS) as BorrowFilter[]).map((key) => {
-          const active = key === filter
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilter(key)}
-              aria-pressed={active}
-              data-borrow-filter={key}
-              className={
-                "h-8 px-3 rounded-md text-[12px] font-medium transition-colors " +
-                (active
-                  ? "bg-ink text-ink-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground")
-              }
-            >
-              {FILTER_LABELS[key]}
-            </button>
-          )
-        })}
+      <div className="zeks-toolbar mt-1">
+        <div className="zeks-segment" role="group" aria-label="Filter borrow markets">
+          {(Object.keys(FILTER_LABELS) as BorrowFilter[]).map((key) => {
+            const active = key === filter
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                aria-pressed={active}
+                data-borrow-filter={key}
+              >
+                {FILTER_LABELS[key]}
+              </button>
+            )
+          })}
+        </div>
         <select
           aria-label="Sort borrow markets"
           value={sort}
           onChange={(e) => setSort(e.target.value as BorrowSort)}
-          className="h-8 px-2.5 rounded-md bg-secondary text-[12px] font-medium text-foreground outline-none"
+          className="zeks-select"
         >
           {(Object.keys(SORT_LABELS) as BorrowSort[]).map((key) => (
             <option key={key} value={key}>
@@ -199,7 +203,7 @@ export default function BorrowLive({
             </option>
           ))}
         </select>
-        <label className="flex-1 flex items-center gap-2 h-8 px-3 rounded-md bg-card border border-border text-[12px] text-muted-foreground max-w-xs ml-auto">
+        <label className="zeks-search zeks-toolbar-search">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -219,7 +223,6 @@ export default function BorrowLive({
             aria-label="Search borrow markets"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-foreground"
           />
         </label>
       </div>
@@ -236,8 +239,8 @@ export default function BorrowLive({
       ) : null}
 
       {/* Borrow list */}
-      <section className="mt-4 rounded-2xl border border-border bg-card overflow-hidden" data-borrow-table>
-        <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] px-5 py-2 text-[10px] font-mono tracking-wider text-muted-foreground/70 border-b border-border">
+      <section className="zeks-surface overflow-hidden" data-borrow-table>
+        <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] px-4 py-2 zeks-meta border-b border-border">
           <span>Market</span>
           <span className="text-right">Borrow APY</span>
           <span className="text-right hidden md:inline">Liquidity</span>
@@ -280,7 +283,7 @@ export default function BorrowLive({
         )}
       </section>
 
-      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-mono tracking-wider text-muted-foreground/60">
+      <div className="zeks-footer-nav">
         <span>Morpho · Robinhood Chain · {rows.length} markets</span>
         <span aria-hidden="true">·</span>
         <span>{loading ? "Refreshing…" : "Live"}</span>
@@ -293,7 +296,7 @@ export default function BorrowLive({
         <button
           type="button"
           onClick={() => void refresh()}
-          className="ml-auto hover:text-foreground transition-colors"
+          className="ml-auto"
         >
           ↻ Refresh
         </button>
@@ -382,30 +385,6 @@ function MarketStatusBadge({
         {status}
       </span>
     </span>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone?: "down"
-}) {
-  return (
-    <div className="bg-card p-3.5">
-      <div className="zeks-label">{label}</div>
-      <div
-        className={
-          "zeks-num-md mt-1 " +
-          (tone === "down" ? "text-down" : "text-foreground")
-        }
-      >
-        {value}
-      </div>
-    </div>
   )
 }
 

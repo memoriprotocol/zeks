@@ -88,7 +88,7 @@ export default function ActivityLive() {
         </div>
       </header>
 
-      <div className="flex items-center gap-3 flex-wrap mb-3">
+      <div className="zeks-footer-nav">
         <StatusPill
           label={statusLabel}
           tone={
@@ -99,22 +99,16 @@ export default function ActivityLive() {
                 : "up"
           }
         />
-        <span
-          className="font-mono text-[10px] tabular-nums text-muted-foreground/80"
-          data-testid="activity-meta"
-        >
+        <span className="zeks-meta-strong" data-testid="activity-meta">
           block #
-            {latestBlock != null
-              ? safeFormatBlock(latestBlock)
-              : "—"}
+          {latestBlock != null ? safeFormatBlock(latestBlock) : "—"}
           {updatedAt ? ` · synced ${formatAgo(updatedAt)}` : ""}
           {events.length > 0 ? ` · ${events.length} events` : ""}
         </span>
-        <span className="ml-auto" />
         <button
           type="button"
           onClick={() => void refresh()}
-          className="font-mono text-[10px] tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          className="ml-auto"
           aria-label="Refresh activity"
         >
           ↻ Refresh
@@ -294,27 +288,22 @@ function StatusPill({
   label: string
   tone: "up" | "down" | "warn"
 }) {
-  const cls =
+  const dotColor =
     tone === "up"
-      ? "border-up/40 text-up"
+      ? "var(--up)"
       : tone === "down"
-        ? "border-down/40 text-down"
-        : "border-amber-500/40 text-amber-700 dark:text-amber-300"
+        ? "var(--down)"
+        : "var(--muted-foreground)"
   return (
     <span
-      className={
-        "inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md border bg-secondary text-[10px] font-mono tracking-wider shrink-0 " +
-        cls
-      }
+      className="zeks-chip"
       data-testid="activity-status"
       data-tone={tone}
     >
       <span
         aria-hidden="true"
-        className={
-          "w-1.5 h-1.5 rounded-full shrink-0 " +
-          (tone === "up" ? "bg-up" : tone === "down" ? "bg-down" : "bg-amber-500")
-        }
+        className="zeks-chip-dot"
+        style={{ backgroundColor: dotColor }}
       />
       {label}
     </span>
@@ -330,14 +319,15 @@ function ErrorState({
 }) {
   return (
     <div
-      className="text-[12px] font-medium px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 flex items-center justify-between gap-3"
+      className="zeks-card-tight flex items-center justify-between gap-3"
+      style={{ borderColor: "var(--border)" }}
       data-testid="activity-error"
     >
-      <span>{message}</span>
+      <span className="text-[12px] text-foreground/80">{message}</span>
       <button
         type="button"
         onClick={onRetry}
-        className="text-[10px] font-mono tracking-wider underline-offset-2 hover:underline"
+        className="zeks-btn-ghost"
       >
         Retry
       </button>

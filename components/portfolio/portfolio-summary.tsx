@@ -1,13 +1,12 @@
 "use client"
 
 /**
- * PortfolioSummary (v4 — Loopr-density, 6-metric Account Summary)
+ * PortfolioSummary (visual polish — shared ZEKS surface tokens)
  *
- *   - Single hero card.
- *   - Row 1: Net value (large serif headline).
- *   - Row 2: 6 equal columns — Supplied · Borrowed · Collateral ·
- *     Est. yield · W. Supply APY · Positions.
- *   - Source pills: Morpho · Chainlink · Robinhood Chain.
+ *   - Single hero card using shared `.zeks-surface-padded`.
+ *   - Row 1: label + source pills.
+ *   - Row 2: net value headline.
+ *   - Row 3: 6-metric bar with dividers instead of nested cards.
  *
  * Empty state: a single line, not a giant card.
  */
@@ -34,14 +33,9 @@ export default function PortfolioSummary({
     const totalBorrowed = snapshot.totalBorrowedUsd
     const totalCollateral = snapshot.totalCollateralUsd
     const netValue = snapshot.netValueUsd
-    const positionCount =
-      snapshot.supplied.length +
-      snapshot.borrowed.length +
-      snapshot.collateral.length
+    const positionCount = snapshot.positionCount
     const hasPositions = positionCount > 0
     const apy = snapshot.weightedSupplyApy
-
-    // Estimated yield: deposited × APY / 365 (daily) — derive from supplied USD + APY
     const estYieldDaily =
       totalSupplied != null && apy != null
         ? (totalSupplied * (apy / 100)) / 365
@@ -51,13 +45,10 @@ export default function PortfolioSummary({
       <section
         aria-label="Account summary"
         data-testid="portfolio-summary"
-        className="rounded-2xl border border-border bg-card p-5 md:p-6"
+        className="zeks-surface-padded"
       >
-        {/* Row 1 — label + source pills */}
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            ACCOUNT SUMMARY
-          </span>
+          <span className="zeks-label">Account Summary</span>
           <div className="flex items-center gap-1.5 flex-wrap">
             <SourcePill label="Morpho" />
             <SourcePill label="Chainlink" />
@@ -65,7 +56,6 @@ export default function PortfolioSummary({
           </div>
         </div>
 
-        {/* Row 2 — net value headline */}
         <div className="mt-3">
           <div
             className={
@@ -80,8 +70,7 @@ export default function PortfolioSummary({
           >
             {netValue != null ? formatPrice(netValue) : "—"}
           </div>
-
-          <p className="mt-2 text-[11px] font-mono tracking-wider text-muted-foreground/70">
+          <p className="mt-2 zeks-meta">
             {loading
               ? "Refreshing…"
               : hasPositions
@@ -90,7 +79,6 @@ export default function PortfolioSummary({
           </p>
         </div>
 
-        {/* Row 3 — 6-metric bar */}
         <div className="mt-5 pt-4 border-t border-border grid grid-cols-3 md:grid-cols-6 gap-3">
           <Mini
             label="Supplied"
@@ -109,9 +97,7 @@ export default function PortfolioSummary({
           <Mini
             label="Est. yield"
             value={
-              estYieldDaily != null
-                ? `${formatPrice(estYieldDaily)}/day`
-                : "—"
+              estYieldDaily != null ? `${formatPrice(estYieldDaily)}/day` : "—"
             }
             tone="up"
           />
@@ -127,12 +113,9 @@ export default function PortfolioSummary({
         </div>
 
         {!hasPositions ? (
-          <Link
-            href="/terminal/earn"
-            className="group mt-5 inline-flex items-center gap-1 h-8 px-3 rounded-md bg-ink text-ink-foreground text-[12px] font-medium"
-          >
+          <Link href="/terminal/earn" className="zeks-btn-primary mt-5">
             Browse yield
-            <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            <ArrowRight className="w-3 h-3" />
           </Link>
         ) : null}
       </section>
@@ -143,12 +126,10 @@ export default function PortfolioSummary({
     <section
       aria-label="Account summary"
       data-testid="portfolio-summary"
-      className="rounded-2xl border border-border bg-card p-5 md:p-6"
+      className="zeks-surface-padded"
     >
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          ACCOUNT SUMMARY
-        </span>
+        <span className="zeks-label">Account Summary</span>
         <div className="flex items-center gap-1.5 flex-wrap">
           <SourcePill label="Morpho" />
           <SourcePill label="Chainlink" />
@@ -156,10 +137,8 @@ export default function PortfolioSummary({
         </div>
       </div>
 
-      <div className="mt-3 zeks-num-xl text-foreground/40">
-        —
-      </div>
-      <p className="mt-2 text-[11px] font-mono tracking-wider text-muted-foreground/70">
+      <div className="mt-3 zeks-num-xl text-foreground/40">—</div>
+      <p className="mt-2 zeks-meta">
         {dataUnavailable
           ? "Connect your wallet to view your portfolio."
           : "Loading…"}
@@ -185,9 +164,7 @@ function Mini({
         : "text-foreground"
   return (
     <div className="border-l border-border pl-3">
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
+      <div className="zeks-metric-label">{label}</div>
       <div
         className={`font-mono tabular-nums text-[14px] md:text-[16px] mt-1 ${color}`}
       >
@@ -199,8 +176,6 @@ function Mini({
 
 function SourcePill({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center px-2 h-6 rounded-md bg-secondary/70 text-[10px] font-mono tracking-wider text-muted-foreground">
-      {label}
-    </span>
+    <span className="zeks-pill">{label}</span>
   )
 }

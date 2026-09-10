@@ -515,3 +515,446 @@
 .zeks-marquee:hover {
   animation-play-state: paused;
 }
+
+/* ── Shared visual primitives (FINAL POLISH) ──────────────── */
+
+/* Row hover — restrained. Used by table rows, list rows, etc. */
+.zeks-row-hover {
+  transition: background-color 150ms ease-out, border-color 150ms ease-out;
+}
+.zeks-row-hover:hover {
+  background-color: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+
+/* Subtle pressed / selected state */
+.zeks-selected {
+  background-color: var(--chart-lime-soft);
+  border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
+}
+
+/* Card primitive — used by every section. Soft warm surface. */
+.zeks-surface {
+  background-color: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--page-card-radius);
+}
+.zeks-surface-padded {
+  background-color: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--page-card-radius);
+  padding: var(--page-card-pad);
+}
+
+/* Status chip — single canonical visual language. */
+.zeks-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background-color: var(--card-soft);
+  font-family: var(--font-mono), "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.zeks-chip strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.zeks-chip-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--muted-foreground);
+}
+
+/* Pill (small inline) */
+.zeks-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background-color: var(--secondary);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono), "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* Inline metric label (used in dense grids) */
+.zeks-metric-label {
+  font-family: var(--font-mono), "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+/* Section header — page-title row within a card. */
+.zeks-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Search input — unified look */
+.zeks-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  transition: border-color 150ms ease-out;
+}
+.zeks-search:focus-within {
+  border-color: var(--border-strong);
+  color: var(--foreground);
+}
+.zeks-search input {
+  flex: 1;
+  background: transparent;
+  outline: none;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+}
+.zeks-search input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.8;
+}
+
+/* Segmented control (used for filter chips) */
+.zeks-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 2px;
+  border-radius: 8px;
+  background-color: var(--card-soft);
+  border: 1px solid var(--border);
+}
+.zeks-segment button {
+  appearance: none;
+  background: transparent;
+  border: none;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background-color 140ms ease-out, color 140ms ease-out;
+}
+.zeks-segment button:hover {
+  color: var(--foreground);
+}
+.zeks-segment button[aria-pressed="true"] {
+  background-color: var(--ink);
+  color: var(--ink-foreground);
+}
+
+/* Select / sort dropdown */
+.zeks-select {
+  appearance: none;
+  height: 32px;
+  padding: 0 28px 0 10px;
+  border-radius: 8px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%231A1814' stroke-width='1.4'><path d='M3 5l3 3 3-3'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px 12px;
+}
+
+/* Primary button (lime CTA) */
+.zeks-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background-color: var(--ink);
+  color: var(--ink-foreground);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--ink);
+  cursor: pointer;
+  transition: background-color 150ms ease-out;
+}
+.zeks-btn-primary:hover {
+  background-color: color-mix(in srgb, var(--ink) 88%, white);
+}
+.zeks-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Quiet ghost button */
+.zeks-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background-color: transparent;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: color 140ms ease-out, background-color 140ms ease-out;
+}
+.zeks-btn-ghost:hover {
+  color: var(--foreground);
+  background-color: var(--secondary);
+}
+
+/* Metric divider rows (used in portfolios/wallets) */
+.zeks-row-divider {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.zeks-row-divider:last-child {
+  border-bottom: none;
+}
+
+/* "Coming soon" / disabled action chip */
+.zeks-chip-disabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  background-color: color-mix(in srgb, var(--muted-foreground) 6%, transparent);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Compact horizontal KPI strip (used in Markets / Earn / Borrow) */
+.zeks-kpi-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background-color: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.zeks-kpi-strip > * + * {
+  border-left: 1px solid var(--border);
+}
+.zeks-kpi-strip > div {
+  padding: 12px 16px;
+}
+.zeks-kpi-strip .zeks-kpi-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.zeks-kpi-strip .zeks-kpi-value {
+  display: block;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+/* Status color tokens — used by SourceChips, StatusBadge, etc. */
+.zeks-status-up    { color: var(--up); }
+.zeks-status-down  { color: var(--down); }
+.zeks-status-muted { color: var(--muted-foreground); }
+
+/* Subtle live indicator dot (replaces ad-hoc pulsing spans) */
+.zeks-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--up);
+}
+.zeks-live-dot[data-live="true"] {
+  animation: zeks-pulse 2.2s ease-in-out infinite;
+}
+
+/* New event entry (used by feeds) */
+.zeks-enter {
+  animation: zeks-row-insert 220ms ease-out both;
+}
+.zeks-enter-flash {
+  animation:
+    zeks-row-insert 220ms ease-out both,
+    zeks-row-highlight 1.4s ease-out both;
+}
+
+/* Numeric transition (used by AnimatedNumber alternatives) */
+.zeks-num-transition {
+  animation: zeks-fade-in 250ms ease-out both;
+}
+
+/* Inline separator — softer than full divider */
+.zeks-sep {
+  display: inline-block;
+  width: 1px;
+  height: 12px;
+  background-color: var(--border);
+  margin: 0 8px;
+  vertical-align: -2px;
+}
+
+/* Card grid: equal-height cards with shared header */
+.zeks-card-grid {
+  display: grid;
+  gap: var(--page-card-gap);
+}
+.zeks-card-grid > * {
+  min-width: 0;
+}
+
+/* Squeezed padding for very dense cards */
+.zeks-card-tight {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background-color: var(--card-soft);
+  border: 1px solid var(--border);
+}
+
+/* Quiet empty-state line (used by portfolio/earn/borrow/etc.) */
+.zeks-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  background-color: color-mix(in srgb, var(--card-soft) 60%, transparent);
+  text-align: left;
+  gap: 4px;
+}
+
+/* Footer nav (used by portfolio/loop/borrow/earn) */
+.zeks-footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  padding-top: 4px;
+}
+.zeks-footer-nav a,
+.zeks-footer-nav button {
+  color: var(--muted-foreground);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 140ms ease-out;
+}
+.zeks-footer-nav a:hover,
+.zeks-footer-nav button:hover {
+  color: var(--foreground);
+}
+
+/* Toolbar (used by Markets, Earn, Borrow) */
+.zeks-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.zeks-toolbar .zeks-toolbar-search {
+  flex: 1;
+  min-width: 200px;
+  margin-left: auto;
+}
+
+/* Quiet dim label (e.g. "USDG · onchain") */
+.zeks-dim {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+/* Responsive guard: ensure tables can scroll horizontally without
+   breaking the page-level horizontal overflow. */
+.zeks-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.zeks-scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.zeks-scroll-x::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
+  border-radius: 4px;
+}
+
+/* prefers-reduced-motion: disable marquee, pulse, fade animations. */
+@media (prefers-reduced-motion: reduce) {
+  .zeks-marquee,
+  .zeks-live-dot,
+  .zeks-anim-pulse,
+  .zeks-anim-fade-in,
+  .zeks-anim-slide-in,
+  .zeks-anim-row-insert,
+  .zeks-anim-row-highlight,
+  .zeks-enter,
+  .zeks-enter-flash,
+  .zeks-num-transition {
+    animation: none !important;
+  }
+  .zeks-marquee:hover {
+    animation-play-state: paused;
+  }
+}
+
