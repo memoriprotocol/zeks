@@ -79,9 +79,20 @@ export {
   marketParamsFromLendingMarket,
   encodeMorphoMarketParams,
   readMorphoSelectors,
+  encodeIdToMarketParamsCall,
+  MORPHO_BLUE_SELECTORS,
+  MORPHO_BLUE_VERIFIED_DEPLOYMENT_4663,
   type MorphoMarketParams,
   type MorphoSelectors,
 } from "./abi"
+
+export {
+  readMarketParamsOnchain,
+  verifyLendingMarketOnchain,
+  verifyLendingMarketsOnchain,
+  type MarketVerification,
+  type MarketParamsDiscrepancy,
+} from "./market-verify"
 
 export {
   resolveProtocolContractsForChain,

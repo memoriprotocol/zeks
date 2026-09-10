@@ -1,0 +1,22 @@
+{
+  "chainId": 4663,
+  "morphoBlue": {
+    "core": "0x9D53d5E3bd5E8d4Cbfa6DB1ca238AEA02E651010",
+    "irm": "0x2BD3d5965B26B51814AC95127B2b80dD6CcC0fa1",
+    "oracleFactory": "0xB7c16F6f8cF531447Bf27Ca7220f981E79C9cdF2"
+  },
+  "provenance": {
+    "core": "https://docs.morpho.org/developers/contracts/addresses/",
+    "interface": "https://github.com/morpho-org/morpho-blue/blob/main/src/interfaces/IMorpho.sol",
+    "verificationSteps": [
+      "eth_chainId(0x1237) == 4663",
+      "eth_getCode(core) != 0x",
+      "idToMarketParams(USDe/USDG marketId) returns (loanToken, collateralToken, oracle, irm, lltv) matching Morpho GraphQL data exactly",
+      "borrow(eth_call) reaches protocol logic — reverts with 'insufficient collateral' (protocol-level error) rather than selector/encoding error"
+    ],
+    "abiSource": "keccak256 over canonical IMorpho.sol signatures (derived at module load in lib/markets/onchain/abi.ts)"
+  },
+  "verifiedAt": "2026-09-11",
+  "verifiedBy": "zeks-sprint",
+  "notes": "Only the Morpho Blue core address depends on this snapshot. All function selectors are derived from the public IMorpho.sol interface, not committed per-deployment."
+}

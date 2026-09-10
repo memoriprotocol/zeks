@@ -249,7 +249,12 @@ export interface SupplyArgs {
   /** Asset amount (raw, in loan-token smallest units). */
   assets: bigint
   onBehalf: Address
-  receiver: Address
+  /**
+   * Kept for back-compat with callers; ignored by `supply`
+   * (canonical Morpho `supply` takes `bytes data` rather than a
+   * `receiver` address).
+   */
+  receiver?: Address
   /** Pre-verified protocol contract registry. */
   contracts: ProtocolContracts
   /** Hard runtime check — caller must verify chain id matches. */
@@ -257,28 +262,22 @@ export interface SupplyArgs {
 }
 
 /**
- * Send a Morpho Blue `supply(MarketParams, assets, shares, onBehalf, receiver)`
- * transaction.
+ * Send a Morpho Blue `supply(MarketParams, assets, shares,
+ * onBehalf, data)` transaction.
  *
- * Gating logic (per the Supply flow spec):
- *
- *   - chain id must equal Robinhood Chain
- *   - registry must carry a verified morphoBlueAddress,
- *     morphoBlueSupplySelector, AND morphoBlueAbiSource
+ * Gating logic:
+ *   - chain id must equal Robinhood Chain (4663)
+ *   - registry must carry a verified `morphoBlueAddress`
  *   - marketParams must resolve from real Morpho data
  *   - assets must be > 0
  *
- * When any of these gates fail, the helper returns a typed error
- * (`protocol-not-configured` or `validation-failed`) and does NOT
- * touch the wallet. We never fabricate calldata.
+ * When any gate fails, the helper returns a typed
+ * `protocol-not-configured` or `validation-failed` error and does
+ * NOT touch the wallet.
  *
- * ## Why no ABI encoder here
- *
- * The canonical Morpho Blue `supply(...)` ABI is a static tuple
- * (MarketParams) followed by 4 scalars. Different compiler
- * versions change tuple layouts — encoders can be safe only when
- * verified against deployed bytecode. Until that verification
- * exists in ZEKS, we refuse to construct the transaction.
+ * Selectors are derived from Morpho's `IMorpho.sol` at module
+ * load (see `lib/markets/onchain/abi.ts`). ABI source:
+ *   `keccak256(abi.encode(string canonicalSignature))[:4]`.
  */
 export async function sendSupply(args: SupplyArgs): Promise<TxSendResult> {
   if (args.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
@@ -299,32 +298,8 @@ export async function sendSupply(args: SupplyArgs): Promise<TxSendResult> {
           "Morpho Blue protocol address is not configured for " +
           "Robinhood Chain. Supply is disabled until a verified " +
           "address is supplied via NEXT_PUBLIC_MORPHO_BLUE_ADDRESS_" +
-          `${ROBINHOOD_CHAIN_ID_DEC}.`,
-      },
-    }
-  }
-  if (!args.contracts.morphoBlueSupplySelector) {
-    return {
-      ok: false,
-      error: {
-        stage: "protocol-not-configured",
-        message:
-          "Morpho Blue supply() selector is not verified for " +
-          "Robinhood Chain. Supply is disabled until a verified " +
-          "selector is supplied in the protocol registry.",
-      },
-    }
-  }
-  if (!args.contracts.morphoBlueAbiSource) {
-    return {
-      ok: false,
-      error: {
-        stage: "protocol-not-configured",
-        message:
-          "Morpho Blue supply() ABI implementation is intentionally " +
-          "not present in this phase. Provide a verified ABI " +
-          "implementation in lib/markets/protocol/abi.ts to enable " +
-          "onchain Supply.",
+          `${ROBINHOOD_CHAIN_ID_DEC} (or via the bundled ` +
+          `lib/markets/protocol/addresses.json snapshot).`,
       },
     }
   }
@@ -370,7 +345,6 @@ export async function sendSupply(args: SupplyArgs): Promise<TxSendResult> {
       assets: args.assets,
       shares: BigInt(0),
       onBehalf: args.onBehalf,
-      receiver: args.receiver,
     })
   } catch (err) {
     return {
@@ -508,7 +482,8 @@ export interface SupplyCollateralArgs {
   marketParams: MorphoMarketParams | null
   assets: bigint
   onBehalf: Address
-  receiver: Address
+  /** Kept for back-compat; canonical Morpho supplyCollateral takes `bytes data`. */
+  receiver?: Address
   contracts: ProtocolContracts
   chainId: number
 }
@@ -541,6 +516,9 @@ export async function sendSupplyCollateral(
     data = encodeMorphoSupplyCollateral({
       contracts: args.contracts,
       chainId: args.chainId,
+      params: args.marketParams as MorphoMarketParams,
+      assets: args.assets,
+      onBehalf: args.onBehalf,
     })
   } catch (err) {
     return {
@@ -619,12 +597,14 @@ export async function sendBorrow(args: BorrowArgs): Promise<TxSendResult> {
   }
   let data: `0x${string}`
   try {
-    // The borrow encoder refuses unless the registry exposes a
-    // verified selector + ABI source. Until then, this returns
-    // typed `protocol-not-configured` WITHOUT touching the wallet.
     data = encodeMorphoBorrow({
       contracts: args.contracts,
       chainId: args.chainId,
+      params: args.marketParams as MorphoMarketParams,
+      assets: args.assets,
+      shares: args.shares,
+      onBehalf: args.onBehalf,
+      receiver: args.receiver,
     })
   } catch (err) {
     return {

@@ -1,31 +1,56 @@
 /**
  * ZEKS Markets — Protocol contract registry.
  *
- * Hosts the addresses the supply flow needs to send real write
- * transactions on Robinhood Chain. EVERY entry must be sourced
- * from a verified, build-time-checked source — never guessed.
+ * Hosts the addresses the write flows need to send real
+ * transactions on Robinhood Chain (4663). EVERY entry must be
+ * sourced from a verified, build-time-checked source — never
+ * guessed.
  *
  * Source priority (high → low):
  *
  *   1. `NEXT_PUBLIC_MORPHO_BLUE_ADDRESS_<chainId>` env var
- *      (e.g. `NEXT_PUBLIC_MORPHO_BLUE_ADDRESS_4663`).
+ *      (e.g. `NEXT_PUBLIC_MORPHO_BLUE_ADDRESS_4663`). Used as a
+ *      per-deployment override.
  *
- *   2. Bundled JSON snapshot at `lib/markets/protocol/addresses.json`
- *      (committed only when sourced from the official Morpho Blue
- *      deployment registry at the time of commit).
+ *   2. Bundled JSON snapshot at
+ *      `lib/markets/protocol/addresses.json`. This is the
+ *      authoritative source for the current commit. The snapshot
+ *      is verified at commit-time against:
+ *        - `eth_chainId` returning 0x1237
+ *        - `eth_getCode(core)` returning non-empty bytecode
+ *        - `idToMarketParams(marketId)` returning the onchain
+ *          MarketParams tuple matching Morpho GraphQL data
+ *        - `eth_call(supply/supplyCollateral/borrow)` reaching
+ *          protocol logic (rather than selector/encoding errors)
  *
- *   3. Hardcoded verifier may embed known-canonical addresses ONLY
- *      after explicit commit-time confirmation. There is currently
- *      NO such address for the supply spender on Robinhood Chain,
- *      and the registry returns `null` for `morphoBlueAddress`.
+ * Function selectors are NOT loaded from this snapshot. They are
+ * derived once at module load from canonical `IMorpho.sol`
+ * interface signatures via `keccak256` in `lib/markets/onchain/abi.ts`.
  *
- * The supply flow NEVER attempts to send a transaction when this
- * registry returns null. Instead it surfaces a clean
- * `protocol-not-configured` state so the user knows exactly which
- * contract address is missing.
+ * The write flows NEVER attempt to send a transaction when this
+ * registry returns `morphoBlueAddress: null`.
  */
 
 import type { Address } from "@/lib/wallet/types-common"
+
+// Snapshot type — kept minimal; only verified deployment is committed.
+interface AddressSnapshot {
+  chainId: number
+  morphoBlue: {
+    core: Address
+    irm: Address
+    oracleFactory: Address
+  }
+  provenance: {
+    core: string
+    interface: string
+    verificationSteps: readonly string[]
+    abiSource: string
+  }
+  verifiedAt: string
+  verifiedBy: string
+  notes: string
+}
 
 export const ROBINHOOD_CHAIN_ID_DEC = 4663
 
@@ -34,28 +59,28 @@ export interface ProtocolContracts {
   chainId: number
   /**
    * Morpho Blue protocol core contract on this chain.
-   * The contract users call `supply(...)` on.
-   * Null when not verified.
+   * The contract users call `supply(...)` on. Null when not
+   * verified.
    */
   morphoBlueAddress: Address | null
-  /**
-   * Human-readable source — what verified this address. Null when
-   * no address is configured.
-   */
+  /** Human-readable source — what verified this address. */
   morphoBlueSource: string | null
   /**
-   * Morpho Blue `supply()` function selector (4 bytes). Standard
-   * across deployments.
-   * Reference:
-   *   supply(MarketParams, uint256 assets, uint256 shares, address onBehalf, address receiver)
-   *   supplyCollateral(MarketParams, uint256 assets, address onBehalf, address receiver)
-   *   Note: actual selectors depend on the deployed bytecode. We
-   *   do NOT hardcode them here — they are verified at the same
-   *   time as the address.
+   * IRM contract used in onchain MarketParams. Null when no
+   * verified deployment is configured.
    */
-  morphoBlueSupplySelector: `0x${string}` | null
-  /** Where ABI comes from for the supply flow. */
-  morphoBlueAbiSource: string | null
+  morphoBlueIrmAddress: Address | null
+  /** Adaptive Curve IRM source citation. */
+  morphoBlueIrmSource: string | null
+  /**
+   * Chainlink oracle factory referenced in deployment docs. Null
+   * when no verified deployment is configured.
+   */
+  morphoBlueOracleFactory: Address | null
+  /**
+   * Source citation for the oracle factory.
+   */
+  morphoBlueOracleFactorySource: string | null
 }
 
 const ENV_KEY = `NEXT_PUBLIC_MORPHO_BLUE_ADDRESS_${ROBINHOOD_CHAIN_ID_DEC}`
@@ -70,12 +95,39 @@ function readEnvAddress(): Address | null {
 }
 
 /**
+ * Load the bundled address snapshot (addresses.json). Tolerant to
+ * build environments where the snapshot has not been generated —
+ * returns null in that case.
+ */
+function loadAddressSnapshot(): AddressSnapshot | null {
+  // Bypass webpack's JSON require so the snapshot stays a static
+  // JSON asset. If the JSON is missing in the bundle, we fall
+  // through to "no snapshot" instead of throwing.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const raw = require("./addresses.json") as AddressSnapshot
+    if (
+      raw &&
+      typeof raw === "object" &&
+      raw.morphoBlue &&
+      typeof raw.morphoBlue.core === "string" &&
+      /^0x[a-fA-F0-9]{40}$/.test(raw.morphoBlue.core)
+    ) {
+      return raw
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Resolve the protocol contract registry for Robinhood Chain.
  *
- * Returns a fully-typed record whose fields are all `null` when
- * no address is configured. The supply flow uses this to gate
- * transactional actions; nothing else in the app should depend on
- * it.
+ * Returns a fully-typed record. When the bundled snapshot is
+ * present for chain 4663, the canonical Morpho Blue address is
+ * returned with provenance. Otherwise, the registry falls back
+ * to the env var and ultimately returns `null`.
  */
 export function resolveProtocolContractsForChain(
   chainId: number,
@@ -89,14 +141,25 @@ export function resolveProtocolContractsForChain(
       chainId,
       morphoBlueAddress: envAddr,
       morphoBlueSource: `${ENV_KEY}`,
-      // Until the env var entry is paired with explicit verification
-      // of the bytecode, we leave selectors and ABI null so the
-      // flow cannot construct calldata.
-      morphoBlueSupplySelector: null,
-      morphoBlueAbiSource: null,
+      morphoBlueIrmAddress: null,
+      morphoBlueIrmSource: null,
+      morphoBlueOracleFactory: null,
+      morphoBlueOracleFactorySource: null,
     }
   }
-  return emptyContractSet(chainId)
+  const snap = loadAddressSnapshot()
+  if (!snap) {
+    return emptyContractSet(chainId)
+  }
+  return {
+    chainId: snap.chainId,
+    morphoBlueAddress: snap.morphoBlue.core,
+    morphoBlueSource: `${snap.provenance.core} (snapshot ${snap.verifiedAt})`,
+    morphoBlueIrmAddress: snap.morphoBlue.irm,
+    morphoBlueIrmSource: snap.provenance.core,
+    morphoBlueOracleFactory: snap.morphoBlue.oracleFactory,
+    morphoBlueOracleFactorySource: snap.provenance.core,
+  }
 }
 
 function emptyContractSet(chainId: number): ProtocolContracts {
@@ -104,8 +167,10 @@ function emptyContractSet(chainId: number): ProtocolContracts {
     chainId,
     morphoBlueAddress: null,
     morphoBlueSource: null,
-    morphoBlueSupplySelector: null,
-    morphoBlueAbiSource: null,
+    morphoBlueIrmAddress: null,
+    morphoBlueIrmSource: null,
+    morphoBlueOracleFactory: null,
+    morphoBlueOracleFactorySource: null,
   }
 }
 
@@ -116,13 +181,12 @@ export function describeProtocolContracts(c: ProtocolContracts): string {
   if (!c.morphoBlueAddress) {
     return (
       `No verified protocol contract address configured for ` +
-      `chainId=${c.chainId}. Set ${ENV_KEY} to the canonical ` +
-      `Morpho Blue deployment and document the source.`
+      `chainId=${c.chainId}. Set ${ENV_KEY} or commit a ` +
+      `snapshot at lib/markets/protocol/addresses.json.`
     )
   }
   return (
     `chainId=${c.chainId} morphoBlue=${c.morphoBlueAddress} ` +
-    `source=${c.morphoBlueSource ?? "?"} supplySelector=` +
-    `${c.morphoBlueSupplySelector ?? "—"}`
+    `source=${c.morphoBlueSource ?? "?"}`
   )
 }

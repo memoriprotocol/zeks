@@ -333,7 +333,6 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         marketParams,
         assets: parsedAmount.bigint,
         onBehalf: wallet.address as Address,
-        receiver: wallet.address as Address,
         contracts: protocolContracts,
         chainId: wallet.chainId,
       })
