@@ -41,6 +41,41 @@ export default function PortfolioSummary({
         ? (totalSupplied * (apy / 100)) / 365
         : null
 
+    // Compact zero-position variant: keep the metric row, drop the
+    // oversized hero padding and headline to avoid the tall-empty-panel
+    // feel. Intentionally minimal — this is an empty account.
+    if (!hasPositions) {
+      return (
+        <section
+          aria-label="Account summary"
+          data-testid="portfolio-summary"
+          className="zeks-surface-padded"
+          style={{ paddingTop: "14px", paddingBottom: "14px" }}
+        >
+          <div className="flex items-baseline justify-between gap-2 flex-wrap">
+            <span className="zeks-label">Account Summary</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <SourcePill label="Morpho" />
+              <SourcePill label="Chainlink" />
+              <SourcePill label="Robinhood Chain" />
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-3">
+            <Mini label="Supplied" value={totalSupplied != null ? formatPrice(totalSupplied) : "—"} tone="up" />
+            <Mini label="Borrowed" value={totalBorrowed != null ? formatPrice(totalBorrowed) : "—"} tone="down" />
+            <Mini label="Collateral" value={totalCollateral != null ? formatPrice(totalCollateral) : "—"} />
+            <Mini label="Est. yield" value="—" tone="up" />
+            <Mini label="W. APY" value="—" tone="up" />
+            <Mini label="Positions" value="0" />
+          </div>
+          <Link href="/terminal/earn" className="zeks-btn-primary mt-4">
+            Browse yield
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </section>
+      )
+    }
+
     return (
       <section
         aria-label="Account summary"

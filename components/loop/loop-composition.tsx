@@ -684,7 +684,7 @@ function StockCard({
               letterSpacing: "0.02em",
             }}
           >
-            Morpho · unlisted (real onchain market, listed flag off)
+            Morpho · Unlisted
           </div>
         ) : null}
       </div>

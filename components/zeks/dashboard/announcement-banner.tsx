@@ -20,7 +20,7 @@ export function AnnouncementBanner() {
         borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
         borderColor: "var(--border)",
-        marginBottom: "var(--dash-banner-mb)",
+        marginBottom: "20px",
       }}
     >
       <div className="flex items-center gap-2.5 min-w-0">

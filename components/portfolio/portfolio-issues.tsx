@@ -19,9 +19,15 @@ export default function PortfolioIssues({
   if (!issues.length) return null
   const visible = issues.filter((i) => i.kind !== "no-position")
   if (visible.length === 0) return null
+  // Cap visible chips to avoid the "N issues" development-style list
+  // when the wallet contains unrelated tokens. Group the overflow
+  // into a single chip so the panel stays compact.
+  const MAX_VISIBLE = 1
+  const shown = visible.slice(0, MAX_VISIBLE)
+  const overflow = visible.length - shown.length
   return (
     <div className="grid grid-cols-1 gap-1.5">
-      {visible.map((issue, i) => (
+      {shown.map((issue, i) => (
         <div
           key={i}
           className="text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
@@ -30,6 +36,14 @@ export default function PortfolioIssues({
           {labelFor(issue)}
         </div>
       ))}
+      {overflow > 0 ? (
+        <div
+          className="text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+          data-portfolio-issue="more"
+        >
+          +{overflow} more
+        </div>
+      ) : null}
     </div>
   )
 }

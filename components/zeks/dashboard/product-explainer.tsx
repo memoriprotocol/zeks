@@ -46,7 +46,7 @@ export function ProductExplainer({
         border: "1px solid var(--border)",
         gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)",
         gap: "24px",
-        marginBottom: "var(--dash-explainer-mb)",
+        marginBottom: "20px",
       }}
     >
       {/* Left — product copy */}

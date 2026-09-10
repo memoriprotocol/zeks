@@ -194,7 +194,7 @@ export default function PortfolioActivity({
                   <td className="py-2.5 px-3 text-right">
                     {it.valueRaw > BigInt(0)
                       ? `${(Number(it.valueRaw) / 1e18).toFixed(6)}`
-                      : "0"}
+                      : "—"}
                   </td>
                   <td className="py-2.5 pl-3 text-right text-muted-foreground hidden md:table-cell">
                     {fmtTimestamp(it.timestamp)}
