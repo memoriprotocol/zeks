@@ -39,8 +39,7 @@ const PRIMARY_NAV: NavItem[] = [
 export default function AppSidebar({ current }: AppSidebarProps) {
   return (
     <aside
-      className="hidden md:flex shrink-0 flex-col border-r border-border bg-sidebar"
-      style={{ width: "var(--shell-sidebar-w)" }}
+      className="hidden md:flex shrink-0 flex-col border-r border-border bg-sidebar zeks-shell-sidebar"
       aria-label="Primary navigation"
     >
       {/* Brand */}
@@ -59,7 +58,10 @@ export default function AppSidebar({ current }: AppSidebarProps) {
       </Link>
 
       {/* Primary nav */}
-      <nav className="flex-1 py-2 flex flex-col items-stretch gap-1" style={{ padding: "8px 8px" }}>
+      <nav
+        className="flex-1 py-2 flex flex-col items-stretch gap-1"
+        style={{ padding: "8px 8px" }}
+      >
         {PRIMARY_NAV.map((item) => {
           const Icon = item.icon
           const active = current === item.key

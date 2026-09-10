@@ -179,16 +179,70 @@
     letter-spacing: -0.015em;
   }
 
+  /* ── Application shell ─────────────────────────────────── */
+  /* Viewport-locked shell: only main scrolls.
+     Sidebar (64px) + header (48px) + ticker (40px) are pinned
+     via grid; only the page content area is overflow-y:auto. */
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    overflow: hidden;
+  }
+  .zeks-shell {
+    display: grid;
+    grid-template-columns: var(--shell-sidebar-w) minmax(0, 1fr);
+    height: 100vh;
+    width: 100vw;
+    max-width: 100vw;
+    overflow: hidden;
+    background-color: var(--background);
+  }
+  .zeks-shell-body {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .zeks-shell-chrome {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+  .zeks-shell-main {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-left: var(--content-pad-x);
+    padding-right: var(--content-pad-x);
+    padding-top: var(--content-pad-y);
+    padding-bottom: var(--content-pad-y);
+  }
+  /* On viewports below the sidebar breakpoint (md = 768px) the
+     sidebar collapses, so the shell becomes single-column. */
+  @media (max-width: 767px) {
+    .zeks-shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .zeks-shell-sidebar {
+    width: var(--shell-sidebar-w);
+    min-height: 0;
+    overflow: hidden;
+  }
+
   /* ── Page-level layout primitives ──────────────────────── */
   /* Shared container + rhythm for every read-only page. */
   .zeks-page {
     width: 100%;
     margin-inline: auto;
     max-width: var(--content-max);
-    padding-left: var(--content-pad-x);
-    padding-right: var(--content-pad-x);
-    padding-top: var(--content-pad-y);
-    padding-bottom: var(--content-pad-y);
+    padding-top: 0;
+    padding-bottom: 0;
     display: flex;
     flex-direction: column;
     gap: var(--page-section-gap);
@@ -198,10 +252,8 @@
     width: 100%;
     margin-inline: auto;
     max-width: var(--content-max);
-    padding-left: var(--content-pad-x);
-    padding-right: var(--content-pad-x);
-    padding-top: 20px;
-    padding-bottom: var(--content-pad-y);
+    padding-top: 0;
+    padding-bottom: 0;
     display: flex;
     flex-direction: column;
     gap: var(--page-section-gap);

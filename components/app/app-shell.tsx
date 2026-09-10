@@ -66,30 +66,27 @@ export default async function AppShell({
 
   return (
     <WalletProvider>
-      <div className="min-h-screen bg-background flex">
+      <div
+        className="zeks-shell"
+        data-app-shell
+      >
         <AppSidebar current={current} />
-        <div className="flex-1 min-w-0 flex flex-col">
-          <AppHeader title={title} />
-          {tickerAssets.length > 0 ? (
-            <TickerStrip
-              assets={tickerAssets.map((a) => ({
-                symbol: a.symbol,
-                logoUrl: a.logoUrl,
-              }))}
-              quotes={tickerQuotes}
-              fetchedAt={tickerFetchedAt}
-              errorReason={tickerError}
-            />
-          ) : null}
-          <main
-            className="flex-1 overflow-x-clip paper"
-            style={{
-              paddingLeft: "var(--content-pad-x)",
-              paddingRight: "var(--content-pad-x)",
-              paddingTop: "var(--content-pad-y)",
-              paddingBottom: "var(--content-pad-y)",
-            }}
-          >
+        <div className="zeks-shell-body">
+          <div className="zeks-shell-chrome">
+            <AppHeader title={title} />
+            {tickerAssets.length > 0 ? (
+              <TickerStrip
+                assets={tickerAssets.map((a) => ({
+                  symbol: a.symbol,
+                  logoUrl: a.logoUrl,
+                }))}
+                quotes={tickerQuotes}
+                fetchedAt={tickerFetchedAt}
+                errorReason={tickerError}
+              />
+            ) : null}
+          </div>
+          <main className="zeks-shell-main paper">
             {children}
           </main>
         </div>
