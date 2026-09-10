@@ -23,6 +23,18 @@ import type { EIP1193Provider } from "@/lib/wallet/types"
 import type { Address } from "@/lib/wallet/types-common"
 import { ROBINHOOD_CHAIN_ID_DEC } from "../protocol/registry"
 import type { ProtocolContracts } from "../protocol/registry"
+import {
+  encodeErc20Approve,
+  encodeErc4626Deposit,
+  encodeMorphoBorrow,
+  encodeMorphoSupply,
+  encodeMorphoSupplyCollateral,
+  marketParamsFromLendingMarket,
+  MAX_UINT256,
+  type MorphoMarketParams,
+} from "./abi"
+
+export { MAX_UINT256 }
 
 export type TxStage =
   | "idle"
@@ -48,33 +60,6 @@ export type TxSendResult =
       stage: Exclude<TxStage, "idle" | "user-confirming">
     }
   | { ok: false; error: TxSendError }
-
-/* ------------------------------------------------------ */
-/* Address + amount encoding                               */
-/* ------------------------------------------------------ */
-
-const SELECTOR = {
-  approve: "0x095ea7b3" as const,
-} as const
-
-function padAddress(addr: string): string {
-  const cleaned = addr.startsWith("0x") ? addr.slice(2) : addr
-  if (!/^[a-fA-F0-9]{40}$/.test(cleaned)) {
-    throw new Error(`Invalid address: ${addr}`)
-  }
-  return cleaned.toLowerCase().padStart(64, "0")
-}
-
-function padUint256(n: bigint): string {
-  if (n < BigInt(0)) {
-    throw new Error(`Negative amount: ${n.toString()}`)
-  }
-  return n.toString(16).padStart(64, "0")
-}
-
-function encodeApprove(spender: Address, amount: bigint): `0x${string}` {
-  return `${SELECTOR.approve}${padAddress(spender)}${padUint256(amount)}` as `0x${string}`
-}
 
 /* ------------------------------------------------------ */
 /* Wallet write                                            */
@@ -204,8 +189,6 @@ export interface ApproveArgs {
   amount: bigint
 }
 
-export const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1)
-
 /**
  * Send a single ERC20 approve() call.
  *
@@ -228,7 +211,7 @@ export async function sendApprove(args: ApproveArgs): Promise<TxSendResult> {
   }
   let data: `0x${string}`
   try {
-    data = encodeApprove(args.spender, args.amount)
+    data = encodeErc20Approve(args.spender, args.amount)
   } catch (err) {
     return {
       ok: false,
@@ -367,16 +350,365 @@ export async function sendSupply(args: SupplyArgs): Promise<TxSendResult> {
   }
 
   // All gates passed AND a verified ABI source is present in the
-  // registry. The actual calldata construction lives in the future
-  // verified-ABI module. Until that ships, refuse to send.
-  return {
-    ok: false,
-    error: {
-      stage: "protocol-not-configured",
-      message:
-        "Morpho Blue supply() ABI implementation has not been " +
-        "wired in this phase. Address + selector + ABI source " +
-        "all need to come from the same verified source.",
-    },
+  // registry. Construct calldata via the verified ABI encoder.
+  if (!args.contracts.morphoBlueAddress) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message: "Morpho Blue core address missing.",
+      },
+    }
   }
+  let data: `0x${string}`
+  try {
+    const mp = args.marketParams as unknown as MorphoMarketParams
+    data = encodeMorphoSupply({
+      contracts: args.contracts,
+      chainId: args.chainId,
+      params: mp,
+      assets: args.assets,
+      shares: BigInt(0),
+      onBehalf: args.onBehalf,
+      receiver: args.receiver,
+    })
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Failed to construct supply() calldata.",
+      },
+    }
+  }
+  return sendViaWallet(args.provider, {
+    from: args.from,
+    to: args.contracts.morphoBlueAddress,
+    data,
+  })
+}
+
+/* ------------------------------------------------------ */
+/* Shared low-level send (kept distinct for clarity)        */
+/* ------------------------------------------------------ */
+
+export interface SendTransactionArgs {
+  provider: EIP1193Provider
+  from: Address
+  to: Address
+  data: `0x${string}`
+  value?: `0x${string}`
+}
+
+/**
+ * Send an arbitrary transaction through the user's connected
+ * EIP-1193 wallet. Refuses if the wallet is not on Robinhood
+ * Chain. The caller must supply already-encoded calldata.
+ *
+ * NO private keys, NO automatic signing, NO batching across
+ * providers. User confirmation is mandatory for every call.
+ */
+export async function sendTransaction(
+  args: SendTransactionArgs & { chainId: number },
+): Promise<TxSendResult> {
+  if (args.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message:
+          `sendTransaction must run on chain ` +
+          `${ROBINHOOD_CHAIN_ID_DEC}; got ${args.chainId}.`,
+      },
+    }
+  }
+  return sendViaWallet(args.provider, {
+    from: args.from,
+    to: args.to,
+    data: args.data,
+    value: args.value,
+  })
+}
+
+/* ------------------------------------------------------ */
+/* Allowance management                                    */
+/* ------------------------------------------------------ */
+
+export interface EnsureAllowanceArgs {
+  provider: EIP1193Provider
+  from: Address
+  token: Address
+  spender: Address
+  amount: bigint
+  chainId: number
+  /**
+   * If the onchain allowance is already >= this value, the
+   * function returns `{ ok: true, stage: "confirmed", txHash:
+   * null }` and does NOT send any transaction. Otherwise it
+   * sends an `approve(MAX_UINT256)` and waits for the receipt.
+   */
+  existingAllowance?: bigint
+}
+
+/**
+ * Read the current allowance (`existingAllowance`) from the
+ * caller-provided read path. If the allowance covers `amount`,
+ * no transaction is sent. Otherwise, send a single
+ * `approve(MAX_UINT256)` and wait for the receipt.
+ */
+export async function ensureAllowance(
+  args: EnsureAllowanceArgs,
+): Promise<TxSendResult> {
+  if (args.amount <= BigInt(0)) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Amount must be > 0.",
+      },
+    }
+  }
+  if (
+    args.existingAllowance != null &&
+    args.existingAllowance >= args.amount
+  ) {
+    return {
+      ok: true,
+      txHash: null as unknown as `0x${string}`,
+      stage: "confirmed",
+    }
+  }
+  const approveRes = await sendApprove({
+    provider: args.provider,
+    from: args.from,
+    token: args.token,
+    spender: args.spender,
+    amount: MAX_UINT256,
+  })
+  if (!approveRes.ok) return approveRes
+  const receipt = await waitForReceipt(args.provider, approveRes.txHash)
+  if (!receipt.ok) return receipt
+  return {
+    ok: true,
+    txHash: approveRes.txHash,
+    stage: "confirmed",
+  }
+}
+
+/* ------------------------------------------------------ */
+/* Morpho Blue supplyCollateral — registry-gated           */
+/* ------------------------------------------------------ */
+
+export interface SupplyCollateralArgs {
+  provider: EIP1193Provider
+  from: Address
+  marketParams: MorphoMarketParams | null
+  assets: bigint
+  onBehalf: Address
+  receiver: Address
+  contracts: ProtocolContracts
+  chainId: number
+}
+
+export async function sendSupplyCollateral(
+  args: SupplyCollateralArgs,
+): Promise<TxSendResult> {
+  if (args.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message:
+          `supplyCollateral must run on chain ` +
+          `${ROBINHOOD_CHAIN_ID_DEC}.`,
+      },
+    }
+  }
+  if (!args.marketParams) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Market params missing for supplyCollateral.",
+      },
+    }
+  }
+  let data: `0x${string}`
+  try {
+    data = encodeMorphoSupplyCollateral({
+      contracts: args.contracts,
+      chainId: args.chainId,
+    })
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message:
+          err instanceof Error
+            ? err.message
+            : "supplyCollateral calldata construction refused.",
+      },
+    }
+  }
+  if (!args.contracts.morphoBlueAddress) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message: "Morpho Blue core address missing.",
+      },
+    }
+  }
+  return sendViaWallet(args.provider, {
+    from: args.from,
+    to: args.contracts.morphoBlueAddress,
+    data,
+  })
+}
+
+/* ------------------------------------------------------ */
+/* Morpho Blue borrow — registry-gated                      */
+/* ------------------------------------------------------ */
+
+export interface BorrowArgs {
+  provider: EIP1193Provider
+  from: Address
+  marketParams: MorphoMarketParams | null
+  /** Borrow asset amount in loan-token smallest units. */
+  assets: bigint
+  /** Borrow shares (0 to let Morpho compute). */
+  shares: bigint
+  onBehalf: Address
+  receiver: Address
+  contracts: ProtocolContracts
+  chainId: number
+}
+
+export async function sendBorrow(args: BorrowArgs): Promise<TxSendResult> {
+  if (args.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message:
+          `Borrow must run on chain ${ROBINHOOD_CHAIN_ID_DEC}.`,
+      },
+    }
+  }
+  if (!args.marketParams) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Market params missing for borrow.",
+      },
+    }
+  }
+  if (args.assets <= BigInt(0)) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Borrow amount must be > 0.",
+      },
+    }
+  }
+  let data: `0x${string}`
+  try {
+    // The borrow encoder refuses unless the registry exposes a
+    // verified selector + ABI source. Until then, this returns
+    // typed `protocol-not-configured` WITHOUT touching the wallet.
+    data = encodeMorphoBorrow({
+      contracts: args.contracts,
+      chainId: args.chainId,
+    })
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Borrow calldata construction refused.",
+      },
+    }
+  }
+  if (!args.contracts.morphoBlueAddress) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message: "Morpho Blue core address missing.",
+      },
+    }
+  }
+  return sendViaWallet(args.provider, {
+    from: args.from,
+    to: args.contracts.morphoBlueAddress,
+    data,
+  })
+}
+
+/* ------------------------------------------------------ */
+/* ERC4626 vault deposit — registry-gated                   */
+/* ------------------------------------------------------ */
+
+export interface VaultDepositArgs {
+  provider: EIP1193Provider
+  from: Address
+  vault: Address
+  /** Asset amount to deposit (loan-token smallest units). */
+  assets: bigint
+  receiver: Address
+  chainId: number
+}
+
+export async function sendVaultDeposit(
+  args: VaultDepositArgs,
+): Promise<TxSendResult> {
+  if (args.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message:
+          `Vault deposit must run on chain ` +
+          `${ROBINHOOD_CHAIN_ID_DEC}.`,
+      },
+    }
+  }
+  if (args.assets <= BigInt(0)) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Deposit amount must be > 0.",
+      },
+    }
+  }
+  let data: `0x${string}`
+  try {
+    data = encodeErc4626Deposit(args.assets, args.receiver)
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Failed to encode ERC-4626 deposit.",
+      },
+    }
+  }
+  return sendViaWallet(args.provider, {
+    from: args.from,
+    to: args.vault,
+    data,
+  })
 }

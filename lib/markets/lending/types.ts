@@ -167,6 +167,18 @@ export interface LendingMarket {
   lltv: number | null
   /** Oracle contract address (lowercased). Morpho-sourced markets only. */
   oracleAddress: string | null
+  /** IRM (interest rate model) contract address (Morpho-sourced only). */
+  irmAddress: string | null
+  /** Loan token contract address (Morpho-sourced only). */
+  loanTokenAddress: string | null
+  /** Collateral token contract address (Morpho-sourced only). */
+  collateralTokenAddress: string | null
+  /**
+   * Decimals of the onchain loan token (ERC20.decimals()). Falls
+   * back to `rhTokenDecimals` then 18 when unknown. Set when the
+   * service actually read `decimals()` via RPC; otherwise null.
+   */
+  loanTokenDecimals: number | null
   // ── Robinhood Stock Token metadata (from /rhj/assets) ─────────
   /**
    * Deployed ERC-20 contract address for this asset on Robinhood

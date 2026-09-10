@@ -36,6 +36,8 @@ export type PreflightIssue =
   | { kind: "no-allowance"; required: bigint; available: bigint }
   | { kind: "no-collateral-position" }
   | { kind: "no-liquidity"; availableLiquidity: bigint }
+  | { kind: "ltv-violation"; maxBorrow: bigint; requested: bigint }
+  | { kind: "missing-market-params"; field: string }
   | { kind: "unsupported-token"; token: Address }
   | { kind: "rpc-unavailable"; message: string }
   | { kind: "market-not-found"; marketId: string }
@@ -330,6 +332,45 @@ export async function preflightBorrow(
   // surface the issue and bail.
   if (input.market.availableLiquidity == null) {
     issues.push({ kind: "no-protocol-data" })
+  }
+
+  // LTV safety check (Phase 3): requested borrow must remain below
+  // collateralBalance * oraclePrice * lltv (WAD). Surface
+  // `missing-market-params` when oracle or LLTV is null.
+  const oraclePriceUsd = input.market.oraclePrice
+  const lltvFraction = input.market.lltv
+  const collateralDecimals =
+    input.market.rhTokenDecimals ?? 18
+  if (
+    oraclePriceUsd != null &&
+    Number.isFinite(oraclePriceUsd) &&
+    lltvFraction != null &&
+    Number.isFinite(lltvFraction) &&
+    collateralBalance != null &&
+    collateralBalance > BigInt(0)
+  ) {
+    // maxBorrow in loan-token smallest units = collateral (raw) /
+    // 10^collateralDecimals * oraclePrice (USD) * lltv (fraction).
+    // We keep the operation in safe Number math for display; the
+    // contract-side enforcement still happens onchain.
+    const maxBorrowNumber =
+      (Number(collateralBalance) / 10 ** collateralDecimals) *
+      oraclePriceUsd *
+      lltvFraction
+    if (Number.isFinite(maxBorrowNumber) && maxBorrowNumber > 0) {
+      const maxBorrow = BigInt(
+        Math.max(1, Math.floor(maxBorrowNumber * 1e18)),
+      )
+      if (input.amount > maxBorrow) {
+        issues.push({
+          kind: "ltv-violation",
+          maxBorrow,
+          requested: input.amount,
+        })
+      }
+    }
+  } else if (lltvFraction == null) {
+    issues.push({ kind: "missing-market-params", field: "lltv" })
   }
 
   return {

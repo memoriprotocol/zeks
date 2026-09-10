@@ -348,6 +348,10 @@ function buildFromMorpho(
     loanAssetSymbol: (m.loanAssetSymbol || "").toUpperCase() || null,
     lltv: m.lltv ?? null,
     oracleAddress: m.oracleAddress ?? null,
+    irmAddress: null, // Morpho GraphQL does not expose IRM via this query; populated when present.
+    loanTokenAddress: m.loanAssetAddress ?? null,
+    collateralTokenAddress: m.collateralAssetAddress ?? null,
+    loanTokenDecimals: null,
     rhContractAddress: rh?.contractAddress ?? null,
     rhMultiplier: rh?.currentMultiplier ?? null,
     rhTokenDecimals: rh?.tokenDecimals ?? null,

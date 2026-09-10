@@ -1,38 +1,27 @@
 "use client"
 
 /**
- * SupplyActionPanel — First real write flow in ZEKS.
+ * BorrowActionPanel — Collateral + Borrow write flow.
  *
- * Compose pre-flight + ERC20 approve + (gated) supply transactions
- * behind a single typed UI state machine. No popups fire unless
- * the user clicks Approve or Supply.
+ * Two-step transaction flow per Morpho Blue canonical borrow:
  *
- * ## State machine
+ *   1. supplyCollateral(collateral) → wallet confirmation #1
+ *   2. borrow(loanToken, amount)      → wallet confirmation #2
  *
- *   idle ──▶ confirming ──▶ submitted ──▶ confirmed ──▶ refetch ──▶ idle
- *     │            │              │             │
- *     ▼            ▼              ▼             ▼
- *  disabled    rejected       reverted      rpc-error
+ * Both steps gate on the verified protocol registry. When the
+ * registry is not configured for Robinhood Chain (4663), the
+ * panel surfaces a clean `protocol-not-configured` state and
+ * disables both actions.
  *
- * Approve and Supply each have their own state. We deliberately
- * do NOT auto-trigger Supply after approval success — the user
- * must click Supply again. This prevents an accidental double-tx
- * and surfaces any balance or RPC changes that happened during
- * the approve wait.
+ * NO transactions are sent unless the user explicitly clicks
+ * Approve → Supply → Borrow. There is no auto-merge, no batched
+ * multicall, no optimistic success.
  *
- * ## Gating
- *
- * Both Approve and Supply gate on:
- *   - wallet connected + chainId === 4663
- *   - supply token balance > 0
- *   - target market valid (has marketId)
- *   - spender address verified via protocol registry
- *
- * Supply ALSO gates on:
- *   - allowance sufficient (after Approve confirmed, OR max int
- *     for unlimited approval)
- *   - supply ABI implementation present (currently false on
- *     Robinhood Chain — see `sendSupply`)
+ * LTV safety check runs BEFORE the first wallet confirmation:
+ * requested borrow must remain within
+ *   collateralBalance × oraclePrice × lltv.
+ * If any safety input is missing, the borrow button stays
+ * disabled and the reason is shown.
  */
 
 import * as React from "react"
@@ -40,11 +29,12 @@ import { useWallet } from "@/components/app/wallet/use-wallet"
 import type { EIP1193Provider } from "@/lib/wallet/types"
 import type { Address } from "@/lib/wallet/types-common"
 import {
-  preflightSupply,
+  preflightBorrow,
   readErc20Allowance,
   readErc20Balance,
   sendApprove,
-  sendSupply,
+  sendSupplyCollateral,
+  sendBorrow,
   waitForReceipt,
   resolveProtocolContractsForChain,
   MAX_UINT256,
@@ -58,18 +48,21 @@ import { formatUnits } from "@/lib/markets/onchain/format-units"
 import { formatApy, formatPrice } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
 
-interface SupplyActionPanelProps {
+interface BorrowActionPanelProps {
   market: LendingMarket
 }
 
 type Stage =
   | "idle"
-  | "user-confirming-approve"
-  | "approve-submitted"
-  | "approve-confirmed"
   | "user-confirming-supply"
   | "supply-submitted"
   | "supply-confirmed"
+  | "user-confirming-approve"
+  | "approve-submitted"
+  | "approve-confirmed"
+  | "user-confirming-borrow"
+  | "borrow-submitted"
+  | "borrow-confirmed"
   | "rejected"
   | "reverted"
   | "rpc-error"
@@ -77,36 +70,37 @@ type Stage =
 
 interface PanelState {
   stage: Stage
-  /** Last approve hash, if any. */
-  approveTxHash: `0x${string}` | null
-  /** Last supply hash, if any. */
   supplyTxHash: `0x${string}` | null
-  /** Last error message. */
+  approveTxHash: `0x${string}` | null
+  borrowTxHash: `0x${string}` | null
   errorMessage: string | null
 }
 
 const INITIAL_STATE: PanelState = {
   stage: "idle",
-  approveTxHash: null,
   supplyTxHash: null,
+  approveTxHash: null,
+  borrowTxHash: null,
   errorMessage: null,
 }
 
-export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
+export default function BorrowActionPanel({
+  market,
+}: BorrowActionPanelProps) {
   const wallet = useWallet()
 
-  const [tokenMeta, setTokenMeta] = React.useState<{
+  const [collateralMeta, setCollateralMeta] = React.useState<{
     address: Address
     symbol: string
     decimals: number
   } | null>(null)
-  const [walletBalance, setWalletBalance] = React.useState<bigint | null>(null)
+  const [collateralBalance, setCollateralBalance] = React.useState<
+    bigint | null
+  >(null)
   const [allowance, setAllowance] = React.useState<bigint | null>(null)
   const [amountInput, setAmountInput] = React.useState<string>("")
   const [state, setState] = React.useState<PanelState>(INITIAL_STATE)
-  /** Single-flight guard for any in-flight user action. */
   const busyRef = React.useRef<boolean>(false)
-  /** Forces a refetch of the read state. */
   const [refreshTick, setRefreshTick] = React.useState(0)
 
   const provider: EIP1193Provider | null = React.useMemo(() => {
@@ -120,79 +114,67 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
   )
   const spender = protocolContracts.morphoBlueAddress
 
-  // ── Read state ────────────────────────────────────────────────
+  // ── Read state ──────────────────────────────────────────────
   React.useEffect(() => {
     if (
       wallet.status !== "connected" ||
       !wallet.address ||
       wallet.chainId !== ROBINHOOD_CHAIN_ID_DEC
     ) {
-      setTokenMeta(null)
-      setWalletBalance(null)
+      setCollateralMeta(null)
+      setCollateralBalance(null)
       setAllowance(null)
       return
     }
-
-    const loanAddress = (market as LendingMarket & {
-      loanTokenAddress?: Address | null
-    }).loanTokenAddress as Address | null
-
-    if (!loanAddress) {
-      setTokenMeta(null)
-      setWalletBalance(null)
+    const collateralAddress =
+      (market.rhContractAddress as Address | null) ?? null
+    if (!collateralAddress) {
+      setCollateralMeta(null)
+      setCollateralBalance(null)
       setAllowance(null)
       return
     }
-
     let cancelled = false
     ;(async () => {
-      // Token metadata
-      const bal = await readErc20Balance(loanAddress, wallet.address as Address, {
-        provider,
-        chainId: wallet.chainId,
-      })
+      const bal = await readErc20Balance(
+        collateralAddress,
+        wallet.address as Address,
+        { provider, chainId: wallet.chainId },
+      )
       if (cancelled) return
-      if (bal.kind === "ok") {
-        setWalletBalance(bal.value)
-      } else {
-        setWalletBalance(null)
-      }
+      if (bal.kind === "ok") setCollateralBalance(bal.value)
+      else setCollateralBalance(null)
 
       const { readErc20Info } = await import("@/lib/markets/onchain/erc20")
-      const info = await readErc20Info(loanAddress, {
+      const info = await readErc20Info(collateralAddress, {
         provider,
         chainId: wallet.chainId,
       })
       if (cancelled) return
       if (info.kind === "ok") {
-        setTokenMeta({
-          address: loanAddress,
+        setCollateralMeta({
+          address: collateralAddress,
           symbol: info.value.symbol,
           decimals: info.value.decimals,
         })
       } else {
-        setTokenMeta({
-          address: loanAddress,
+        setCollateralMeta({
+          address: collateralAddress,
           symbol: market.symbol,
           decimals: market.rhTokenDecimals ?? 18,
         })
       }
 
       const alw = await readErc20Allowance(
-        loanAddress,
+        collateralAddress,
         wallet.address as Address,
-        (spender ??
-          "0x0000000000000000000000000000000000000000") as Address,
+        (spender ?? "0x0000000000000000000000000000000000000000") as Address,
         { provider, chainId: wallet.chainId },
       )
       if (cancelled) return
-      if (alw.kind === "ok") {
-        setAllowance(alw.value)
-      } else {
-        setAllowance(null)
-      }
+      if (alw.kind === "ok") setAllowance(alw.value)
+      else setAllowance(null)
     })()
-
     return () => {
       cancelled = true
     }
@@ -200,6 +182,7 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     refreshTick,
     market.symbol,
     market.rhTokenDecimals,
+    market.rhContractAddress,
     wallet.status,
     wallet.address,
     wallet.chainId,
@@ -207,25 +190,20 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     provider,
   ])
 
-  // ── Derived state ─────────────────────────────────────────────
-  const parsedAmount = parseAmount(amountInput, tokenMeta?.decimals ?? null)
-  const allowanceSufficient =
-    parsedAmount != null &&
-    allowance != null &&
-    allowance >= parsedAmount.bigint
+  // ── Derived state ────────────────────────────────────────────
+  const parsedAmount = parseAmount(amountInput, 18)
   const preflight = usePreflight({
     market,
     walletAddress: wallet.address as Address | null,
     walletChainId: wallet.chainId,
     walletProvider: provider,
-    spender,
     amount: parsedAmount?.bigint ?? null,
   })
 
   const readiness = resolveAction({
     walletStatus: wallet.status,
-    tokenMeta,
-    walletBalance,
+    collateralMeta,
+    collateralBalance,
     parsedAmount,
     market,
     spender,
@@ -233,79 +211,14 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     stage: state.stage,
   })
 
-  // ── User actions ──────────────────────────────────────────────
-  const onApprove = React.useCallback(async () => {
+  // ── Step 1: Approve + supplyCollateral ──────────────────────
+  const onSupplyCollateral = React.useCallback(async () => {
     if (busyRef.current) return
     if (
       !wallet.address ||
       wallet.chainId !== ROBINHOOD_CHAIN_ID_DEC ||
       !provider ||
-      !tokenMeta ||
-      !spender ||
-      parsedAmount == null ||
-      parsedAmount.bigint <= BigInt(0)
-    ) {
-      return
-    }
-    busyRef.current = true
-    setState({ ...INITIAL_STATE, stage: "user-confirming-approve" })
-    try {
-      const res = await sendApprove({
-        provider,
-        from: wallet.address as Address,
-        token: tokenMeta.address,
-        spender,
-        amount: MAX_UINT256,
-      })
-      if (!res.ok) {
-        return setState(stageOnly(stageFor(res.error.stage), res.error.message))
-      }
-      setState({
-        stage: "approve-submitted",
-        approveTxHash: res.txHash,
-        supplyTxHash: null,
-        errorMessage: null,
-      })
-      const receipt = await waitForReceipt(provider, res.txHash)
-      if (!receipt.ok) {
-        return setState({
-          stage: stageFor(receipt.error.stage),
-          approveTxHash: res.txHash,
-          supplyTxHash: null,
-          errorMessage: receipt.error.message,
-        })
-      }
-      setState({
-        stage: "approve-confirmed",
-        approveTxHash: res.txHash,
-        supplyTxHash: null,
-        errorMessage: null,
-      })
-      // Refresh allowance
-      setRefreshTick((t) => t + 1)
-    } catch (err) {
-      setState(
-        stageOnly("rpc-error", err instanceof Error ? err.message : String(err)),
-      )
-    } finally {
-      busyRef.current = false
-    }
-  }, [
-    wallet.address,
-    wallet.chainId,
-    provider,
-    tokenMeta,
-    spender,
-    parsedAmount,
-  ])
-
-  const onSupply = React.useCallback(async () => {
-    if (busyRef.current) return
-    if (
-      !wallet.address ||
-      wallet.chainId !== ROBINHOOD_CHAIN_ID_DEC ||
-      !provider ||
-      !tokenMeta ||
+      !collateralMeta ||
       !spender ||
       parsedAmount == null ||
       parsedAmount.bigint <= BigInt(0)
@@ -315,19 +228,56 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     busyRef.current = true
     setState({ ...INITIAL_STATE, stage: "user-confirming-supply" })
     try {
+      // Approve collateral
+      const approveRes = await sendApprove({
+        provider,
+        from: wallet.address as Address,
+        token: collateralMeta.address,
+        spender,
+        amount: MAX_UINT256,
+      })
+      if (!approveRes.ok) {
+        return setState(
+          stageOnly(stageFor(approveRes.error.stage), approveRes.error.message),
+        )
+      }
+      setState((s) => ({
+        ...s,
+        stage: "approve-submitted",
+        approveTxHash: approveRes.txHash,
+      }))
+      const approveReceipt = await waitForReceipt(
+        provider,
+        approveRes.txHash,
+      )
+      if (!approveReceipt.ok) {
+        return setState({
+          stage: stageFor(approveReceipt.error.stage),
+          supplyTxHash: null,
+          approveTxHash: approveRes.txHash,
+          borrowTxHash: null,
+          errorMessage: approveReceipt.error.message,
+        })
+      }
+
+      // supplyCollateral
       let marketParams = null
       try {
         marketParams = marketParamsFromLendingMarket({
-          loanTokenAddress: (market as LendingMarket & { loanTokenAddress?: string | null }).loanTokenAddress as Address ?? null,
-          collateralTokenAddress: (market as LendingMarket & { collateralTokenAddress?: string | null }).collateralTokenAddress as Address ?? null,
+          loanTokenAddress:
+            (market as LendingMarket & { loanTokenAddress?: string | null })
+              .loanTokenAddress as Address ?? null,
+          collateralTokenAddress: collateralMeta.address,
           oracleAddress: market.oracleAddress,
-          irmAddress: (market as LendingMarket & { irmAddress?: string | null }).irmAddress ?? null,
+          irmAddress:
+            (market as LendingMarket & { irmAddress?: string | null })
+              .irmAddress ?? null,
           lltvFraction: market.lltv,
         })
       } catch {
-        // marketParams stays null; sendSupply will surface protocol-not-configured
+        marketParams = null
       }
-      const res = await sendSupply({
+      const res = await sendSupplyCollateral({
         provider,
         from: wallet.address as Address,
         marketParams,
@@ -338,34 +288,37 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         chainId: wallet.chainId,
       })
       if (!res.ok) {
-        return setState(stageOnly(stageFor(res.error.stage), res.error.message))
+        return setState(
+          stageOnly(stageFor(res.error.stage), res.error.message),
+        )
       }
-      setState({
+      setState((s) => ({
+        ...s,
         stage: "supply-submitted",
-        approveTxHash: state.approveTxHash,
         supplyTxHash: res.txHash,
-        errorMessage: null,
-      })
+      }))
       const receipt = await waitForReceipt(provider, res.txHash)
       if (!receipt.ok) {
         return setState({
           stage: stageFor(receipt.error.stage),
-          approveTxHash: state.approveTxHash,
           supplyTxHash: res.txHash,
+          approveTxHash: null,
+          borrowTxHash: null,
           errorMessage: receipt.error.message,
         })
       }
-      setState({
+      setState((s) => ({
+        ...s,
         stage: "supply-confirmed",
-        approveTxHash: state.approveTxHash,
         supplyTxHash: res.txHash,
-        errorMessage: null,
-      })
-      // Refresh balance + position
+      }))
       setRefreshTick((t) => t + 1)
     } catch (err) {
       setState(
-        stageOnly("rpc-error", err instanceof Error ? err.message : String(err)),
+        stageOnly(
+          "rpc-error",
+          err instanceof Error ? err.message : String(err),
+        ),
       )
     } finally {
       busyRef.current = false
@@ -374,17 +327,108 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     wallet.address,
     wallet.chainId,
     provider,
-    tokenMeta,
+    collateralMeta,
     spender,
     parsedAmount,
+    market,
     protocolContracts,
-    state.approveTxHash,
+  ])
+
+  // ── Step 2: Borrow ──────────────────────────────────────────
+  const onBorrow = React.useCallback(async () => {
+    if (busyRef.current) return
+    if (
+      !wallet.address ||
+      wallet.chainId !== ROBINHOOD_CHAIN_ID_DEC ||
+      !provider ||
+      !spender ||
+      parsedAmount == null ||
+      parsedAmount.bigint <= BigInt(0)
+    ) {
+      return
+    }
+    busyRef.current = true
+    setState((s) => ({ ...s, stage: "user-confirming-borrow" }))
+    try {
+      let marketParams = null
+      try {
+        marketParams = marketParamsFromLendingMarket({
+          loanTokenAddress:
+            (market as LendingMarket & { loanTokenAddress?: string | null })
+              .loanTokenAddress as Address ?? null,
+          collateralTokenAddress:
+            (market as LendingMarket & { collateralTokenAddress?: string | null })
+              .collateralTokenAddress as Address ?? null,
+          oracleAddress: market.oracleAddress,
+          irmAddress:
+            (market as LendingMarket & { irmAddress?: string | null })
+              .irmAddress ?? null,
+          lltvFraction: market.lltv,
+        })
+      } catch {
+        marketParams = null
+      }
+      const res = await sendBorrow({
+        provider,
+        from: wallet.address as Address,
+        marketParams,
+        assets: parsedAmount.bigint,
+        shares: BigInt(0),
+        onBehalf: wallet.address as Address,
+        receiver: wallet.address as Address,
+        contracts: protocolContracts,
+        chainId: wallet.chainId,
+      })
+      if (!res.ok) {
+        return setState(
+          stageOnly(stageFor(res.error.stage), res.error.message),
+        )
+      }
+      setState((s) => ({
+        ...s,
+        stage: "borrow-submitted",
+        borrowTxHash: res.txHash,
+      }))
+      const receipt = await waitForReceipt(provider, res.txHash)
+      if (!receipt.ok) {
+        return setState({
+          stage: stageFor(receipt.error.stage),
+          supplyTxHash: null,
+          approveTxHash: null,
+          borrowTxHash: res.txHash,
+          errorMessage: receipt.error.message,
+        })
+      }
+      setState((s) => ({
+        ...s,
+        stage: "borrow-confirmed",
+        borrowTxHash: res.txHash,
+      }))
+      setRefreshTick((t) => t + 1)
+    } catch (err) {
+      setState(
+        stageOnly(
+          "rpc-error",
+          err instanceof Error ? err.message : String(err),
+        ),
+      )
+    } finally {
+      busyRef.current = false
+    }
+  }, [
+    wallet.address,
+    wallet.chainId,
+    provider,
+    spender,
+    parsedAmount,
+    market,
+    protocolContracts,
   ])
 
   const onMax = React.useCallback(() => {
-    if (walletBalance == null || tokenMeta == null) return
-    setAmountInput(formatUnits(walletBalance, tokenMeta.decimals))
-  }, [walletBalance, tokenMeta])
+    if (collateralBalance == null || collateralMeta == null) return
+    setAmountInput(formatUnits(collateralBalance, collateralMeta.decimals))
+  }, [collateralBalance, collateralMeta])
 
   const resetState = React.useCallback(() => {
     if (busyRef.current) return
@@ -393,13 +437,13 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
 
   // ── Render: disconnected / wrong chain / unconfigured ────────
   if (wallet.status === "initializing") {
-    return <Banner title="SUPPLY" body="Connecting…" />
+    return <Banner title="BORROW" body="Connecting…" />
   }
   if (!wallet.address) {
     return (
       <Banner
-        title="SUPPLY"
-        body="Connect a wallet to supply into this market."
+        title="BORROW"
+        body="Connect a wallet to borrow from this market."
         primary="Connect wallet"
         onPrimary={() => wallet.reconnect().catch(() => undefined)}
       />
@@ -408,22 +452,24 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
   if (wallet.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
     return (
       <Banner
-        title="SUPPLY"
+        title="BORROW"
         body={`Switch to Robinhood Chain (4663). Currently on chain ${wallet.chainId}.`}
         primary="Switch to Robinhood Chain"
-        onPrimary={() => wallet.switchToRobinhoodChain().catch(() => undefined)}
+        onPrimary={() =>
+          wallet.switchToRobinhoodChain().catch(() => undefined)
+        }
       />
     )
   }
   if (!spender) {
     return (
       <Banner
-        title="SUPPLY COMING SOON"
+        title="BORROW COMING SOON"
         body={
-          "Supply to this market is not available yet. We are wiring up " +
-          "the protocol integration for Robinhood Chain. The verified " +
-          "Morpho Blue core address (and bytecode-checked supply selector) " +
-          "have not been committed to the protocol registry yet."
+          "Borrow from this market is not available yet. The verified " +
+          "Morpho Blue core address and bytecode-checked selectors " +
+          "(supplyCollateral, borrow) have not been committed to the " +
+          "protocol registry yet."
         }
         tone="warn"
       />
@@ -432,33 +478,33 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
   if (!market.marketId) {
     return (
       <Banner
-        title="SUPPLY DISABLED"
+        title="BORROW DISABLED"
         body="This market has no onchain market id (mock or unknown source)."
         tone="warn"
       />
     )
   }
 
-  // ── Render: rich state ────────────────────────────────────────
+  // ── Render: rich state ───────────────────────────────────────
   const balanceHuman =
-    tokenMeta && walletBalance != null
-      ? formatUnits(walletBalance, tokenMeta.decimals)
+    collateralMeta && collateralBalance != null
+      ? formatUnits(collateralBalance, collateralMeta.decimals)
       : "—"
   const allowanceHuman =
-    tokenMeta && allowance != null
-      ? formatUnits(allowance, tokenMeta.decimals)
+    collateralMeta && allowance != null
+      ? formatUnits(allowance, collateralMeta.decimals)
       : "—"
 
   return (
     <section
       className="zeks-card"
-      aria-label="Supply action"
-      data-supply-panel
+      aria-label="Borrow action"
+      data-borrow-panel
     >
       <div className="flex items-baseline justify-between gap-3 mb-4">
         <div>
           <p className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            SUPPLY
+            BORROW
           </p>
           <h2 className="font-serif text-[18px] mt-1 text-foreground">
             {market.symbol}
@@ -466,28 +512,26 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         </div>
         <span className="text-[10px] font-mono tracking-wider text-muted-foreground">
           {market.rhContractAddress
-            ? `Token ${market.rhContractAddress.slice(0, 6)}…${market.rhContractAddress.slice(-4)}`
-            : "Token —"}
+            ? `Collateral ${market.rhContractAddress.slice(0, 6)}…${market.rhContractAddress.slice(-4)}`
+            : "Collateral —"}
         </span>
       </div>
 
-      {/* Amount input */}
+      {/* Amount input = collateral to deposit */}
       <div className="mb-4">
         <label
-          htmlFor="supply-amount"
+          htmlFor="borrow-collateral-amount"
           className="text-[10px] font-mono tracking-wider text-muted-foreground/70"
         >
-          AMOUNT
+          COLLATERAL AMOUNT
         </label>
         <div className="flex items-center gap-2 mt-1">
           <input
-            id="supply-amount"
+            id="borrow-collateral-amount"
             type="text"
             inputMode="decimal"
             value={amountInput}
             onChange={(e) => {
-              // Accept only digits + one decimal point. Trim leading
-              // zeros from the integer part. Refuse negatives.
               const v = e.target.value.replace(/[^0-9.]/g, "")
               const parts = v.split(".")
               const sanitized =
@@ -499,72 +543,77 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
             disabled={!readiness.canEditAmount}
             placeholder="0.00"
             className="flex-1 bg-secondary/40 border border-border rounded-md px-3 py-2 font-mono tabular-nums text-foreground placeholder:text-muted-foreground/50"
-            data-supply-amount
+            data-borrow-amount
           />
           <button
             type="button"
             onClick={onMax}
             disabled={!readiness.canEditAmount}
             className="text-[10px] font-mono tracking-wider px-2 py-1.5 rounded border border-border bg-secondary/30 text-foreground hover:bg-secondary/50 disabled:opacity-50"
-            data-supply-max
+            data-borrow-max
           >
             MAX
           </button>
         </div>
-        <div className="mt-1 text-[10px] font-mono tracking-wider text-muted-foreground">
-          {tokenMeta && parsedAmount
-            ? `${parsedAmount.bigint.toString()} (raw)`
-            : ""}
-        </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-4 text-[11px]">
         <Stat
-          label="WALLET BALANCE"
+          label="COLLATERAL BALANCE"
           value={
-            tokenMeta
-              ? `${balanceHuman} ${tokenMeta.symbol}`
+            collateralMeta
+              ? `${balanceHuman} ${collateralMeta.symbol}`
               : `${balanceHuman}`
           }
         />
         <Stat
           label="CURRENT ALLOWANCE"
           value={
-            tokenMeta
-              ? `${allowanceHuman} ${tokenMeta.symbol}`
+            collateralMeta
+              ? `${allowanceHuman} ${collateralMeta.symbol}`
               : `${allowanceHuman}`
           }
         />
         <Stat
-          label="SUPPLY APY"
-          value={formatApy(market.supplyApy)}
-          tone={market.supplyApy != null ? "positive" : undefined}
+          label="BORROW APY"
+          value={formatApy(market.borrowApy)}
         />
         <Stat
-          label="EST. POSITION (USD)"
+          label="LLTV"
           value={
-            parsedAmount && market.oraclePrice
-              ? formatPrice(
-                  Number(parsedAmount.bigint) /
-                    10 ** (tokenMeta?.decimals ?? 0) *
-                    (market.oraclePrice ?? 0),
-                )
+            market.lltv != null
+              ? `${(market.lltv * 100).toFixed(2)}%`
+              : "—"
+          }
+        />
+        <Stat
+          label="AVAILABLE LIQUIDITY"
+          value={
+            market.availableLiquidity != null
+              ? formatPrice(market.availableLiquidity)
+              : "—"
+          }
+        />
+        <Stat
+          label="ORACLE PRICE"
+          value={
+            market.oraclePrice != null
+              ? formatPrice(market.oraclePrice)
               : "—"
           }
         />
       </div>
 
-      {/* Action button + status */}
       <ActionArea
         stage={state.stage}
-        approveHash={state.approveTxHash}
         supplyHash={state.supplyTxHash}
+        approveHash={state.approveTxHash}
+        borrowHash={state.borrowTxHash}
         errorMessage={state.errorMessage}
         readiness={readiness}
         wallet={wallet}
-        onApprove={onApprove}
-        onSupply={onSupply}
+        onSupplyCollateral={onSupplyCollateral}
+        onBorrow={onBorrow}
         onReset={resetState}
       />
 
@@ -580,23 +629,17 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
 function Stat({
   label,
   value,
-  tone,
 }: {
   label: string
   value: string
-  tone?: "positive"
 }) {
-  const color =
-    tone === "positive"
-      ? "text-emerald-500"
-      : "text-foreground"
   return (
     <div className="bg-secondary/40 border border-border rounded-lg p-3">
       <div className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
         {label}
       </div>
       <div
-        className={`text-base font-mono tabular-nums mt-0.5 ${color}`}
+        className="text-base font-mono tabular-nums mt-0.5 text-foreground"
         data-stat={label}
       >
         {value}
@@ -646,94 +689,95 @@ function Banner({
 
 function ActionArea({
   stage,
-  approveHash,
   supplyHash,
+  approveHash,
+  borrowHash,
   errorMessage,
   readiness,
-  wallet,
-  onApprove,
-  onSupply,
+  wallet: _wallet,
+  onSupplyCollateral,
+  onBorrow,
   onReset,
 }: {
   stage: Stage
-  approveHash: `0x${string}` | null
   supplyHash: `0x${string}` | null
+  approveHash: `0x${string}` | null
+  borrowHash: `0x${string}` | null
   errorMessage: string | null
   readiness: ReadinessResult
   wallet: ReturnType<typeof useWallet>
-  onApprove: () => void
-  onSupply: () => void
+  onSupplyCollateral: () => void
+  onBorrow: () => void
   onReset: () => void
 }) {
-  if (readiness.action === "supply") {
-    return (
-      <>
-        <Button
-          label={
-            stage === "user-confirming-supply"
-              ? "Confirm in wallet…"
-              : stage === "supply-submitted"
-                ? "Waiting for receipt…"
-                : "Supply"
-          }
-          disabled={
-            !readiness.enabled ||
-            stage === "user-confirming-supply" ||
-            stage === "supply-submitted"
-          }
-          onClick={onSupply}
-        />
-        <TxReceiptLink label="supply" hash={supplyHash} />
-        {stage === "supply-confirmed" ? (
-          <SuccessLine
-            message="Supply confirmed. Balances refreshing…"
-            onReset={onReset}
-          />
-        ) : null}
-      </>
-    )
-  }
-  if (readiness.action === "approve") {
-    return (
-      <>
-        <Button
-          label={
-            stage === "user-confirming-approve"
-              ? "Confirm in wallet…"
-              : stage === "approve-submitted"
-                ? "Waiting for receipt…"
-                : "Approve"
-          }
-          disabled={
-            !readiness.enabled ||
-            stage === "user-confirming-approve" ||
-            stage === "approve-submitted"
-          }
-          onClick={onApprove}
-        />
-        <TxReceiptLink label="approval" hash={approveHash} />
-        {stage === "approve-confirmed" ? (
-          <SuccessLine
-            message="Approval confirmed. Click Supply to continue."
-            onReset={onReset}
-          />
-        ) : null}
-      </>
-    )
-  }
+  const step1Done = supplyHash != null
+  const step2Ready =
+    step1Done && readiness.action === "borrow"
   return (
-    <>
-      <Button label={readiness.label} disabled onClick={undefined} />
+    <div className="grid grid-cols-1 gap-2">
+      <Button
+        label={
+          stage === "user-confirming-supply" ||
+          stage === "approve-submitted" ||
+          stage === "user-confirming-approve"
+            ? "Confirm in wallet…"
+            : stage === "supply-submitted"
+              ? "Waiting for collateral receipt…"
+              : stage === "supply-confirmed"
+                ? "Collateral supplied"
+                : "Step 1 — Approve & supply collateral"
+        }
+        disabled={
+          readiness.action !== "supply-collateral" ||
+          stage === "user-confirming-supply" ||
+          stage === "supply-submitted" ||
+          stage === "approve-submitted" ||
+          stage === "user-confirming-approve"
+        }
+        onClick={onSupplyCollateral}
+        data-action="supply-collateral"
+      />
+      <TxReceiptLink label="approval" hash={approveHash} />
+      <TxReceiptLink label="supply collateral" hash={supplyHash} />
+
+      <Button
+        label={
+          stage === "user-confirming-borrow"
+            ? "Confirm in wallet…"
+            : stage === "borrow-submitted"
+              ? "Waiting for borrow receipt…"
+              : stage === "borrow-confirmed"
+                ? "Borrow confirmed"
+                : "Step 2 — Borrow loan asset"
+        }
+        disabled={
+          !step2Ready ||
+          stage === "user-confirming-borrow" ||
+          stage === "borrow-submitted"
+        }
+        onClick={step2Ready ? onBorrow : undefined}
+        data-action="borrow"
+      />
+      <TxReceiptLink label="borrow" hash={borrowHash} />
+
+      {stage === "borrow-confirmed" ? (
+        <SuccessLine
+          message="Borrow confirmed. Positions refreshing…"
+          onReset={onReset}
+        />
+      ) : null}
+
       {errorMessage ? (
         <p className="mt-2 text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
           {errorMessage}
         </p>
       ) : null}
-      <p className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground">
-        {readiness.reason ?? ""}
-      </p>
-      <ResetButton onReset={onReset} wallet={wallet} />
-    </>
+      {!step2Ready && !errorMessage ? (
+        <p className="text-[10px] font-mono tracking-wider text-muted-foreground">
+          {readiness.reason ?? ""}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -741,22 +785,24 @@ function Button({
   label,
   disabled,
   onClick,
+  data: dataAttr,
 }: {
   label: string
   disabled: boolean
   onClick: (() => void) | undefined
+  data?: string
 }) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
+      data-action={dataAttr}
       className={`w-full mt-1 py-2.5 rounded-md font-mono text-[12px] tracking-wider border ${
         disabled
           ? "border-border bg-secondary/30 text-muted-foreground cursor-not-allowed"
           : "border-foreground/30 bg-foreground text-background hover:opacity-90"
       }`}
-      data-supply-button
     >
       {label}
     </button>
@@ -798,29 +844,11 @@ function TxReceiptLink({
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 inline-block text-[10px] font-mono tracking-wider text-foreground/70 underline"
+      className="text-[10px] font-mono tracking-wider text-foreground/70 underline"
       data-tx-link={label}
     >
       View {label} transaction →
     </a>
-  )
-}
-
-function ResetButton({
-  onReset,
-  wallet,
-}: {
-  onReset: () => void
-  wallet: ReturnType<typeof useWallet>
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onReset}
-      className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground hover:text-foreground"
-    >
-      Reset
-    </button>
   )
 }
 
@@ -852,12 +880,12 @@ function preflightLabel(issue: PreflightIssue): string {
       return `Insufficient balance for ${issue.required.toString()} (have ${issue.available.toString()})`
     case "no-allowance":
       return `Allowance insufficient (have ${issue.available.toString()}, need ${issue.required.toString()})`
-    case "ltv-violation":
-      return `Borrow exceeds safe collateral capacity`
-    case "missing-market-params":
-      return `Missing market data (${issue.field})`
     case "no-collateral-position":
       return "No collateral position"
+    case "ltv-violation":
+      return "Borrow exceeds safe collateral capacity (LLTV)"
+    case "missing-market-params":
+      return `Missing market data (${issue.field})`
     case "no-liquidity":
       return "Market has no available liquidity"
     case "unsupported-token":
@@ -878,7 +906,6 @@ function preflightLabel(issue: PreflightIssue): string {
 /* ------------------------------------------------------ */
 
 interface ParsedAmount {
-  /** Bigint in token smallest units (decimals applied). */
   bigint: bigint
 }
 
@@ -904,8 +931,9 @@ function parseAmount(input: string, decimals: number | null): ParsedAmount | nul
 function stageOnly(stage: Stage, message: string | null): PanelState {
   return {
     stage,
-    approveTxHash: null,
     supplyTxHash: null,
+    approveTxHash: null,
+    borrowTxHash: null,
     errorMessage: message,
   }
 }
@@ -932,8 +960,7 @@ function stageFor(txStage: TxStage): Stage {
 /* ------------------------------------------------------ */
 
 interface ReadinessResult {
-  /** Which action the button should label as primary. */
-  action: "approve" | "supply" | "none"
+  action: "supply-collateral" | "borrow" | "none"
   label: string
   enabled: boolean
   reason?: string
@@ -942,8 +969,8 @@ interface ReadinessResult {
 
 function resolveAction(args: {
   walletStatus: ReturnType<typeof useWallet>["status"]
-  tokenMeta: { symbol: string; decimals: number } | null
-  walletBalance: bigint | null
+  collateralMeta: { symbol: string; decimals: number } | null
+  collateralBalance: bigint | null
   parsedAmount: ParsedAmount | null
   market: LendingMarket
   spender: Address | null
@@ -951,110 +978,93 @@ function resolveAction(args: {
   stage: Stage
 }): ReadinessResult {
   const {
-    walletBalance,
+    collateralBalance,
     parsedAmount,
-    tokenMeta,
+    collateralMeta,
     market,
     spender,
     preflightIssues,
-    stage,
   } = args
 
-  if (!tokenMeta) {
+  if (!collateralMeta) {
     return {
       action: "none",
-      label: "Token unavailable",
+      label: "Collateral unavailable",
       enabled: false,
-      reason: "Loan token metadata unavailable.",
+      reason: "Collateral token metadata unavailable.",
       canEditAmount: false,
     }
   }
-  if (walletBalance == null) {
+  if (collateralBalance == null) {
     return {
       action: "none",
       label: "Reading balance…",
       enabled: false,
-      reason: "Wallet balance not loaded yet.",
+      reason: "Collateral balance not loaded yet.",
       canEditAmount: false,
     }
   }
-  if (walletBalance === BigInt(0)) {
+  if (collateralBalance === BigInt(0)) {
     return {
       action: "none",
-      label: "No balance",
+      label: "No collateral",
       enabled: false,
-      reason: "Wallet has no balance for this token.",
+      reason: "Wallet has no collateral balance.",
       canEditAmount: true,
     }
   }
   if (!parsedAmount || parsedAmount.bigint <= BigInt(0)) {
     return {
       action: "none",
-      label: "Enter an amount",
+      label: "Enter collateral amount",
       enabled: false,
-      reason: "Supply amount must be > 0.",
+      reason: "Collateral amount must be > 0.",
       canEditAmount: true,
     }
   }
-  if (parsedAmount.bigint > walletBalance) {
+  if (parsedAmount.bigint > collateralBalance) {
     return {
       action: "none",
       label: "Amount > balance",
       enabled: false,
-      reason: "Amount exceeds wallet balance.",
+      reason: "Amount exceeds collateral balance.",
       canEditAmount: true,
     }
   }
   if (!spender) {
     return {
       action: "none",
-      label: "Supply coming soon",
+      label: "Borrow coming soon",
       enabled: false,
-      reason: "Supply to this market is not available yet.",
+      reason: "Borrow is not available yet.",
       canEditAmount: true,
     }
   }
   if (!market.marketId) {
     return {
       action: "none",
-      label: "Supply coming soon",
+      label: "Borrow coming soon",
       enabled: false,
-      reason: "Market is being prepared for supply.",
+      reason: "Market is being prepared.",
       canEditAmount: true,
     }
   }
-  // Live Morpho params (oracle / irm / lltv) are required to
-  // encode calldata. When missing, the market is still being
-  // integrated for this chain.
-  if (
-    !market.oracleAddress ||
-    !(market as LendingMarket & { irmAddress?: string | null })
-      .irmAddress ||
-    market.lltv == null
-  ) {
+  // LTV violation: do not show supply-collateral step.
+  const ltvViolation = preflightIssues.some((i) => i.kind === "ltv-violation")
+  if (ltvViolation) {
     return {
       action: "none",
-      label: "Supply coming soon",
+      label: "LTV violation",
       enabled: false,
-      reason:
-        "Live Morpho market params (oracle / IRM / LLTV) unavailable.",
+      reason: "Requested amount exceeds safe collateral capacity.",
       canEditAmount: true,
     }
   }
-  const noAllowance = preflightIssues.some((i) => i.kind === "no-allowance")
-  if (noAllowance) {
-    return {
-      action: "approve",
-      label: "Approve",
-      enabled: stage !== "user-confirming-approve" && stage !== "approve-submitted",
-      canEditAmount: true,
-    }
-  }
-  // No no-allowance issue: ready for supply
+  // Phase 3: step 1 is supply-collateral (gates on registry later).
   return {
-    action: "supply",
-    label: "Supply",
-    enabled: stage !== "user-confirming-supply" && stage !== "supply-submitted",
+    action: "supply-collateral",
+    label: "Step 1 — Approve & supply collateral",
+    enabled: true,
     canEditAmount: true,
   }
 }
@@ -1064,24 +1074,27 @@ function usePreflight(args: {
   walletAddress: Address | null
   walletChainId: number | null
   walletProvider: EIP1193Provider | null
-  spender: Address | null
   amount: bigint | null
 }): { issues: PreflightIssue[] } {
   const [issues, setIssues] = React.useState<PreflightIssue[]>([])
   React.useEffect(() => {
     let cancelled = false
-    if (!args.walletAddress || args.amount == null || args.amount <= BigInt(0)) {
+    if (
+      !args.walletAddress ||
+      args.amount == null ||
+      args.amount <= BigInt(0)
+    ) {
       setIssues([])
       return
     }
     ;(async () => {
-      const r = await preflightSupply({
+      const r = await preflightBorrow({
         walletAddress: args.walletAddress,
         walletChainId: args.walletChainId,
         walletProvider: args.walletProvider,
         market: args.market,
         amount: args.amount as bigint,
-        protocolSpender: args.spender,
+        position: null,
       })
       if (cancelled) return
       setIssues(r.issues)
@@ -1094,7 +1107,6 @@ function usePreflight(args: {
     args.walletAddress,
     args.walletChainId,
     args.walletProvider,
-    args.spender,
     args.amount,
   ])
   return { issues }

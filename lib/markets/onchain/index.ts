@@ -49,14 +49,39 @@ export {
 export {
   sendApprove,
   sendSupply,
+  sendSupplyCollateral,
+  sendBorrow,
+  sendVaultDeposit,
+  sendTransaction,
+  ensureAllowance,
   waitForReceipt,
   MAX_UINT256,
   type ApproveArgs,
   type SupplyArgs,
+  type SupplyCollateralArgs,
+  type BorrowArgs,
+  type VaultDepositArgs,
+  type SendTransactionArgs,
+  type EnsureAllowanceArgs,
   type TxStage,
   type TxSendError,
   type TxSendResult,
 } from "./write"
+
+export {
+  encodeErc20Approve,
+  encodeErc20Allowance,
+  encodeErc20BalanceOf,
+  encodeErc4626Deposit,
+  encodeMorphoSupply,
+  encodeMorphoSupplyCollateral,
+  encodeMorphoBorrow,
+  marketParamsFromLendingMarket,
+  encodeMorphoMarketParams,
+  readMorphoSelectors,
+  type MorphoMarketParams,
+  type MorphoSelectors,
+} from "./abi"
 
 export {
   resolveProtocolContractsForChain,
