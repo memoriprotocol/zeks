@@ -42,6 +42,8 @@ export default function MarketAssetRow({ market }: MarketAssetRowProps) {
           symbol={market.symbol}
           name={market.name}
           src={market.logoUrl ?? undefined}
+          rhLogoUrl={market.rhLogoUrl ?? undefined}
+          contractAddress={market.contractAddress ?? market.rhContractAddress ?? undefined}
           size={26}
         />
         <div className="min-w-0">

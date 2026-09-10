@@ -204,6 +204,8 @@ function Row({
           symbol={m.symbol}
           name={m.name ?? m.symbol}
           src={m.logoUrl ?? undefined}
+          rhLogoUrl={m.rhLogoUrl ?? undefined}
+          contractAddress={m.contractAddress ?? m.rhContractAddress ?? undefined}
           size={28}
         />
         <div className="min-w-0 flex-1">
@@ -247,6 +249,8 @@ function AssetCell({ m }: { m: LendingMarket }) {
         symbol={m.symbol}
         name={m.name ?? m.symbol}
         src={m.logoUrl ?? undefined}
+        rhLogoUrl={m.rhLogoUrl ?? undefined}
+        contractAddress={m.contractAddress ?? m.rhContractAddress ?? undefined}
         size={28}
       />
       <div className="min-w-0 flex-1">

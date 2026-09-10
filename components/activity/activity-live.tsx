@@ -25,6 +25,7 @@ import {
   type ProtocolActivityEvent,
 } from "@/components/activity/use-protocol-activity"
 import { formatTokenAmount } from "@/lib/markets/format"
+import { safeFormatBlock } from "@/lib/markets/fmt"
 
 const PAGE_STEP = 12
 const INITIAL_VISIBLE = 24
@@ -103,9 +104,9 @@ export default function ActivityLive() {
           data-testid="activity-meta"
         >
           block #
-          {latestBlock != null
-            ? latestBlock.toLocaleString("en-US")
-            : "—"}
+            {latestBlock != null
+              ? safeFormatBlock(latestBlock)
+              : "—"}
           {updatedAt ? ` · synced ${formatAgo(updatedAt)}` : ""}
           {events.length > 0 ? ` · ${events.length} events` : ""}
         </span>
@@ -262,7 +263,7 @@ function ActivityRow({
         </div>
         <div className="flex items-center gap-4 text-[12px] font-mono tabular-nums shrink-0">
           <span className="text-muted-foreground tabular-nums">
-            #{event.blockNumber.toLocaleString("en-US")}
+            #{safeFormatBlock(event.blockNumber)}
           </span>
           <span
             className="font-mono text-[12px] text-muted-foreground truncate"

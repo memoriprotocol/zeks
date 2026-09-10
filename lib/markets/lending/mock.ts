@@ -21,7 +21,7 @@ export const MOCK_LENDING_MARKETS: LendingMarket[] = [
   {
     symbol: "AAPL",
     name: "Apple",
-    logoUrl: "/assets/logos/AAPL.svg",
+    logoUrl: "/assets/logos/AAPL.png",
     oraclePrice: 232.45,
     oracleSource: "mock",
     supplyApy: 4.32,
@@ -56,7 +56,7 @@ export const MOCK_LENDING_MARKETS: LendingMarket[] = [
   {
     symbol: "TSLA",
     name: "Tesla",
-    logoUrl: "/assets/logos/TSLA.svg",
+    logoUrl: "/assets/logos/TSLA.png",
     oraclePrice: 348.10,
     oracleSource: "mock",
     supplyApy: 5.71,
@@ -91,7 +91,7 @@ export const MOCK_LENDING_MARKETS: LendingMarket[] = [
   {
     symbol: "NVDA",
     name: "NVIDIA",
-    logoUrl: "/assets/logos/NVDA.svg",
+    logoUrl: "/assets/logos/NVDA.png",
     oraclePrice: 138.62,
     oracleSource: "mock",
     supplyApy: 6.10,
@@ -126,7 +126,7 @@ export const MOCK_LENDING_MARKETS: LendingMarket[] = [
   {
     symbol: "MSFT",
     name: "Microsoft",
-    logoUrl: null,
+    logoUrl: "/assets/logos/MSFT.png",
     oraclePrice: 421.07,
     oracleSource: "mock",
     supplyApy: 3.84,
@@ -161,7 +161,7 @@ export const MOCK_LENDING_MARKETS: LendingMarket[] = [
   {
     symbol: "META",
     name: "Meta",
-    logoUrl: null,
+    logoUrl: "/assets/logos/META.png",
     oraclePrice: 562.94,
     oracleSource: "mock",
     supplyApy: 4.92,
@@ -196,7 +196,7 @@ export const MOCK_LENDING_MARKETS: LendingMarket[] = [
   {
     symbol: "AMZN",
     name: "Amazon",
-    logoUrl: null,
+    logoUrl: "/assets/logos/AMZN.png",
     oraclePrice: 198.55,
     oracleSource: "mock",
     supplyApy: 4.05,
@@ -231,7 +231,7 @@ export const MOCK_LENDING_MARKETS: LendingMarket[] = [
   {
     symbol: "GOOGL",
     name: "Alphabet",
-    logoUrl: null,
+    logoUrl: "/assets/logos/GOOGL.png",
     oraclePrice: 174.20,
     oracleSource: "mock",
     supplyApy: 4.41,

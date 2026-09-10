@@ -71,6 +71,8 @@ export default function LendingMarketDetail({
             symbol={market.symbol}
             name={market.name}
             src={market.logoUrl ?? undefined}
+            rhLogoUrl={market.rhLogoUrl ?? undefined}
+            contractAddress={market.contractAddress ?? market.rhContractAddress ?? undefined}
             size={48}
           />
           <div className="min-w-0 flex-1">

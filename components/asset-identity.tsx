@@ -1,13 +1,19 @@
 "use client"
 
 import AssetLogo from "@/components/asset-logo"
-import { resolveAsset, isUnresolvedSymbol } from "@/lib/assets/registry"
+import { buildLogoDescriptor } from "@/lib/assets/logo"
 
 export interface AssetIdentityItem {
   /** Ticker symbol, used to locate the logo file */
   symbol: string
   /** Optional asset name */
   name?: string | null
+  /** Optional onchain contract address (trumps symbol for upstream logo). */
+  contractAddress?: string | null
+  /** Optional Robinhood /rhj/assets logoUrl. */
+  rhLogoUrl?: string | null
+  /** Optional explicit local URL. */
+  src?: string | null
 }
 
 interface AssetIdentityProps {
@@ -21,8 +27,6 @@ interface AssetIdentityProps {
   label?: string
   /** Negative margin (px) applied to each logo after the first, for pair overlap. Default 6. */
   overlap?: number
-  /** Override fallback src for any logo (passed through to AssetLogo). */
-  srcFor?: (symbol: string) => string | undefined
 }
 
 /**
@@ -45,7 +49,6 @@ export default function AssetIdentity({
   shape = "rounded",
   label,
   overlap = 6,
-  srcFor,
 }: AssetIdentityProps) {
   if (!assets.length) return null
 
@@ -55,22 +58,23 @@ export default function AssetIdentity({
           so overlapping logos are separated by their native borders. */}
       <div className="flex items-center">
         {assets.map((a, i) => {
-          const entry = resolveAsset(a.symbol)
-          const resolvedSrc =
-            entry.logoUrl ??
-            srcFor?.(a.symbol) ??
-            undefined
-          const isUnresolved = isUnresolvedSymbol(a.symbol)
-
+          const descriptor = buildLogoDescriptor({
+            symbol: a.symbol,
+            contractAddress: a.contractAddress ?? null,
+            rhLogoUrl: a.rhLogoUrl ?? null,
+            localLogoUrl: a.src ?? null,
+          })
           return (
             <AssetLogo
               key={`${a.symbol}-${i}`}
               symbol={a.symbol}
-              name={a.name ?? entry.name ?? null}
+              name={a.name ?? descriptor.symbol}
               size={size}
               shape={shape}
-              src={resolvedSrc}
-              unresolved={isUnresolved}
+              src={descriptor.url ?? undefined}
+              contractAddress={a.contractAddress ?? null}
+              rhLogoUrl={a.rhLogoUrl ?? null}
+              unresolved={descriptor.unresolved}
               className={i > 0 ? "relative" : ""}
               style={i > 0 ? { marginLeft: -overlap } : undefined}
             />

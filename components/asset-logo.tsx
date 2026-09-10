@@ -1,7 +1,7 @@
 "use client"
 
 import { CSSProperties, useEffect, useState } from "react"
-import { resolveAsset } from "@/lib/assets/registry"
+import { resolveAssetLogo, buildLogoDescriptor } from "@/lib/assets/logo"
 
 interface AssetLogoProps {
   /** Ticker symbol, used to locate the logo file and as fallback initial */
@@ -17,6 +17,10 @@ interface AssetLogoProps {
    *   - Undefined          (falls back to registry, then ticker-initial letter)
    */
   src?: string
+  /** Optional onchain contract address — trumps symbol for upstream logo. */
+  contractAddress?: string | null
+  /** Optional Robinhood asset-registry logoUrl — preferred when valid. */
+  rhLogoUrl?: string | null
   /** Container shape: "rounded" (default, soft rounded square) or "circle" (pill-ready) */
   shape?: "rounded" | "circle"
   /** Additional classes */
@@ -33,67 +37,58 @@ interface AssetLogoProps {
 
 /**
  * AssetLogo
- * Renders a small, neutral, softly-rounded logo container with an asset mark.
  *
- * Resolution order:
- *   1. Explicit `src` prop (local path OR remote URL — future stock tokens)
- *   2. Registry entry (lib/assets/registry.ts)
- *   3. `/assets/logos/{SYMBOL}.svg`
- *   4. Deterministic ticker-initial fallback (mono, muted)
+ * Single-source logo renderer. Resolution priority (per data-quality
+ * spec):
  *
- * The container itself is intentionally a quiet surface (bg-secondary +
- * border) so ANY logo above it reads as authentic without the chrome
- * dragging the row height around.
+ *   a) explicit `src` prop (local or remote)
+ *   b) local registry (`/assets/logos/{SYMBOL}.png`)
+ *   c) Robinhood /rhj/assets `rhLogoUrl` matched by contract address
+ *   d) deterministic ticker-initial fallback (rendered before any
+ *      network probe so a 404 is never visible)
  *
- * Designed to scale to:
- *   stock tokens, crypto assets, stablecoins, future RH-Chain tokens,
- *   launchpad assets — and to accept external logoUrl values when the
- *   Stock Token registry hydrates.
- *
- * --------------------------------------------------------------------------
- * FALLBACK-FIRST RENDER (locked in for Markets List V1)
- *
- * Per the visual cleanup spec: a browser broken-image icon MUST NOT
- * appear. The previous implementation mounted <img> eagerly and only
- * swapped to the letter fallback on the `error` event — which left a
- * brief "broken image" flash on any 404. In the Featured grid (six
- * logos side by side) even a one-frame flash is visually distracting.
- *
- * The new implementation inverts the order:
- *
- *   - Render the neutral letter fallback on the very first paint.
- *   - Kick off `new Image()` preload in `useEffect`. Preload is async
- *     and never blocks the initial render, so no broken-image icon
- *     can ever be visible on screen.
- *   - Only swap the fallback for the real <img> AFTER the preload
- *     reports `onload`. If the preload errors, the fallback stays
- *     visible and we mark `imageBroken = true` so we don't retry.
- *
- * Net effect: every AssetLogo always shows either the real logo OR
- * the neutral ZEKS fallback — never a browser broken-image icon.
- * We never invent a brand logo: missing-asset states use the same
- * neutral letter fallback the rest of the app already uses.
+ * Preload-gated image swap: the letter fallback renders on the very
+ * first paint; a `new Image()` probe runs in `useEffect` and only
+ * swaps in the real <img> after `onload`. A failed probe is cached
+ * in a session-scoped Map so we never re-request the same broken URL.
  */
+
+const BROKEN_CACHE: Set<string> =
+  typeof window === "undefined"
+    ? new Set<string>()
+    : ((window as unknown as { __zeksBrokenLogos?: Set<string> })
+        .__zeksBrokenLogos ??= new Set<string>())
+
 export default function AssetLogo({
   symbol,
   name,
   size = 30,
   src,
+  contractAddress,
+  rhLogoUrl,
   shape = "rounded",
   className = "",
   style,
   unresolved,
 }: AssetLogoProps) {
+  const descriptor = buildLogoDescriptor({
+    symbol,
+    contractAddress,
+    rhLogoUrl,
+    localLogoUrl: src,
+  })
+
+  // The resolver's URL wins when present. Otherwise the explicit `src`
+  // prop is honored (legacy callers).
+  const resolvedSrc = descriptor.url ?? src ?? null
+
   // First paint: always show the fallback. No <img> is mounted
   // until we have positive proof the URL actually resolves.
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageBroken, setImageBroken] = useState(false)
 
   const fallbackLetter = (symbol?.[0] ?? "?").toUpperCase()
-  const entry = resolveAsset(symbol)
-  const resolvedSrc =
-    src ?? entry.logoUrl ?? `/assets/logos/${symbol}.png`
-  const isUnresolved = Boolean(unresolved ?? entry.unresolved)
+  const isUnresolved = Boolean(unresolved ?? !descriptor.url)
 
   // Letter fallback sizing — scale with container
   const letterSize = Math.round(size * 0.46)
@@ -104,16 +99,23 @@ export default function AssetLogo({
   // and the fallback stays visible (no broken-image icon, no
   // console noise, no retry loop).
   useEffect(() => {
-    // Reset on URL change so a future src swap gets a fresh attempt.
     setImageLoaded(false)
     setImageBroken(false)
 
     if (!resolvedSrc) return
 
+    if (BROKEN_CACHE.has(resolvedSrc)) {
+      setImageBroken(true)
+      return
+    }
+
     const probe = new Image()
     probe.decoding = "async"
     probe.onload = () => setImageLoaded(true)
-    probe.onerror = () => setImageBroken(true)
+    probe.onerror = () => {
+      BROKEN_CACHE.add(resolvedSrc)
+      setImageBroken(true)
+    }
     probe.src = resolvedSrc
 
     return () => {
@@ -127,10 +129,10 @@ export default function AssetLogo({
       className={`inline-flex shrink-0 items-center justify-center overflow-hidden ${shapeClass} bg-secondary border border-border ${className}`}
       style={{ width: size, height: size, ...style }}
       aria-hidden="true"
-      title={name ?? entry.name ?? symbol}
-      data-symbol={entry.symbol}
+      title={name ?? descriptor.symbol}
+      data-symbol={descriptor.symbol}
       data-unresolved={isUnresolved ? "true" : undefined}
-      data-asset-kind={entry.kind}
+      data-logo-source={descriptor.source}
       data-logo-state={
         imageLoaded
           ? "loaded"
@@ -142,7 +144,7 @@ export default function AssetLogo({
       {imageLoaded && !imageBroken ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={resolvedSrc}
+          src={resolvedSrc ?? undefined}
           alt=""
           width={size}
           height={size}
@@ -160,3 +162,7 @@ export default function AssetLogo({
     </div>
   )
 }
+
+// Re-export the descriptor helper so callers can compose with their
+// own data without re-implementing the priority chain.
+export { buildLogoDescriptor, resolveAssetLogo }
