@@ -51,6 +51,7 @@ import { formatUnits } from "@/lib/markets/onchain/format-units"
 import { formatApy, formatPrice } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
 import { emitDataInvalidate } from "@/components/markets/data-invalidate"
+import { devLifecycle } from "@/lib/markets/dev-log"
 
 interface SupplyActionPanelProps {
   market: LendingMarket
@@ -276,6 +277,11 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     })
     if (!guard.ok) {
       busyRef.current = false
+      devLifecycle("GUARD_BLOCKED", {
+        leg: "supply",
+        stage: guard.stage,
+        message: guard.message,
+      })
       return setState({
         ...INITIAL_STATE,
         stage: stageFor(guard.stage),
@@ -285,6 +291,20 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
 
     const currentAllowance = allowance ?? BigInt(0)
     const needApprove = currentAllowance < parsedAmount.bigint
+    devLifecycle("STAGE_CHANGED", {
+      leg: "supply",
+      market: market.symbol,
+      account: wallet.address,
+      chainId: wallet.chainId,
+      marketId: market.marketId,
+      morphoCore: spender,
+      loanToken: tokenMeta.address,
+      tokenDecimals: tokenMeta.decimals,
+      requestedAmount: parsedAmount.bigint,
+      walletBalance: walletBalance ?? BigInt(0),
+      currentAllowance,
+      approvalRequired: needApprove,
+    })
 
     if (needApprove) {
       const approveData = encodeErc20Approve(spender, parsedAmount.bigint)
@@ -299,6 +319,10 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
       if (!simApprove.ok) {
         busyRef.current = false
         if (simApprove.reason === "reverted") {
+          devLifecycle("SIMULATION_FAILED", {
+            leg: "approve",
+            message: simApprove.message,
+          })
           return setState({
             ...INITIAL_STATE,
             stage: "simulation-failed",
@@ -319,6 +343,7 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
                 : (simApprove as { message?: string }).message ?? "Unknown simulation error",
         })
       }
+      devLifecycle("SIMULATION_OK", { leg: "approve" })
 
       const guard2 = preSendGuard({
         expectedChainId: ROBINHOOD_CHAIN_ID_DEC,
@@ -354,12 +379,24 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
           approveRes.error.stage === "rejected"
             ? "rejected"
             : stageFor(approveRes.error.stage)
+        if (approveRes.error.stage === "rejected") {
+          devLifecycle("APPROAL_REJECTED", {
+            account: wallet.address,
+          })
+        }
         return setState({
           ...INITIAL_STATE,
           stage: stg,
           errorMessage: approveRes.error.message,
         })
       }
+      devLifecycle("APPROVAL_SENT", {
+        txHash: approveRes.txHash,
+        token: tokenMeta.address,
+        spender,
+        amount: parsedAmount.bigint,
+        account: wallet.address,
+      })
       setState({
         stage: "approve-submitted",
         approveTxHash: approveRes.txHash,
@@ -381,6 +418,11 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
           simulationMessage: null,
         })
       }
+      devLifecycle("APPROVAL_CONFIRMED", {
+        txHash: approveRes.txHash,
+        token: tokenMeta.address,
+        amount: parsedAmount.bigint,
+      })
       setState({
         stage: "approve-confirmed",
         approveTxHash: approveRes.txHash,
@@ -439,6 +481,10 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     if (!simSupply.ok) {
       busyRef.current = false
       if (simSupply.reason === "reverted") {
+        devLifecycle("SIMULATION_FAILED", {
+          leg: "supply",
+          message: simSupply.message,
+        })
         return setState((s) => ({
           ...INITIAL_STATE,
           stage: "simulation-failed",
@@ -459,6 +505,10 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
             : (simSupply as { message?: string }).message ?? "Unknown simulation error",
       }))
     }
+    devLifecycle("SIMULATION_OK", {
+      leg: "supply",
+      morphoCore,
+    })
 
     const guard3 = preSendGuard({
       expectedChainId: ROBINHOOD_CHAIN_ID_DEC,
@@ -502,6 +552,11 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         supplyRes.error.stage === "rejected"
           ? "rejected"
           : stageFor(supplyRes.error.stage)
+      if (supplyRes.error.stage === "rejected") {
+        devLifecycle("SUPPLY_REJECTED", {
+          account: wallet.address,
+        })
+      }
       return setState((s) => ({
         ...INITIAL_STATE,
         stage: stg,
@@ -509,6 +564,12 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         errorMessage: supplyRes.error.message,
       }))
     }
+    devLifecycle("SUPPLY_SENT", {
+      txHash: supplyRes.txHash,
+      morphoCore,
+      account: wallet.address,
+      assets: parsedAmount.bigint,
+    })
     setState((s) => ({
       ...s,
       stage: "supply-submitted",
@@ -530,6 +591,17 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         simulationMessage: null,
       })
     }
+
+    devLifecycle("SUPPLY_CONFIRMED", {
+      txHash: supplyRes.txHash,
+      morphoCore,
+      assets: parsedAmount.bigint,
+      account: wallet.address,
+    })
+    devLifecycle("DATA_REFRESHED", {
+      reason: "supply-success",
+      market: market.symbol,
+    })
 
     setState({
       stage: "supply-confirmed",
@@ -643,6 +715,18 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
             : "Token —"}
         </span>
       </div>
+
+      {/* Pre-supply verification context — always visible to the human */}
+      <PreFlightContext
+        market={market}
+        tokenMeta={tokenMeta}
+        walletAddress={wallet.address}
+        walletChainId={wallet.chainId}
+        spender={spender}
+        walletBalance={walletBalance}
+        allowance={allowance}
+        parsedAmount={parsedAmount}
+      />
 
       <div className="mb-4">
         <label
@@ -991,6 +1075,129 @@ function ResetButton({ onReset }: { onReset: () => void }) {
   )
 }
 
+function PreFlightContext({
+  market,
+  tokenMeta,
+  walletAddress,
+  walletChainId,
+  spender,
+  walletBalance,
+  allowance,
+  parsedAmount,
+}: {
+  market: LendingMarket
+  tokenMeta: { address: Address; symbol: string; decimals: number } | null
+  walletAddress: string | null
+  walletChainId: number | null
+  spender: Address | null
+  walletBalance: bigint | null
+  allowance: bigint | null
+  parsedAmount: { bigint: bigint } | null
+}) {
+  const fields: { label: string; value: string; ok: boolean }[] = [
+    {
+      label: "account",
+      value: walletAddress ?? "—",
+      ok: !!walletAddress,
+    },
+    {
+      label: "chainId",
+      value: walletChainId != null ? `${walletChainId}` : "—",
+      ok: walletChainId === 4663,
+    },
+    {
+      label: "marketSymbol",
+      value: market.symbol,
+      ok: true,
+    },
+    {
+      label: "marketId",
+      value: market.marketId ?? "—",
+      ok: !!market.marketId,
+    },
+    {
+      label: "morphoCore",
+      value: spender ?? "—",
+      ok: !!spender,
+    },
+    {
+      label: "loanToken",
+      value: tokenMeta?.address ?? "—",
+      ok: !!tokenMeta?.address,
+    },
+    {
+      label: "tokenDecimals",
+      value: tokenMeta?.decimals != null ? `${tokenMeta.decimals}` : "—",
+      ok: tokenMeta?.decimals != null,
+    },
+    {
+      label: "walletBalance",
+      value: walletBalance != null && tokenMeta
+        ? `${formatUnits(walletBalance, tokenMeta.decimals)} ${tokenMeta.symbol}`
+        : "—",
+      ok: walletBalance != null,
+    },
+    {
+      label: "requestedAmount",
+      value: parsedAmount && tokenMeta
+        ? `${formatUnits(parsedAmount.bigint, tokenMeta.decimals)} ${tokenMeta.symbol}`
+        : "—",
+      ok: parsedAmount != null && parsedAmount.bigint > BigInt(0),
+    },
+    {
+      label: "currentAllowance",
+      value: allowance != null && tokenMeta
+        ? `${formatUnits(allowance, tokenMeta.decimals)} ${tokenMeta.symbol}`
+        : "—",
+      ok: true,
+    },
+    {
+      label: "approvalRequired",
+      value:
+        allowance != null && parsedAmount != null
+          ? allowance >= parsedAmount.bigint
+            ? "NO"
+            : "YES"
+          : "—",
+      ok: true,
+    },
+  ]
+
+  return (
+    <details className="mb-4 border border-border rounded-lg overflow-hidden">
+      <summary className="px-3 py-2 text-[10px] font-mono tracking-wider text-muted-foreground hover:bg-secondary/20 cursor-pointer select-none">
+        VERIFIED EXECUTION CONTEXT — click to inspect
+      </summary>
+      <div className="bg-secondary/20 px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {fields.map((f) => (
+          <div key={f.label} className="contents">
+            <span
+              className="text-[9px] font-mono tracking-wider text-muted-foreground"
+              data-pf-label={f.label}
+            >
+              {f.label}
+            </span>
+            <span
+              className={`text-[9px] font-mono tracking-wider ${
+                f.label === "approvalRequired"
+                  ? f.value === "YES"
+                    ? "text-amber-500"
+                    : "text-emerald-500"
+                  : f.ok
+                    ? "text-foreground/80"
+                    : "text-amber-500"
+              }`}
+              data-pf-value={f.label}
+            >
+              {f.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
 function PreflightHints({ issues }: { issues: PreflightIssue[] }) {
   const safeIssues = issues.filter((i) => i.kind !== "rpc-unavailable")
   if (safeIssues.length === 0) return null
@@ -1040,14 +1247,6 @@ function preflightLabel(issue: PreflightIssue): string {
   }
 }
 
-/* ------------------------------------------------------ */
-/* Helpers                                                 */
-/* ------------------------------------------------------ */
-
-interface ParsedAmount {
-  bigint: bigint
-}
-
 function parseAmount(input: string, decimals: number | null): ParsedAmount | null {
   const v = input.trim()
   if (!v || decimals == null) return null
@@ -1065,6 +1264,10 @@ function parseAmount(input: string, decimals: number | null): ParsedAmount | nul
   return {
     bigint: BigInt(intDigits) * intPow + fracBig,
   }
+}
+
+interface ParsedAmount {
+  bigint: bigint
 }
 
 function stageFor(txStage: TxStage): Stage {
