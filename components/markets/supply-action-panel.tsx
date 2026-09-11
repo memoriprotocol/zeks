@@ -1,38 +1,28 @@
 "use client"
 
 /**
- * SupplyActionPanel — First real write flow in ZEKS.
+ * SupplyActionPanel — Real onchain supply flow.
  *
- * Compose pre-flight + ERC20 approve + (gated) supply transactions
- * behind a single typed UI state machine. No popups fire unless
- * the user clicks Approve or Supply.
+ * State machine (simulation-first):
  *
- * ## State machine
+ *   idle ─▶ simulating-approve ─▶ user-confirming-approve
+ *          ─▶ approve-submitted ─▶ approve-confirmed
+ *                                      │
+ *          (skip approve leg if allowance ≥ amount)
+ *                                      │
+ *          simulating-supply ─▶ user-confirming-supply
+ *          ─▶ supply-submitted ─▶ supply-confirmed
  *
- *   idle ──▶ confirming ──▶ submitted ──▶ confirmed ──▶ refetch ──▶ idle
- *     │            │              │             │
- *     ▼            ▼              ▼             ▼
- *  disabled    rejected       reverted      rpc-error
+ * Every transition that asks the wallet for a signature is
+ * preceded by:
+ *   1. `preSendGuard` — re-checks chain, account, balance, amount.
+ *   2. `simulateWrite` — read-only `eth_call` to catch reverts.
  *
- * Approve and Supply each have their own state. We deliberately
- * do NOT auto-trigger Supply after approval success — the user
- * must click Supply again. This prevents an accidental double-tx
- * and surfaces any balance or RPC changes that happened during
- * the approve wait.
+ * Exact-amount approval (NOT MAX_UINT256) by default.
  *
- * ## Gating
- *
- * Both Approve and Supply gate on:
- *   - wallet connected + chainId === 4663
- *   - supply token balance > 0
- *   - target market valid (has marketId)
- *   - spender address verified via protocol registry
- *
- * Supply ALSO gates on:
- *   - allowance sufficient (after Approve confirmed, OR max int
- *     for unlimited approval)
- *   - supply ABI implementation present (currently false on
- *     Robinhood Chain — see `sendSupply`)
+ * On confirmed supply, the panel emits a `supply-success` event
+ * via `data-invalidate`, which causes `useLendingMarkets` and
+ * `usePortfolio` to refresh.
  */
 
 import * as React from "react"
@@ -47,16 +37,20 @@ import {
   sendSupply,
   waitForReceipt,
   resolveProtocolContractsForChain,
-  MAX_UINT256,
+  encodeErc20Approve,
+  encodeMorphoSupply,
+  simulateWrite,
+  preSendGuard,
+  marketParamsFromLendingMarket,
   type PreflightIssue,
   type TxStage,
-  marketParamsFromLendingMarket,
 } from "@/lib/markets/onchain"
 import { ROBINHOOD_CHAIN_ID_DEC } from "@/lib/markets/onchain"
 import { ROBINHOOD_BLOCKSCOUT_BASE } from "@/lib/wallet/robinhood-chain"
 import { formatUnits } from "@/lib/markets/onchain/format-units"
 import { formatApy, formatPrice } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
+import { emitDataInvalidate } from "@/components/markets/data-invalidate"
 
 interface SupplyActionPanelProps {
   market: LendingMarket
@@ -64,25 +58,26 @@ interface SupplyActionPanelProps {
 
 type Stage =
   | "idle"
+  | "simulating-approve"
   | "user-confirming-approve"
   | "approve-submitted"
   | "approve-confirmed"
+  | "simulating-supply"
   | "user-confirming-supply"
   | "supply-submitted"
   | "supply-confirmed"
   | "rejected"
   | "reverted"
+  | "simulation-failed"
   | "rpc-error"
   | "protocol-not-configured"
 
 interface PanelState {
   stage: Stage
-  /** Last approve hash, if any. */
   approveTxHash: `0x${string}` | null
-  /** Last supply hash, if any. */
   supplyTxHash: `0x${string}` | null
-  /** Last error message. */
   errorMessage: string | null
+  simulationMessage: string | null
 }
 
 const INITIAL_STATE: PanelState = {
@@ -90,6 +85,7 @@ const INITIAL_STATE: PanelState = {
   approveTxHash: null,
   supplyTxHash: null,
   errorMessage: null,
+  simulationMessage: null,
 }
 
 export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
@@ -104,9 +100,7 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
   const [allowance, setAllowance] = React.useState<bigint | null>(null)
   const [amountInput, setAmountInput] = React.useState<string>("")
   const [state, setState] = React.useState<PanelState>(INITIAL_STATE)
-  /** Single-flight guard for any in-flight user action. */
   const busyRef = React.useRef<boolean>(false)
-  /** Forces a refetch of the read state. */
   const [refreshTick, setRefreshTick] = React.useState(0)
 
   const provider: EIP1193Provider | null = React.useMemo(() => {
@@ -146,7 +140,6 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
 
     let cancelled = false
     ;(async () => {
-      // Token metadata
       const bal = await readErc20Balance(loanAddress, wallet.address as Address, {
         provider,
         chainId: wallet.chainId,
@@ -181,8 +174,7 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
       const alw = await readErc20Allowance(
         loanAddress,
         wallet.address as Address,
-        (spender ??
-          "0x0000000000000000000000000000000000000000") as Address,
+        (spender ?? "0x0000000000000000000000000000000000000000") as Address,
         { provider, chainId: wallet.chainId },
       )
       if (cancelled) return
@@ -209,10 +201,6 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
 
   // ── Derived state ─────────────────────────────────────────────
   const parsedAmount = parseAmount(amountInput, tokenMeta?.decimals ?? null)
-  const allowanceSufficient =
-    parsedAmount != null &&
-    allowance != null &&
-    allowance >= parsedAmount.bigint
   const preflight = usePreflight({
     market,
     walletAddress: wallet.address as Address | null,
@@ -233,8 +221,8 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     stage: state.stage,
   })
 
-  // ── User actions ──────────────────────────────────────────────
-  const onApprove = React.useCallback(async () => {
+  // ── Execute (simulation-first + exact approval) ───────────────
+  const executeSupply = React.useCallback(async () => {
     if (busyRef.current) return
     if (
       !wallet.address ||
@@ -248,127 +236,312 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
       return
     }
     busyRef.current = true
-    setState({ ...INITIAL_STATE, stage: "user-confirming-approve" })
+
+    let mp
     try {
-      const res = await sendApprove({
+      mp = marketParamsFromLendingMarket({
+        loanTokenAddress:
+          (market as LendingMarket & { loanTokenAddress?: string | null })
+            .loanTokenAddress as Address ?? null,
+        collateralTokenAddress:
+          (market as LendingMarket & {
+            collateralTokenAddress?: string | null;
+          }).collateralTokenAddress as Address ?? null,
+        oracleAddress: market.oracleAddress,
+        irmAddress:
+          (market as LendingMarket & { irmAddress?: string | null })
+            .irmAddress ?? null,
+        lltvFraction: market.lltv,
+      })
+    } catch {
+      busyRef.current = false
+      return setState({
+        ...INITIAL_STATE,
+        stage: "protocol-not-configured",
+        errorMessage:
+          "Live Morpho market params are unavailable. Cannot supply.",
+      })
+    }
+
+    const guard = preSendGuard({
+      expectedChainId: ROBINHOOD_CHAIN_ID_DEC,
+      actualChainId: wallet.chainId,
+      expectedAddress: wallet.address as Address,
+      actualAddress: wallet.address,
+      walletBalance,
+      amount: parsedAmount.bigint,
+      marketParams: mp,
+      market,
+      requireMarketIdMatch: true,
+    })
+    if (!guard.ok) {
+      busyRef.current = false
+      return setState({
+        ...INITIAL_STATE,
+        stage: stageFor(guard.stage),
+        errorMessage: guard.message,
+      })
+    }
+
+    const currentAllowance = allowance ?? BigInt(0)
+    const needApprove = currentAllowance < parsedAmount.bigint
+
+    if (needApprove) {
+      const approveData = encodeErc20Approve(spender, parsedAmount.bigint)
+      setState({ ...INITIAL_STATE, stage: "simulating-approve" })
+      const simApprove = await simulateWrite({
+        provider,
+        chainId: wallet.chainId,
+        from: wallet.address as Address,
+        to: tokenMeta.address,
+        data: approveData,
+      })
+      if (!simApprove.ok) {
+        busyRef.current = false
+        if (simApprove.reason === "reverted") {
+          return setState({
+            ...INITIAL_STATE,
+            stage: "simulation-failed",
+            errorMessage: `Approve simulation reverted: ${
+              simApprove.message ?? "unknown"
+            }`,
+            simulationMessage: simApprove.message,
+          })
+        }
+        return setState({
+          ...INITIAL_STATE,
+          stage: "rpc-error",
+          errorMessage:
+            simApprove.reason === "wrong-network"
+              ? `Wrong network: chain ${simApprove.chainId}.`
+              : simApprove.reason === "no-provider"
+                ? "No wallet provider available."
+                : (simApprove as { message?: string }).message ?? "Unknown simulation error",
+        })
+      }
+
+      const guard2 = preSendGuard({
+        expectedChainId: ROBINHOOD_CHAIN_ID_DEC,
+        actualChainId: wallet.chainId,
+        expectedAddress: wallet.address as Address,
+        actualAddress: wallet.address,
+        walletBalance,
+        amount: parsedAmount.bigint,
+        marketParams: mp,
+        market,
+        requireMarketIdMatch: true,
+      })
+      if (!guard2.ok) {
+        busyRef.current = false
+        return setState({
+          ...INITIAL_STATE,
+          stage: stageFor(guard2.stage),
+          errorMessage: guard2.message,
+        })
+      }
+
+      setState({ ...INITIAL_STATE, stage: "user-confirming-approve" })
+      const approveRes = await sendApprove({
         provider,
         from: wallet.address as Address,
         token: tokenMeta.address,
         spender,
-        amount: MAX_UINT256,
+        amount: parsedAmount.bigint,
       })
-      if (!res.ok) {
-        return setState(stageOnly(stageFor(res.error.stage), res.error.message))
+      if (!approveRes.ok) {
+        busyRef.current = false
+        const stg =
+          approveRes.error.stage === "rejected"
+            ? "rejected"
+            : stageFor(approveRes.error.stage)
+        return setState({
+          ...INITIAL_STATE,
+          stage: stg,
+          errorMessage: approveRes.error.message,
+        })
       }
       setState({
         stage: "approve-submitted",
-        approveTxHash: res.txHash,
+        approveTxHash: approveRes.txHash,
         supplyTxHash: null,
         errorMessage: null,
+        simulationMessage: null,
       })
-      const receipt = await waitForReceipt(provider, res.txHash)
-      if (!receipt.ok) {
+      const approveReceipt = await waitForReceipt(
+        provider,
+        approveRes.txHash,
+      )
+      if (!approveReceipt.ok) {
+        busyRef.current = false
         return setState({
-          stage: stageFor(receipt.error.stage),
-          approveTxHash: res.txHash,
+          stage: stageFor(approveReceipt.error.stage),
+          approveTxHash: approveRes.txHash,
           supplyTxHash: null,
-          errorMessage: receipt.error.message,
+          errorMessage: approveReceipt.error.message,
+          simulationMessage: null,
         })
       }
       setState({
         stage: "approve-confirmed",
-        approveTxHash: res.txHash,
+        approveTxHash: approveRes.txHash,
         supplyTxHash: null,
         errorMessage: null,
+        simulationMessage: null,
       })
-      // Refresh allowance
       setRefreshTick((t) => t + 1)
-    } catch (err) {
-      setState(
-        stageOnly("rpc-error", err instanceof Error ? err.message : String(err)),
-      )
-    } finally {
-      busyRef.current = false
     }
-  }, [
-    wallet.address,
-    wallet.chainId,
-    provider,
-    tokenMeta,
-    spender,
-    parsedAmount,
-  ])
 
-  const onSupply = React.useCallback(async () => {
-    if (busyRef.current) return
-    if (
-      !wallet.address ||
-      wallet.chainId !== ROBINHOOD_CHAIN_ID_DEC ||
-      !provider ||
-      !tokenMeta ||
-      !spender ||
-      parsedAmount == null ||
-      parsedAmount.bigint <= BigInt(0)
-    ) {
-      return
-    }
-    busyRef.current = true
-    setState({ ...INITIAL_STATE, stage: "user-confirming-supply" })
+    let supplyData: `0x${string}`
     try {
-      let marketParams = null
-      try {
-        marketParams = marketParamsFromLendingMarket({
-          loanTokenAddress: (market as LendingMarket & { loanTokenAddress?: string | null }).loanTokenAddress as Address ?? null,
-          collateralTokenAddress: (market as LendingMarket & { collateralTokenAddress?: string | null }).collateralTokenAddress as Address ?? null,
-          oracleAddress: market.oracleAddress,
-          irmAddress: (market as LendingMarket & { irmAddress?: string | null }).irmAddress ?? null,
-          lltvFraction: market.lltv,
-        })
-      } catch {
-        // marketParams stays null; sendSupply will surface protocol-not-configured
-      }
-      const res = await sendSupply({
-        provider,
-        from: wallet.address as Address,
-        marketParams,
-        assets: parsedAmount.bigint,
-        onBehalf: wallet.address as Address,
+      supplyData = encodeMorphoSupply({
         contracts: protocolContracts,
         chainId: wallet.chainId,
+        params: mp,
+        assets: parsedAmount.bigint,
+        shares: BigInt(0),
+        onBehalf: wallet.address as Address,
       })
-      if (!res.ok) {
-        return setState(stageOnly(stageFor(res.error.stage), res.error.message))
-      }
-      setState({
-        stage: "supply-submitted",
-        approveTxHash: state.approveTxHash,
-        supplyTxHash: res.txHash,
-        errorMessage: null,
-      })
-      const receipt = await waitForReceipt(provider, res.txHash)
-      if (!receipt.ok) {
-        return setState({
-          stage: stageFor(receipt.error.stage),
-          approveTxHash: state.approveTxHash,
-          supplyTxHash: res.txHash,
-          errorMessage: receipt.error.message,
-        })
-      }
-      setState({
-        stage: "supply-confirmed",
-        approveTxHash: state.approveTxHash,
-        supplyTxHash: res.txHash,
-        errorMessage: null,
-      })
-      // Refresh balance + position
-      setRefreshTick((t) => t + 1)
     } catch (err) {
-      setState(
-        stageOnly("rpc-error", err instanceof Error ? err.message : String(err)),
-      )
-    } finally {
       busyRef.current = false
+      return setState((s) => ({
+        ...INITIAL_STATE,
+        stage: "protocol-not-configured",
+        approveTxHash: s.approveTxHash,
+        errorMessage:
+          err instanceof Error
+            ? err.message
+            : "Failed to construct supply calldata.",
+      }))
     }
+    const morphoCore = protocolContracts.morphoBlueAddress ?? null
+    if (!morphoCore) {
+      busyRef.current = false
+      return setState((s) => ({
+        ...INITIAL_STATE,
+        stage: "protocol-not-configured",
+        approveTxHash: s.approveTxHash,
+        errorMessage: "Morpho Blue core address missing.",
+      }))
+    }
+
+    setState((s) => ({
+      ...s,
+      stage: "simulating-supply",
+      supplyTxHash: null,
+    }))
+    const simSupply = await simulateWrite({
+      provider,
+      chainId: wallet.chainId,
+      from: wallet.address as Address,
+      to: morphoCore,
+      data: supplyData,
+    })
+    if (!simSupply.ok) {
+      busyRef.current = false
+      if (simSupply.reason === "reverted") {
+        return setState((s) => ({
+          ...INITIAL_STATE,
+          stage: "simulation-failed",
+          approveTxHash: s.approveTxHash,
+          errorMessage: `Supply simulation reverted: ${
+            simSupply.message ?? "unknown"
+          }`,
+          simulationMessage: simSupply.message,
+        }))
+      }
+      return setState((s) => ({
+        ...INITIAL_STATE,
+        stage: "rpc-error",
+        approveTxHash: s.approveTxHash,
+        errorMessage:
+          simSupply.reason === "wrong-network"
+            ? `Wrong network: chain ${simSupply.chainId}.`
+            : (simSupply as { message?: string }).message ?? "Unknown simulation error",
+      }))
+    }
+
+    const guard3 = preSendGuard({
+      expectedChainId: ROBINHOOD_CHAIN_ID_DEC,
+      actualChainId: wallet.chainId,
+      expectedAddress: wallet.address as Address,
+      actualAddress: wallet.address,
+      walletBalance,
+      amount: parsedAmount.bigint,
+      marketParams: mp,
+      market,
+      requireMarketIdMatch: true,
+    })
+    if (!guard3.ok) {
+      busyRef.current = false
+      return setState((s) => ({
+        ...INITIAL_STATE,
+        stage: stageFor(guard3.stage),
+        approveTxHash: s.approveTxHash,
+        errorMessage: guard3.message,
+      }))
+    }
+
+    setState((s) => ({
+      ...s,
+      stage: "user-confirming-supply",
+      errorMessage: null,
+      simulationMessage: null,
+    }))
+    const supplyRes = await sendSupply({
+      provider,
+      from: wallet.address as Address,
+      marketParams: mp,
+      assets: parsedAmount.bigint,
+      onBehalf: wallet.address as Address,
+      contracts: protocolContracts,
+      chainId: wallet.chainId,
+    })
+    if (!supplyRes.ok) {
+      busyRef.current = false
+      const stg =
+        supplyRes.error.stage === "rejected"
+          ? "rejected"
+          : stageFor(supplyRes.error.stage)
+      return setState((s) => ({
+        ...INITIAL_STATE,
+        stage: stg,
+        approveTxHash: s.approveTxHash,
+        errorMessage: supplyRes.error.message,
+      }))
+    }
+    setState((s) => ({
+      ...s,
+      stage: "supply-submitted",
+      supplyTxHash: supplyRes.txHash,
+      errorMessage: null,
+      simulationMessage: null,
+    }))
+    const supplyReceipt = await waitForReceipt(
+      provider,
+      supplyRes.txHash,
+    )
+    if (!supplyReceipt.ok) {
+      busyRef.current = false
+      return setState({
+        stage: stageFor(supplyReceipt.error.stage),
+        approveTxHash: state.approveTxHash,
+        supplyTxHash: supplyRes.txHash,
+        errorMessage: supplyReceipt.error.message,
+        simulationMessage: null,
+      })
+    }
+
+    setState({
+      stage: "supply-confirmed",
+      approveTxHash: state.approveTxHash,
+      supplyTxHash: supplyRes.txHash,
+      errorMessage: null,
+      simulationMessage: null,
+    })
+    setRefreshTick((t) => t + 1)
+    emitDataInvalidate("supply-success")
+
+    busyRef.current = false
   }, [
     wallet.address,
     wallet.chainId,
@@ -377,6 +550,9 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     spender,
     parsedAmount,
     protocolContracts,
+    market,
+    allowance,
+    walletBalance,
     state.approveTxHash,
   ])
 
@@ -419,10 +595,9 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
       <Banner
         title="SUPPLY COMING SOON"
         body={
-          "Supply to this market is not available yet. We are wiring up " +
-          "the protocol integration for Robinhood Chain. The verified " +
-          "Morpho Blue core address (and bytecode-checked supply selector) " +
-          "have not been committed to the protocol registry yet."
+          "Supply to this market is not available yet. The verified " +
+          "Morpho Blue core address has not been loaded from the " +
+          "bundled snapshot at lib/markets/protocol/addresses.json."
         }
         tone="warn"
       />
@@ -438,7 +613,6 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     )
   }
 
-  // ── Render: rich state ────────────────────────────────────────
   const balanceHuman =
     tokenMeta && walletBalance != null
       ? formatUnits(walletBalance, tokenMeta.decimals)
@@ -470,7 +644,6 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         </span>
       </div>
 
-      {/* Amount input */}
       <div className="mb-4">
         <label
           htmlFor="supply-amount"
@@ -485,8 +658,6 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
             inputMode="decimal"
             value={amountInput}
             onChange={(e) => {
-              // Accept only digits + one decimal point. Trim leading
-              // zeros from the integer part. Refuse negatives.
               const v = e.target.value.replace(/[^0-9.]/g, "")
               const parts = v.split(".")
               const sanitized =
@@ -517,7 +688,6 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-4 text-[11px]">
         <Stat
           label="WALLET BALANCE"
@@ -554,16 +724,14 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         />
       </div>
 
-      {/* Action button + status */}
       <ActionArea
         stage={state.stage}
         approveHash={state.approveTxHash}
         supplyHash={state.supplyTxHash}
         errorMessage={state.errorMessage}
+        simulationMessage={state.simulationMessage}
         readiness={readiness}
-        wallet={wallet}
-        onApprove={onApprove}
-        onSupply={onSupply}
+        onExecute={executeSupply}
         onReset={resetState}
       />
 
@@ -586,9 +754,7 @@ function Stat({
   tone?: "positive"
 }) {
   const color =
-    tone === "positive"
-      ? "text-emerald-500"
-      : "text-foreground"
+    tone === "positive" ? "text-emerald-500" : "text-foreground"
   return (
     <div className="bg-secondary/40 border border-border rounded-lg p-3">
       <div className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
@@ -620,9 +786,7 @@ function Banner({
   return (
     <section
       className={`bg-card border ${
-        tone === "warn"
-          ? "border-amber-500/30"
-          : "border-border"
+        tone === "warn" ? "border-amber-500/30" : "border-border"
       } rounded-xl p-5`}
       aria-label={title.toLowerCase()}
     >
@@ -648,90 +812,94 @@ function ActionArea({
   approveHash,
   supplyHash,
   errorMessage,
+  simulationMessage,
   readiness,
-  wallet,
-  onApprove,
-  onSupply,
+  onExecute,
   onReset,
 }: {
   stage: Stage
   approveHash: `0x${string}` | null
   supplyHash: `0x${string}` | null
   errorMessage: string | null
+  simulationMessage: string | null
   readiness: ReadinessResult
-  wallet: ReturnType<typeof useWallet>
-  onApprove: () => void
-  onSupply: () => void
+  onExecute: () => void
   onReset: () => void
 }) {
-  if (readiness.action === "supply") {
-    return (
-      <>
-        <Button
-          label={
-            stage === "user-confirming-supply"
-              ? "Confirm in wallet…"
-              : stage === "supply-submitted"
-                ? "Waiting for receipt…"
-                : "Supply"
-          }
-          disabled={
-            !readiness.enabled ||
-            stage === "user-confirming-supply" ||
-            stage === "supply-submitted"
-          }
-          onClick={onSupply}
-        />
-        <TxReceiptLink label="supply" hash={supplyHash} />
-        {stage === "supply-confirmed" ? (
-          <SuccessLine
-            message="Supply confirmed. Balances refreshing…"
-            onReset={onReset}
-          />
-        ) : null}
-      </>
-    )
-  }
-  if (readiness.action === "approve") {
-    return (
-      <>
-        <Button
-          label={
-            stage === "user-confirming-approve"
-              ? "Confirm in wallet…"
-              : stage === "approve-submitted"
-                ? "Waiting for receipt…"
-                : "Approve"
-          }
-          disabled={
-            !readiness.enabled ||
-            stage === "user-confirming-approve" ||
-            stage === "approve-submitted"
-          }
-          onClick={onApprove}
-        />
-        <TxReceiptLink label="approval" hash={approveHash} />
-        {stage === "approve-confirmed" ? (
-          <SuccessLine
-            message="Approval confirmed. Click Supply to continue."
-            onReset={onReset}
-          />
-        ) : null}
-      </>
-    )
-  }
+  const isPending =
+    stage === "simulating-approve" ||
+    stage === "simulating-supply" ||
+    stage === "user-confirming-approve" ||
+    stage === "user-confirming-supply" ||
+    stage === "approve-submitted" ||
+    stage === "supply-submitted"
+  const label = (() => {
+    switch (stage) {
+      case "simulating-approve":
+        return "Simulating approve…"
+      case "simulating-supply":
+        return "Simulating supply…"
+      case "user-confirming-approve":
+        return "Confirm approve in wallet…"
+      case "user-confirming-supply":
+        return "Confirm supply in wallet…"
+      case "approve-submitted":
+        return "Waiting for approval receipt…"
+      case "supply-submitted":
+        return "Waiting for supply receipt…"
+      case "approve-confirmed":
+        return "Approval confirmed — running supply…"
+      case "supply-confirmed":
+        return "Supply confirmed"
+      case "simulation-failed":
+        return "Simulation failed"
+      case "rejected":
+        return "Wallet rejected"
+      case "reverted":
+        return "Transaction reverted"
+      case "rpc-error":
+        return "RPC error"
+      case "protocol-not-configured":
+        return "Protocol not configured"
+      default:
+        return readiness.label
+    }
+  })()
   return (
     <>
-      <Button label={readiness.label} disabled onClick={undefined} />
+      <Button
+        label={label}
+        disabled={!readiness.enabled || isPending}
+        onClick={readiness.enabled && !isPending ? onExecute : undefined}
+        data-supply-button
+      />
+      <TxReceiptLink label="approval" hash={approveHash} />
+      <TxReceiptLink label="supply" hash={supplyHash} />
+      {stage === "supply-confirmed" ? (
+        <SuccessLine
+          message="Supply confirmed. Balances refreshing…"
+          onReset={onReset}
+        />
+      ) : null}
       {errorMessage ? (
-        <p className="mt-2 text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
+        <p
+          className="mt-2 text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+          data-supply-error
+        >
           {errorMessage}
         </p>
       ) : null}
-      <p className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground">
-        {readiness.reason ?? ""}
-      </p>
-      <ResetButton onReset={onReset} wallet={wallet} />
+      {simulationMessage && stage !== "simulation-failed" ? (
+        <p className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground">
+          {simulationMessage}
+        </p>
+      ) : null}
+      {!errorMessage && readiness.reason ? (
+        <p className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground">
+          {readiness.reason}
+        </p>
+      ) : null}
+      <ResetButton onReset={onReset} />
     </>
   )
 }
@@ -740,22 +908,24 @@ function Button({
   label,
   disabled,
   onClick,
+  data: dataAttr,
 }: {
   label: string
   disabled: boolean
   onClick: (() => void) | undefined
+  data?: string
 }) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
+      data-action={dataAttr}
       className={`w-full mt-1 py-2.5 rounded-md font-mono text-[12px] tracking-wider border ${
         disabled
           ? "border-border bg-secondary/30 text-muted-foreground cursor-not-allowed"
           : "border-foreground/30 bg-foreground text-background hover:opacity-90"
       }`}
-      data-supply-button
     >
       {label}
     </button>
@@ -791,27 +961,25 @@ function TxReceiptLink({
   hash: `0x${string}` | null
 }) {
   if (!hash) return null
+  const short = `${hash.slice(0, 6)}…${hash.slice(-4)}`
   const url = `${ROBINHOOD_BLOCKSCOUT_BASE}/tx/${hash}`
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-2 inline-block text-[10px] font-mono tracking-wider text-foreground/70 underline"
-      data-tx-link={label}
-    >
-      View {label} transaction →
-    </a>
+    <div className="mt-2 text-[10px] font-mono tracking-wider text-foreground/70">
+      <span>{label}: </span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline"
+        data-tx-link={label}
+      >
+        {short} ↗
+      </a>
+    </div>
   )
 }
 
-function ResetButton({
-  onReset,
-  wallet,
-}: {
-  onReset: () => void
-  wallet: ReturnType<typeof useWallet>
-}) {
+function ResetButton({ onReset }: { onReset: () => void }) {
   return (
     <button
       type="button"
@@ -852,7 +1020,7 @@ function preflightLabel(issue: PreflightIssue): string {
     case "no-allowance":
       return `Allowance insufficient (have ${issue.available.toString()}, need ${issue.required.toString()})`
     case "ltv-violation":
-      return `Borrow exceeds safe collateral capacity`
+      return "Borrow exceeds safe collateral capacity"
     case "missing-market-params":
       return `Missing market data (${issue.field})`
     case "no-collateral-position":
@@ -877,7 +1045,6 @@ function preflightLabel(issue: PreflightIssue): string {
 /* ------------------------------------------------------ */
 
 interface ParsedAmount {
-  /** Bigint in token smallest units (decimals applied). */
   bigint: bigint
 }
 
@@ -897,15 +1064,6 @@ function parseAmount(input: string, decimals: number | null): ParsedAmount | nul
   const intPow = BigInt("1" + "0".repeat(decimals))
   return {
     bigint: BigInt(intDigits) * intPow + fracBig,
-  }
-}
-
-function stageOnly(stage: Stage, message: string | null): PanelState {
-  return {
-    stage,
-    approveTxHash: null,
-    supplyTxHash: null,
-    errorMessage: message,
   }
 }
 
@@ -931,8 +1089,6 @@ function stageFor(txStage: TxStage): Stage {
 /* ------------------------------------------------------ */
 
 interface ReadinessResult {
-  /** Which action the button should label as primary. */
-  action: "approve" | "supply" | "none"
   label: string
   enabled: boolean
   reason?: string
@@ -961,7 +1117,6 @@ function resolveAction(args: {
 
   if (!tokenMeta) {
     return {
-      action: "none",
       label: "Token unavailable",
       enabled: false,
       reason: "Loan token metadata unavailable.",
@@ -970,7 +1125,6 @@ function resolveAction(args: {
   }
   if (walletBalance == null) {
     return {
-      action: "none",
       label: "Reading balance…",
       enabled: false,
       reason: "Wallet balance not loaded yet.",
@@ -979,7 +1133,6 @@ function resolveAction(args: {
   }
   if (walletBalance === BigInt(0)) {
     return {
-      action: "none",
       label: "No balance",
       enabled: false,
       reason: "Wallet has no balance for this token.",
@@ -988,7 +1141,6 @@ function resolveAction(args: {
   }
   if (!parsedAmount || parsedAmount.bigint <= BigInt(0)) {
     return {
-      action: "none",
       label: "Enter an amount",
       enabled: false,
       reason: "Supply amount must be > 0.",
@@ -997,7 +1149,6 @@ function resolveAction(args: {
   }
   if (parsedAmount.bigint > walletBalance) {
     return {
-      action: "none",
       label: "Amount > balance",
       enabled: false,
       reason: "Amount exceeds wallet balance.",
@@ -1006,33 +1157,26 @@ function resolveAction(args: {
   }
   if (!spender) {
     return {
-      action: "none",
       label: "Supply coming soon",
       enabled: false,
-      reason: "Supply to this market is not available yet.",
+      reason: "Morpho Blue core address not configured.",
       canEditAmount: true,
     }
   }
   if (!market.marketId) {
     return {
-      action: "none",
       label: "Supply coming soon",
       enabled: false,
       reason: "Market is being prepared for supply.",
       canEditAmount: true,
     }
   }
-  // Live Morpho params (oracle / irm / lltv) are required to
-  // encode calldata. When missing, the market is still being
-  // integrated for this chain.
   if (
     !market.oracleAddress ||
-    !(market as LendingMarket & { irmAddress?: string | null })
-      .irmAddress ||
+    !(market as LendingMarket & { irmAddress?: string | null }).irmAddress ||
     market.lltv == null
   ) {
     return {
-      action: "none",
       label: "Supply coming soon",
       enabled: false,
       reason:
@@ -1041,21 +1185,33 @@ function resolveAction(args: {
     }
   }
   const noAllowance = preflightIssues.some((i) => i.kind === "no-allowance")
-  if (noAllowance) {
-    return {
-      action: "approve",
-      label: "Approve",
-      enabled: stage !== "user-confirming-approve" && stage !== "approve-submitted",
-      canEditAmount: true,
-    }
-  }
-  // No no-allowance issue: ready for supply
+  const isPending =
+    stage === "simulating-approve" ||
+    stage === "simulating-supply" ||
+    stage === "user-confirming-approve" ||
+    stage === "user-confirming-supply" ||
+    stage === "approve-submitted" ||
+    stage === "supply-submitted"
   return {
-    action: "supply",
-    label: "Supply",
-    enabled: stage !== "user-confirming-supply" && stage !== "supply-submitted",
+    label: noAllowance
+      ? "Approve & supply"
+      : parsedAmount &&
+          (allowanceGte(args, parsedAmount.bigint))
+        ? "Supply"
+        : "Approve & supply",
+    enabled: !isPending,
     canEditAmount: true,
   }
+}
+
+// Tiny helper that resolves whether current allowance covers the amount.
+function allowanceGte(
+  args: {
+    preflightIssues: PreflightIssue[]
+  },
+  amount: bigint,
+): boolean {
+  return !args.preflightIssues.some((i) => i.kind === "no-allowance")
 }
 
 function usePreflight(args: {

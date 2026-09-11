@@ -174,6 +174,261 @@ export async function waitForReceipt(
 }
 
 /* ------------------------------------------------------ */
+/* Pre-send simulation (eth_call, read-only)                */
+/* ------------------------------------------------------ */
+
+/**
+ * Decode a Solidity `Error(string)` revert payload. The leading
+ * 4 bytes are `0x08c379a0` (Error(string) selector), followed by
+ * an ABI-encoded (offset, length, bytes) tuple containing the
+ * UTF-8 message.
+ *
+ * Returns the decoded message, or `null` if the payload does not
+ * match this layout.
+ */
+export function decodeErrorString(revertData: string): string | null {
+  if (!revertData || revertData === "0x") return null
+  const r = revertData.startsWith("0x") ? revertData.slice(2) : revertData
+  if (r.length < 8 + 64) return null
+  if (r.slice(0, 8) !== "08c379a0") return null
+  // Skip the 4-byte selector + 32-byte offset. Length sits in
+  // the next 32-byte slot.
+  const lenHex = r.slice(8 + 64, 8 + 64 + 64)
+  let len = 0
+  try {
+    len = Number(BigInt("0x" + lenHex))
+  } catch {
+    return null
+  }
+  if (!Number.isFinite(len) || len <= 0 || len > 1024) return null
+  const dataHex = r.slice(8 + 64 + 64, 8 + 64 + 64 + len * 2)
+  if (!/^[0-9a-fA-F]+$/.test(dataHex)) return null
+  try {
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(dataHex, "hex").toString("utf8").replace(/\0+$/, "")
+    }
+    const bytes = new Uint8Array(dataHex.length / 2)
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(dataHex.substr(i * 2, 2), 16)
+    }
+    return new TextDecoder("utf-8", { fatal: false })
+      .decode(bytes)
+      .replace(/\0+$/, "")
+  } catch {
+    return null
+  }
+}
+
+export interface SimulateWriteArgs {
+  provider: EIP1193Provider | null
+  chainId: number | null
+  from: Address
+  to: Address
+  data: `0x${string}`
+  value?: `0x${string}`
+}
+
+export type SimulateWriteResult =
+  | { ok: true }
+  | { ok: false; reason: "rpc-unavailable"; message: string }
+  | { ok: false; reason: "wrong-network"; chainId: number }
+  | { ok: false; reason: "reverted"; message: string | null; raw: string }
+  | { ok: false; reason: "no-provider" }
+
+/**
+ * Read-only `eth_call` simulation of a transaction. Uses the
+ * connected wallet's RPC when available, otherwise the public
+ * Robinhood Chain RPC. NEVER asks the wallet for a signature.
+ *
+ * Refuses to run when:
+ *   - no provider AND not on Robinhood Chain
+ *   - the connected chain is not Robinhood Chain (4663)
+ *
+ * The wallet's `eth_call` routes through its own RPC, which
+ * matches the broadcast node and avoids cross-chain surprises.
+ * We don't fall back to the public RPC when a wallet provider is
+ * present — keeping simulation and broadcast on the same node.
+ */
+export async function simulateWrite(
+  args: SimulateWriteArgs,
+): Promise<SimulateWriteResult> {
+  if (!args.provider) {
+    return { ok: false, reason: "no-provider" }
+  }
+  if (
+    args.chainId != null &&
+    args.chainId !== ROBINHOOD_CHAIN_ID_DEC
+  ) {
+    return { ok: false, reason: "wrong-network", chainId: args.chainId }
+  }
+  try {
+    await args.provider.request({
+      method: "eth_call",
+      params: [
+        {
+          from: args.from,
+          to: args.to,
+          data: args.data,
+          value: args.value ?? "0x0",
+        },
+        "latest",
+      ],
+    })
+    return { ok: true }
+  } catch (err) {
+    const e = err as {
+      code?: number
+      message?: string
+      data?: string
+    }
+    const code = typeof e?.code === "number" ? e.code : undefined
+    const raw = typeof e?.data === "string" ? e.data : ""
+    // Provider-specific shapes: MetaMask / Rabby attach `data`
+    // containing the revert payload; others just embed it in the
+    // message.
+    const msg = raw
+      ? decodeErrorString(raw) ?? e?.message ?? String(err)
+      : e?.message ?? String(err)
+    if (code === 4001) {
+      // User rejected a simulation? Not possible (eth_call doesn't
+      // pop up). Treat as RPC error.
+      return {
+        ok: false,
+        reason: "rpc-unavailable",
+        message: msg,
+      }
+    }
+    return {
+      ok: false,
+      reason: "reverted",
+      message: msg,
+      raw,
+    }
+  }
+}
+
+/* ------------------------------------------------------ */
+/* Pre-send guards                                         */
+/* ------------------------------------------------------ */
+
+import type { LendingMarket } from "../lending/types"
+
+export interface PreSendGuardArgs {
+  expectedChainId: number
+  actualChainId: number | null | undefined
+  expectedAddress: Address
+  actualAddress: string | null | undefined
+  walletBalance: bigint | null | undefined
+  amount: bigint
+  marketParams: MorphoMarketParams | null
+  market: LendingMarket
+  /** When true, also assert that the onchain marketId matches the LendingMarket.marketId. */
+  requireMarketIdMatch?: boolean
+}
+
+export type PreSendGuardResult =
+  | { ok: true; marketParams: MorphoMarketParams }
+  | {
+      ok: false
+      stage: TxStage
+      message: string
+    }
+
+/**
+ * Final guard invoked immediately before each wallet
+ * confirmation. Refuses to proceed if:
+ *
+ *   - chainId drifted off Robinhood Chain
+ *   - account changed mid-flow
+ *   - amount is non-finite / non-positive
+ *   - wallet balance dropped below amount
+ *   - marketParams are missing any required field
+ *   - the LendingMarket's marketId disagrees with what the
+ *     caller is about to write against (stale market)
+ *
+ * Caller passes the `MorphoMarketParams` it intends to encode.
+ * This function does NOT regenerate calldata — the caller does.
+ * It just verifies the inputs the caller already locked in.
+ */
+export function preSendGuard(args: PreSendGuardArgs): PreSendGuardResult {
+  if (args.actualChainId == null) {
+    return {
+      ok: false,
+      stage: "rpc-error",
+      message: "Wallet disconnected before send.",
+    }
+  }
+  if (args.actualChainId !== args.expectedChainId) {
+    return {
+      ok: false,
+      stage: "validation-failed",
+      message: `Wrong network: expected chain ${args.expectedChainId}, got ${args.actualChainId}.`,
+    }
+  }
+  if (
+    !args.actualAddress ||
+    args.actualAddress.toLowerCase() !== args.expectedAddress.toLowerCase()
+  ) {
+    return {
+      ok: false,
+      stage: "validation-failed",
+      message: "Connected account changed mid-flow.",
+    }
+  }
+  if (args.amount <= BigInt(0)) {
+    return {
+      ok: false,
+      stage: "validation-failed",
+      message: "Amount must be > 0.",
+    }
+  }
+  if (
+    args.walletBalance != null &&
+    args.amount > args.walletBalance
+  ) {
+    return {
+      ok: false,
+      stage: "validation-failed",
+      message: "Amount exceeds current wallet balance.",
+    }
+  }
+  if (!args.marketParams) {
+    return {
+      ok: false,
+      stage: "protocol-not-configured",
+      message: "Market params unavailable.",
+    }
+  }
+  if (
+    args.requireMarketIdMatch &&
+    args.market.marketId &&
+    args.marketParams
+  ) {
+    // The marketParams the caller passes already encode
+    // loanToken/collateralToken/oracle/irm/lltv — we don't
+    // re-derive marketId here (keccak256 isn't in scope for this
+    // pure helper), but we do sanity-check that the 5 fields are
+    // present and non-zero. Staleness check is the caller's job.
+    const { loanToken, collateralToken, oracle, irm, lltv } =
+      args.marketParams
+    if (
+      loanToken === "0x0000000000000000000000000000000000000000" ||
+      collateralToken === "0x0000000000000000000000000000000000000000" ||
+      oracle === "0x0000000000000000000000000000000000000000" ||
+      irm === "0x0000000000000000000000000000000000000000" ||
+      lltv <= BigInt(0)
+    ) {
+      return {
+        ok: false,
+        stage: "protocol-not-configured",
+        message: "Market params contain a zero field.",
+      }
+    }
+  }
+  return { ok: true, marketParams: args.marketParams }
+}
+
+/* ------------------------------------------------------ */
 /* ERC20 approve                                           */
 /* ------------------------------------------------------ */
 

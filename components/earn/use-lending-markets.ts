@@ -22,6 +22,7 @@
 
 import * as React from "react"
 import type { LendingMarket } from "@/lib/markets/lending"
+import { onDataInvalidate } from "@/components/markets/data-invalidate"
 
 export type { LendingMarket }
 export type { LendingServiceResult } from "@/lib/markets/lending"
@@ -199,6 +200,13 @@ export function useLendingMarkets(
       s.listeners.delete(tick)
     }
   }, [s])
+
+  // Re-fetch on cross-hook invalidate events (after Supply/Borrow success).
+  React.useEffect(() => {
+    return onDataInvalidate(() => {
+      void doPoll()
+    })
+  }, [])
 
   const refresh = React.useCallback(async () => {
     await doPoll()

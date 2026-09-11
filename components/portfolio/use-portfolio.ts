@@ -21,6 +21,7 @@
 import * as React from "react"
 import { useWallet } from "@/components/app/wallet/use-wallet"
 import type { Address } from "@/lib/wallet/types-common"
+import { onDataInvalidate } from "@/components/markets/data-invalidate"
 // Re-export the canonical types so consumers keep a single import surface.
 export type {
   PortfolioLeg,
@@ -266,6 +267,12 @@ export function usePortfolio(): UsePortfolioResult {
 
   const refresh = React.useCallback(async () => {
     await fetchOnce()
+  }, [fetchOnce])
+
+  React.useEffect(() => {
+    return onDataInvalidate(() => {
+      void fetchOnce()
+    })
   }, [fetchOnce])
 
   return { snapshot, loading, refresh }
