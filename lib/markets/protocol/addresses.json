@@ -3,7 +3,8 @@
   "morphoBlue": {
     "core": "0x9D53d5E3bd5E8d4Cbfa6DB1ca238AEA02E651010",
     "irm": "0x2BD3d5965B26B51814AC95127B2b80dD6CcC0fa1",
-    "oracleFactory": "0xB7c16F6f8cF531447Bf27Ca7220f981E79C9cdF2"
+    "oracleFactory": "0xB7c16F6f8cF531447Bf27Ca7220f981E79C9cdF2",
+    "loanTokenDecimals": 6
   },
   "provenance": {
     "core": "https://docs.morpho.org/developers/contracts/addresses/",

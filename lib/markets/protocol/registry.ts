@@ -40,6 +40,8 @@ interface AddressSnapshot {
     core: Address
     irm: Address
     oracleFactory: Address
+    /** Decimals of the canonical loan token on this chain. */
+    loanTokenDecimals: number | null
   }
   provenance: {
     core: string
@@ -81,6 +83,12 @@ export interface ProtocolContracts {
    * Source citation for the oracle factory.
    */
   morphoBlueOracleFactorySource: string | null
+  /**
+   * Decimal count for the canonical loan token on this chain.
+   * USDG on Robinhood Chain = 6. Used to encode `assets` / `shares`
+   * in Morpho calldata. Null when not verified.
+   */
+  loanTokenDecimals: number | null
 }
 
 const ENV_KEY = `NEXT_PUBLIC_MORPHO_BLUE_ADDRESS_${ROBINHOOD_CHAIN_ID_DEC}`
@@ -145,6 +153,7 @@ export function resolveProtocolContractsForChain(
       morphoBlueIrmSource: null,
       morphoBlueOracleFactory: null,
       morphoBlueOracleFactorySource: null,
+      loanTokenDecimals: null,
     }
   }
   const snap = loadAddressSnapshot()
@@ -159,6 +168,7 @@ export function resolveProtocolContractsForChain(
     morphoBlueIrmSource: snap.provenance.core,
     morphoBlueOracleFactory: snap.morphoBlue.oracleFactory,
     morphoBlueOracleFactorySource: snap.provenance.core,
+    loanTokenDecimals: snap.morphoBlue.loanTokenDecimals ?? null,
   }
 }
 
@@ -171,6 +181,7 @@ function emptyContractSet(chainId: number): ProtocolContracts {
     morphoBlueIrmSource: null,
     morphoBlueOracleFactory: null,
     morphoBlueOracleFactorySource: null,
+    loanTokenDecimals: null,
   }
 }
 

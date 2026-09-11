@@ -33,10 +33,12 @@ export interface MorphoMarket {
   loanAssetSymbol: string
   loanAssetAddress: string
   loanAssetName: string | null
+  loanAssetDecimals: number | null
   collateralAssetSymbol: string
   collateralAssetAddress: string
   collateralAssetName: string | null
   oracleAddress: string
+  irmAddress: string | null
   lltv: number | null
   listed: boolean
   supplyApy: number | null
@@ -59,12 +61,18 @@ export interface MorphoFetchResult {
 interface RawMorphoMarket {
   marketId: string
   chain: { id: number }
-  loanAsset: { symbol: string; address: string; name?: string | null }
+  loanAsset: {
+    symbol: string
+    address: string
+    name?: string | null
+    decimals?: number | null
+  }
   collateralAsset: {
     symbol: string
     address: string
     name?: string | null
   }
+  irm?: { address: string } | null
   oracleAddress: string
   lltv: string
   listed: boolean
@@ -148,7 +156,7 @@ const LOAN_MARKETS_QUERY = /* GraphQL */ `
       items {
         marketId
         chain { id }
-        loanAsset { symbol address name }
+        loanAsset { symbol address name decimals }
         collateralAsset { symbol address name }
         oracleAddress
         lltv
@@ -306,10 +314,12 @@ export async function fetchLoanAssetMarkets(
     loanAssetSymbol: m.loanAsset?.symbol ?? "",
     loanAssetAddress: m.loanAsset?.address ?? "",
     loanAssetName: m.loanAsset?.name ?? null,
+    loanAssetDecimals: m.loanAsset?.decimals ?? null,
     collateralAssetSymbol: m.collateralAsset?.symbol ?? "",
     collateralAssetAddress: m.collateralAsset?.address ?? "",
     collateralAssetName: m.collateralAsset?.name ?? null,
     oracleAddress: m.oracleAddress ?? "",
+    irmAddress: m.irm?.address ?? null,
     lltv: parseLltv(m.lltv),
     listed: Boolean(m.listed),
     supplyApy: percent(m.state?.supplyApy),
@@ -489,10 +499,12 @@ export async function fetchMorphoMarkets(
     loanAssetSymbol: m.loanAsset?.symbol ?? "",
     loanAssetAddress: m.loanAsset?.address ?? "",
     loanAssetName: m.loanAsset?.name ?? null,
+    loanAssetDecimals: m.loanAsset?.decimals ?? null,
     collateralAssetSymbol: m.collateralAsset?.symbol ?? "",
     collateralAssetAddress: m.collateralAsset?.address ?? "",
     collateralAssetName: m.collateralAsset?.name ?? null,
     oracleAddress: m.oracleAddress ?? "",
+    irmAddress: m.irm?.address ?? null,
     lltv: parseLltv(m.lltv),
     listed: Boolean(m.listed),
     supplyApy: percent(m.state?.supplyApy),

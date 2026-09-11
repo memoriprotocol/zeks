@@ -58,6 +58,10 @@ import {
   fetchReferenceMarketPrices,
   type ReferenceMarketPrice,
 } from "../robinhood-reference-market"
+import {
+  resolveProtocolContractsForChain,
+  ROBINHOOD_CHAIN_ID_DEC,
+} from "../onchain"
 
 /** Enable to print diagnostics to the server console. */
 const DEBUG = process.env.NODE_ENV !== "production"
@@ -311,8 +315,8 @@ function buildFromMorpho(
     (rh?.name && rh.name.length > 0)
       ? rh.name
       : m.collateralAssetName && m.collateralAssetName.length > 0
-      ? m.collateralAssetName
-      : collateralSym
+        ? m.collateralAssetName
+        : collateralSym
 
   const supplyUsd = m.supplyAssetsUsd
   const borrowUsd = m.borrowAssetsUsd
@@ -322,6 +326,18 @@ function buildFromMorpho(
     supplyUsd !== null && borrowUsd !== null
       ? Math.max(0, supplyUsd - borrowUsd)
       : null
+
+  // Pull verified Morpho IRM and loan-token decimals from the
+  // protocol registry snapshot. The GraphQL does not expose the IRM
+  // directly; the registry provides the canonical Adaptive Curve IRM
+  // for this chain. `loanTokenDecimals` is 6 for USDG on 4663.
+  const verifiedContracts = resolveProtocolContractsForChain(
+    ROBINHOOD_CHAIN_ID_DEC,
+  )
+  const loanTokenDecimalsFromRegistry =
+    verifiedContracts.loanTokenDecimals ?? null
+  const irmFromRegistry =
+    verifiedContracts.morphoBlueIrmAddress ?? null
 
   return {
     symbol: collateralSym,
@@ -348,10 +364,15 @@ function buildFromMorpho(
     loanAssetSymbol: (m.loanAssetSymbol || "").toUpperCase() || null,
     lltv: m.lltv ?? null,
     oracleAddress: m.oracleAddress ?? null,
-    irmAddress: null, // Morpho GraphQL does not expose IRM via this query; populated when present.
+    // IRM: prefer GraphQL value; fall back to verified registry.
+    // GraphQL currently does not expose this field.
+    irmAddress: m.irmAddress ?? irmFromRegistry ?? null,
     loanTokenAddress: m.loanAssetAddress ?? null,
     collateralTokenAddress: m.collateralAssetAddress ?? null,
-    loanTokenDecimals: null,
+    // Decimals: prefer per-token metadata; fall back to the
+    // registry default (USDG = 6 on Robinhood Chain).
+    loanTokenDecimals:
+      m.loanAssetDecimals ?? loanTokenDecimalsFromRegistry ?? null,
     rhContractAddress: rh?.contractAddress ?? null,
     rhMultiplier: rh?.currentMultiplier ?? null,
     rhTokenDecimals: rh?.tokenDecimals ?? null,
