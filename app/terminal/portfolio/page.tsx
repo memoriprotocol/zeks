@@ -33,7 +33,7 @@ export const metadata = { title: "ZEKS Terminal — Portfolio" }
 
 export default function TerminalPortfolioPage() {
   return (
-    <AppShell current="portfolio" title="PORTFOLIO">
+    <AppShell current="portfolio">
       <PortfolioPageClient />
     </AppShell>
   )

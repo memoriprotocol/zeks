@@ -5,7 +5,7 @@ export const metadata = { title: "ZEKS Terminal — Activity" }
 
 export default function TerminalActivityPage() {
   return (
-    <AppShell current="activity" title="ACTIVITY">
+    <AppShell current="activity">
       <ActivityLive />
     </AppShell>
   )

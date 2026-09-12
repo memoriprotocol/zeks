@@ -1,6 +1,5 @@
 ﻿import AppSidebar from "@/components/app/app-sidebar"
 import AppHeader from "@/components/app/app-header"
-import TickerStrip from "@/components/markets/context-strip"
 import { WalletProvider } from "@/components/app/wallet/use-wallet"
 import {
   fetchRobinhoodAssets,
@@ -9,31 +8,23 @@ import {
   type MarketQuote,
 } from "@/lib/markets/client"
 
-interface AppShellProps {
-  /** Optional compact title shown in the header */
-  title?: string
-  /** Sidebar active key */
-  current?: string
-  children: React.ReactNode
-}
-
 /**
- * AppShell (v3 — Loopr-density)
+ * AppShell (v4 — single toolbar)
  *
- * Slim chrome: 168px sidebar + 48px header + 32px context strip
- * + dense scrollable main content area.
+ * Slim chrome: 168px sidebar + 48px toolbar + scrollable main.
  */
 const STRIP_OVERALL_TIMEOUT_MS = 4_000
 const ASSETS_OVERALL_TIMEOUT_MS = 5_000
 
 export default async function AppShell({
-  title,
   current,
   children,
-}: AppShellProps) {
+}: {
+  /** Sidebar active key */
+  current?: string
+  children: React.ReactNode
+}) {
   let tickerAssets: Awaited<ReturnType<typeof fetchRobinhoodAssets>> = []
-  let tickerFetchedAt = new Date().toISOString()
-  let tickerError: string | null = null
   let tickerQuotes: Record<string, MarketQuote> = {}
 
   try {
@@ -54,13 +45,10 @@ export default async function AppShell({
           await fetchRobinhoodQuotes(symbols, {
             timeoutMs: STRIP_OVERALL_TIMEOUT_MS,
           })
-        tickerFetchedAt = set.fetchedAt
         tickerQuotes = set.quotes
       }
     }
-  } catch (err) {
-    tickerError =
-      err instanceof Error ? err.message : "Failed to load market ticker."
+  } catch {
     tickerAssets = []
   }
 
@@ -73,18 +61,7 @@ export default async function AppShell({
         <AppSidebar current={current} />
         <div className="zeks-shell-body">
           <div className="zeks-shell-chrome">
-            <AppHeader title={title} />
-            {tickerAssets.length > 0 ? (
-              <TickerStrip
-                assets={tickerAssets.map((a) => ({
-                  symbol: a.symbol,
-                  logoUrl: a.logoUrl,
-                }))}
-                quotes={tickerQuotes}
-                fetchedAt={tickerFetchedAt}
-                errorReason={tickerError}
-              />
-            ) : null}
+            <AppHeader tickerAssets={tickerAssets} tickerQuotes={tickerQuotes} />
           </div>
           <main className="zeks-shell-main paper">
             {children}

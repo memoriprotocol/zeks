@@ -17,7 +17,7 @@ export default async function TerminalEarnPage() {
   const initialError = result.kind === "error" ? result.message : null
 
   return (
-    <AppShell current="earn" title="EARN">
+    <AppShell current="earn">
       <EarnLive
         initialMarkets={initialMarkets}
         initialFetchedAt={initialFetchedAt}

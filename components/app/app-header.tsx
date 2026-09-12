@@ -6,23 +6,34 @@ import { toast } from "sonner"
 import { Toaster } from "sonner"
 import { useWallet } from "@/components/app/wallet/use-wallet"
 import WalletButton from "@/components/app/wallet/wallet-button"
+import MarketTicker from "@/components/app/market-ticker"
+import {
+  resolveTickerSymbols,
+  TICKER_MAX_VISIBLE,
+  type MarketQuote,
+} from "@/lib/markets/client"
 
 interface AppHeaderProps {
-  /** Optional compact page title shown in the header */
-  title?: string
+  /** Robinhood asset registry (symbols + logoUrls). */
+  tickerAssets?: { symbol: string; logoUrl?: string | null }[]
+  /** Live quotes keyed by symbol. */
+  tickerQuotes?: Record<string, MarketQuote>
 }
 
 /**
- * AppHeader (v3 — Loopr-density)
+ * AppHeader (v4 — single toolbar)
  *
- * Compact top bar (h-12) with:
- *   - Wordmark pill on mobile, hidden on desktop (sidebar handles brand)
- *   - Compact page title (when provided)
- *   - Slim network pill
- *   - Connect Wallet button
+ * Replaces the old two-row header+ticker stack with a single 48px toolbar:
  *
- * Search input removed (was a dev-era placeholder and is not needed
- * for an app of this density).
+ *   [ continuously scrolling stock ticker                              ] [ Robinhood Chain ] [ wallet ]
+ *
+ * Removed:
+ *   - "LIVE" text + animated dot
+ *   - "Updated just now" timestamp
+ *   - page-name title text (titles live inside page content)
+ *
+ * Data: same server-side source as the old TickerStrip.
+ * No new polling, no new endpoints.
  */
 export default function AppHeader(props: AppHeaderProps) {
   return (
@@ -43,7 +54,7 @@ export default function AppHeader(props: AppHeaderProps) {
   )
 }
 
-function AppHeaderChrome({ title }: AppHeaderProps) {
+function AppHeaderChrome({ tickerAssets = [], tickerQuotes = {} }: AppHeaderProps) {
   const { lastError, status, switchToRobinhoodChain } = useWallet()
 
   React.useEffect(() => {
@@ -60,56 +71,34 @@ function AppHeaderChrome({ title }: AppHeaderProps) {
   const isWrongNetwork = status === "wrong-network"
 
   return (
-    <header className="h-12 border-b border-border bg-card flex items-center px-4 md:px-6 gap-3 shrink-0">
-      {/* Mobile brand (sidebar handles it on desktop) */}
-      <Link
-        href="/terminal"
-        className="flex items-center gap-1.5 md:hidden shrink-0"
-        aria-label="ZEKS"
-      >
-        <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-primary" />
-        <span className="font-serif text-[15px] font-semibold tracking-tight text-foreground leading-none">
-          ZEKS
-        </span>
-      </Link>
+    <header className="zeks-toolbar">
+      {/* LEFT — stock ticker (flex-grow, scrolls) */}
+      <div className="zeks-toolbar-ticker">
+        <MarketTicker assets={tickerAssets} quotes={tickerQuotes} />
+        {/* Fade mask at the right edge so ticker disappears before right controls */}
+        <span className="zeks-toolbar-ticker-fade" aria-hidden="true" />
+      </div>
 
-      {/* Page title */}
-      {title ? (
-        <span className="hidden md:inline-flex items-center h-7 px-2.5 rounded-md text-[12px] font-medium text-foreground shrink-0">
-          {title}
-        </span>
-      ) : null}
-
-      <div className="flex-1" />
-
-      {/* Network pill */}
-      {isWrongNetwork ? (
-        <button
-          type="button"
-          onClick={() => void switchToRobinhoodChain()}
-          className="hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md bg-destructive/10 border border-destructive/30 text-[11px] font-medium text-destructive shrink-0 hover:bg-destructive/15 transition-colors"
-          aria-label="Switch to Robinhood Chain"
-        >
-          <span className="relative inline-flex w-1.5 h-1.5" aria-hidden="true">
-            <span className="absolute inset-0 rounded-full bg-destructive opacity-70 animate-ping" />
-            <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-destructive" />
-          </span>
-          <span>Switch network</span>
-        </button>
-      ) : (
-        <div
-          className="hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md bg-secondary/70 text-[11px] text-foreground shrink-0"
-          aria-label="Network: Robinhood Chain"
-        >
-          <span className="relative inline-flex w-1.5 h-1.5" aria-hidden="true">
-            <span className="absolute inset-0 rounded-full bg-primary opacity-70 animate-ping" />
-            <span className="relative inline-block w-1.5 h-1.5 rounded-full bg-primary" />
-          </span>
-          <span className="font-medium">Robinhood Chain</span>
-        </div>
-      )}
-
-      <WalletButton />
+      {/* RIGHT — network + wallet (fixed, never scrolls) */}
+      <div className="zeks-toolbar-right">
+        {isWrongNetwork ? (
+          <button
+            type="button"
+            onClick={() => void switchToRobinhoodChain()}
+            className="zeks-toolbar-network-btn"
+            aria-label="Switch to Robinhood Chain"
+          >
+            <span className="zeks-toolbar-dot zeks-toolbar-dot-warn" />
+            <span>Switch network</span>
+          </button>
+        ) : (
+          <div className="zeks-toolbar-network" aria-label="Network: Robinhood Chain">
+            <span className="zeks-toolbar-dot" />
+            <span>Robinhood Chain</span>
+          </div>
+        )}
+        <WalletButton />
+      </div>
     </header>
   )
 }

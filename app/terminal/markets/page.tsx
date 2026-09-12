@@ -13,7 +13,7 @@ export default async function TerminalMarketsPage() {
   const result = await fetchLendingMarkets(undefined, { debug: false })
 
   return (
-    <AppShell current="markets" title="MARKETS">
+    <AppShell current="markets">
       <MarketsPageClient
         initialResult={result}
         initialNowMs={Date.now()}
