@@ -167,8 +167,8 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
       } else {
         setTokenMeta({
           address: loanAddress,
-          symbol: market.symbol,
-          decimals: market.rhTokenDecimals ?? 18,
+          symbol: market.loanAssetSymbol ?? "USDG",
+          decimals: market.loanTokenDecimals ?? 6,
         })
       }
 
@@ -202,6 +202,23 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
 
   // ── Derived state ─────────────────────────────────────────────
   const parsedAmount = parseAmount(amountInput, tokenMeta?.decimals ?? null)
+  // USD price of the token being supplied. USDG / USDC / USDT-like
+  // stablecoins are always $1.00. All other tokens use the oracle price.
+  // Never use the collateral oracle price for supply valuation.
+  const supplyPrice = React.useMemo<number | null>(() => {
+    if (!tokenMeta) return null
+    const sym = tokenMeta.symbol.toUpperCase()
+    if (
+      sym === "USDG" ||
+      sym === "USDC" ||
+      sym === "USDT" ||
+      sym === "DAI" ||
+      sym === "FRAX"
+    ) {
+      return 1.0
+    }
+    return market.oraclePrice ?? null
+  }, [tokenMeta, market.oraclePrice])
   const preflight = usePreflight({
     market,
     walletAddress: wallet.address as Address | null,
@@ -706,12 +723,12 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
             SUPPLY
           </p>
           <h2 className="font-serif text-[18px] mt-1 text-foreground">
-            {market.symbol}
+            {market.loanAssetSymbol ?? "USDG"}
           </h2>
         </div>
         <span className="text-[10px] font-mono tracking-wider text-muted-foreground">
-          {market.rhContractAddress
-            ? `Token ${market.rhContractAddress.slice(0, 6)}…${market.rhContractAddress.slice(-4)}`
+          {tokenMeta
+            ? `${tokenMeta.address.slice(0, 6)}…${tokenMeta.address.slice(-4)}`
             : "Token —"}
         </span>
       </div>
@@ -797,11 +814,11 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
         <Stat
           label="EST. POSITION (USD)"
           value={
-            parsedAmount && market.oraclePrice
+            parsedAmount && supplyPrice != null
               ? formatPrice(
                   Number(parsedAmount.bigint) /
                     10 ** (tokenMeta?.decimals ?? 0) *
-                    (market.oraclePrice ?? 0),
+                    supplyPrice,
                 )
               : "—"
           }
@@ -1109,6 +1126,11 @@ function PreFlightContext({
       label: "marketSymbol",
       value: market.symbol,
       ok: true,
+    },
+    {
+      label: "supplySymbol",
+      value: tokenMeta?.symbol ?? "—",
+      ok: !!tokenMeta?.symbol,
     },
     {
       label: "marketId",
