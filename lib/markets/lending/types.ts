@@ -39,6 +39,7 @@ export type OracleSource =
   | "robinhood-rpc" // future onchain oracle contract read
   | "mock"
   | "unknown"
+  | "none" // curated-only row with no onchain oracle (e.g. SPCX)
 
 /** Source of the lending-protocol metrics (APY, TVL, utilization). */
 export type ProtocolSource =
@@ -47,6 +48,7 @@ export type ProtocolSource =
   | "robinhood-rpc" // future direct vault reads
   | "mock"
   | "unknown"
+  | "none" // curated-only row with no Morpho metrics (e.g. SPCX)
 
 /** Lifecycle status of a lending market. */
 export type MarketLifecycleStatus =
@@ -79,6 +81,10 @@ export type MarketSourceMode =
   | "real-morpho"
   | "real-morpho-unlisted"
   | "mock"
+  | "curated-reference" // curated ticker with no Morpho market
+                       // (e.g. SPCX). Has referencePrice from
+                       // Robinhood /rhj/prices only — never used
+                       // as oracle input for risk / writes.
 
 /** Onchain lending market for one asset on Robinhood Chain. */
 export interface LendingMarket {

@@ -93,6 +93,8 @@
   --dash-card-pad:     18px;       /* p-5 / card padding */
   --dash-card-radius:  14px;       /* rounded-2xl */
   --dash-card-min-h:   220px;      /* equal visual height */
+  --dash-price-block-h: 64px;      /* price section reserved height */
+  --dash-stats-block-h: 56px;      /* LLTV / APY / Liquidity reserved height */
   --dash-banner-mb:    12px;       /* mb-4 */
   --dash-explainer-mb: 24px;       /* mb-8 */
 

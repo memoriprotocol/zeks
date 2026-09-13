@@ -21,13 +21,19 @@
 import * as React from "react"
 
 export interface SourceChipsProps {
-  oracle: "chainlink" | "robinhood-rpc" | "mock" | "unknown"
+  oracle:
+    | "chainlink"
+    | "robinhood-rpc"
+    | "mock"
+    | "unknown"
+    | "none"
   protocol:
     | "morpho"
     | "aave"
     | "robinhood-rpc"
     | "mock"
     | "unknown"
+    | "none"
   asset: "robinhood-asset-registry" | "mock" | "unknown"
   network: "robinhood-chain"
   /** Overall data freshness/state for the page */
@@ -54,6 +60,7 @@ const ORACLE_LABEL: Record<SourceChipsProps["oracle"], string> = {
   "robinhood-rpc": "RH RPC",
   mock: "Mock",
   unknown: "Pending",
+  none: "—",
 }
 
 const PROTOCOL_LABEL: Record<SourceChipsProps["protocol"], string> = {
@@ -62,6 +69,7 @@ const PROTOCOL_LABEL: Record<SourceChipsProps["protocol"], string> = {
   "robinhood-rpc": "RH RPC",
   mock: "Mock",
   unknown: "—",
+  none: "—",
 }
 
 const ASSET_LABEL: Record<SourceChipsProps["asset"], string> = {

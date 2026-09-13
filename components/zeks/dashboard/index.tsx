@@ -27,6 +27,7 @@ import { LiveSyncedTag } from "@/components/zeks/live-synced-tag"
 import { useMarketSummary } from "@/components/zeks/dashboard/use-market-summary"
 import { useLoopVenues } from "@/components/zeks/dashboard/use-loop-venues"
 import type { LendingMarket } from "@/lib/markets/lending"
+import type { MarketQuote } from "@/lib/markets/client"
 import type { YieldVenue } from "@/lib/markets/loop/types"
 
 interface DashboardProps {
@@ -36,6 +37,12 @@ interface DashboardProps {
   stockMarketCount: number | null
   yieldVenues: YieldVenue[]
   yieldVenuesFetchedAt: string | null
+  /** Real Robinhood quotes keyed by symbol for the 8 curated stocks.
+   *  Used to surface REFERENCE PRICE on cards that have no Morpho /
+   *  Chainlink oracle row (e.g. SPCX). NEVER fabricated. */
+  curatedQuotes: Record<string, MarketQuote>
+  /** Canonical curated 8 — used to backfill missing Morpho rows. */
+  curatedSymbols: readonly string[]
 }
 
 export function Dashboard({
@@ -45,6 +52,8 @@ export function Dashboard({
   stockMarketCount,
   yieldVenues: serverYieldVenues,
   yieldVenuesFetchedAt: serverYieldVenuesFetchedAt,
+  curatedQuotes,
+  curatedSymbols,
 }: DashboardProps) {
   // ── Live market summary — refreshes every 3s via internal cache ──
   const {
@@ -119,6 +128,8 @@ export function Dashboard({
         <StockOpportunities
           markets={markets}
           venueApy={defaultVenueApy}
+          curatedQuotes={curatedQuotes}
+          curatedSymbols={curatedSymbols}
         />
       </section>
 

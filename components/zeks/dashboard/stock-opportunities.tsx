@@ -3,16 +3,18 @@
 /**
  * StockOpportunities — measured reference card system.
  *
- *   Toolbar: search (py-2.5, 13px) + 12px mono filter
  *   Grid: 3 columns on desktop · gap 16px
- *   Card:  p-5 · rounded-2xl · logo 40x40 · equal visual height
+ *   Card:  unified geometry, always 4 sections:
  *
- *   Internal hierarchy:
- *     1. Header     — logo + symbol (15px serif) + company (11px mono) + status
- *     2. Oracle     — large serif price block
- *     3. Divider
- *     4. Stat strip — LLTV · Borrow APY · Liquidity
- *     5. CTA strip  — strategy spread (optional) + Explore lime pill
+ *     1. Header    — logo + symbol + company + status
+ *     2. Price     — large serif price with source-accurate label
+ *                    ("ORACLE PRICE" → "REFERENCE PRICE" → "PRICE —")
+ *     3. Stats     — LLTV · Borrow APY · Liquidity
+ *     4. Footer    — strategy spread + Explore CTA (baseline pinned)
+ *
+ *   Curated symbols missing from Morpho (e.g. SPCX) are synthesized
+ *   from the shared Robinhood quote map so they still appear with
+ *   REFERENCE PRICE — not labeled "Oracle Price", never fabricated.
  *
  *   No big black blocks, no giant lime buttons, equal heights.
  */
@@ -26,12 +28,17 @@ import {
   formatCompact,
 } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
+import type { MarketQuote } from "@/lib/markets/client"
+import { resolveAsset } from "@/lib/assets/registry"
 
 interface StockOpportunitiesProps {
   markets: LendingMarket[]
-  /** Default venue APY for strategy spread.
-   *  Null when no live venue is available. */
+  /** Default venue APY for strategy spread. Null when no live venue. */
   venueApy: number | null
+  /** Real Robinhood quotes keyed by symbol (curated 8). */
+  curatedQuotes: Record<string, MarketQuote>
+  /** Canonical curated symbols in display order. */
+  curatedSymbols: readonly string[]
 }
 
 const PRIORITY: readonly string[] = [
@@ -51,9 +58,106 @@ const PRIORITY_INDEX = new Map<string, number>(
 
 type StatusFilter = "all" | "live" | "borrowable"
 
+/** Build a stub LendingMarket for a curated symbol that has no Morpho
+ *  data. The stub preserves the unified card geometry (header, price,
+ *  stats, footer) and never fabricates oracle / Morpho values — every
+ *  field except the curated reference price is null. */
+function buildReferenceStub(
+  symbol: string,
+  quote: MarketQuote,
+): LendingMarket {
+  const upper = symbol.toUpperCase()
+  const registry = resolveAsset(upper)
+  return {
+    marketId: null,
+    symbol: upper,
+    name: registry?.name ?? upper,
+    logoUrl: null,
+    oraclePrice: null,
+    oracleSource: "none",
+    supplyApy: null,
+    borrowApy: null,
+    totalSupply: null,
+    totalBorrow: null,
+    availableLiquidity: null,
+    utilization: null,
+    tvl: null,
+    status: "unknown",
+    protocolSource: "none",
+    sourceMode: "curated-reference",
+    listed: null,
+    contractAddress: null,
+    collateralAssetSymbol: upper,
+    loanAssetSymbol: null,
+    lltv: null,
+    oracleAddress: null,
+    irmAddress: null,
+    loanTokenAddress: null,
+    collateralTokenAddress: null,
+    loanTokenDecimals: null,
+    rhContractAddress: null,
+    rhMultiplier: null,
+    rhTokenDecimals: null,
+    rhLogoUrl: null,
+    referenceBid: quote.bid,
+    referenceAsk: quote.ask,
+    referencePrice: quote.referencePrice,
+    referenceGeneratedAt: quote.generatedAt,
+    referenceIsHalt: quote.isTradingHalt,
+    chainId: 4663,
+    fetchedAt: quote.generatedAt ?? new Date().toISOString(),
+  }
+}
+
+function buildMissingStub(symbol: string): LendingMarket {
+  const upper = symbol.toUpperCase()
+  const registry = resolveAsset(upper)
+  return {
+    marketId: null,
+    symbol: upper,
+    name: registry?.name ?? upper,
+    logoUrl: null,
+    oraclePrice: null,
+    oracleSource: "none",
+    supplyApy: null,
+    borrowApy: null,
+    totalSupply: null,
+    totalBorrow: null,
+    availableLiquidity: null,
+    utilization: null,
+    tvl: null,
+    status: "unknown",
+    protocolSource: "none",
+    sourceMode: "curated-reference",
+    listed: null,
+    contractAddress: null,
+    collateralAssetSymbol: upper,
+    loanAssetSymbol: null,
+    lltv: null,
+    oracleAddress: null,
+    irmAddress: null,
+    loanTokenAddress: null,
+    collateralTokenAddress: null,
+    loanTokenDecimals: null,
+    rhContractAddress: null,
+    rhMultiplier: null,
+    rhTokenDecimals: null,
+    rhLogoUrl: null,
+    referenceBid: null,
+    referenceAsk: null,
+    referencePrice: null,
+    referenceGeneratedAt: null,
+    referenceIsHalt: false,
+    chainId: 4663,
+    fetchedAt: new Date().toISOString(),
+  }
+}
+
 export function StockOpportunities({
   markets,
   venueApy,
+  curatedQuotes,
+  curatedSymbols,
 }: StockOpportunitiesProps) {
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<StatusFilter>("all")
@@ -61,14 +165,36 @@ export function StockOpportunities({
   const priority = React.useMemo<LendingMarket[]>(() => {
     const bySymbol = new Map<string, LendingMarket>()
     for (const m of markets) bySymbol.set(m.symbol.toUpperCase(), m)
-    return PRIORITY.map((sym) => bySymbol.get(sym))
-      .filter((m): m is LendingMarket => Boolean(m))
+
+    const out: LendingMarket[] = []
+    const order = (curatedSymbols.length > 0
+      ? Array.from(new Set(curatedSymbols)).map((s) => s.toUpperCase())
+      : Array.from(PRIORITY)) as string[]
+    const seen = new Set<string>()
+
+    for (const sym of order) {
+      const m = bySymbol.get(sym)
+      if (m) {
+        out.push(m)
+      } else {
+        const quote = curatedQuotes[sym]
+        if (quote && quote.referencePrice != null) {
+          out.push(buildReferenceStub(sym, quote))
+        } else {
+          out.push(buildMissingStub(sym))
+        }
+      }
+      seen.add(sym)
+    }
+    // Sort back to PRIORITY (in case curatedSymbols order differs).
+    return out
+      .slice()
       .sort(
         (a, b) =>
           (PRIORITY_INDEX.get(a.symbol.toUpperCase()) ?? 0) -
           (PRIORITY_INDEX.get(b.symbol.toUpperCase()) ?? 0),
       )
-  }, [markets])
+  }, [markets, curatedQuotes, curatedSymbols])
 
   const filtered = React.useMemo<LendingMarket[]>(() => {
     const q = query.trim().toLowerCase()
@@ -159,7 +285,10 @@ export function StockOpportunities({
           data-testid="stock-grid"
         >
           {filtered.map((m) => (
-            <li key={m.marketId ?? m.symbol} className="h-full">
+            <li
+              key={`${m.symbol}-${m.marketId ?? "stub"}`}
+              className="h-full"
+            >
               <OpportunityCard market={m} venueApy={venueApy} />
             </li>
           ))}
@@ -186,6 +315,45 @@ export function StockOpportunities({
 
 /* ── Single card ─────────────────────────────────────── */
 
+/**
+ * Resolve the price-block presentation:
+ *   1. Valid Chainlink oracle   → "ORACLE PRICE"
+ *   2. Real Robinhood reference → "REFERENCE PRICE"  (NOT relabelled)
+ *   3. Otherwise                → "PRICE" + "—"
+ */
+function resolvePriceBlock(m: LendingMarket): {
+  label: string
+  value: string
+  source: string
+} {
+  if (m.oraclePrice != null && Number.isFinite(m.oraclePrice)) {
+    return {
+      label: "ORACLE PRICE",
+      value: formatPrice(m.oraclePrice),
+      source:
+        m.oracleSource === "chainlink"
+          ? "Chainlink oracle"
+          : m.oracleSource === "robinhood-rpc"
+            ? "Onchain oracle"
+            : m.oracleSource === "mock"
+              ? "Internal mock"
+              : "Verified oracle",
+    }
+  }
+  if (m.referencePrice != null && Number.isFinite(m.referencePrice)) {
+    return {
+      label: "REFERENCE PRICE",
+      value: formatPrice(m.referencePrice),
+      source: "Robinhood quote · No Chainlink oracle",
+    }
+  }
+  return {
+    label: "PRICE",
+    value: "—",
+    source: "No verified price source",
+  }
+}
+
 function OpportunityCard({
   market: m,
   venueApy,
@@ -196,6 +364,8 @@ function OpportunityCard({
   const liquidity = m.availableLiquidity ?? m.totalSupply ?? null
   const spread =
     venueApy != null && m.borrowApy != null ? venueApy - m.borrowApy : null
+  const price = resolvePriceBlock(m)
+  const isCuratedOnly = m.sourceMode === "curated-reference"
 
   return (
     <article
@@ -257,37 +427,50 @@ function OpportunityCard({
         </div>
       </header>
 
-      {/* 2 · Oracle price */}
-      {m.oraclePrice != null && (
+      {/* 2 · Price block — always rendered so card geometry is identical */}
+      <div
+        style={{
+          paddingTop: "14px",
+          paddingBottom: "12px",
+          borderBottom: "1px solid var(--border)",
+          minHeight: "var(--dash-price-block-h, 64px)",
+        }}
+      >
+        <div className="zeks-label" style={{ marginBottom: "2px" }}>
+          {price.label}
+        </div>
         <div
+          className="zeks-num-lg"
           style={{
-            paddingTop: "14px",
-            paddingBottom: "12px",
-            borderBottom: "1px solid var(--border)",
+            color: "var(--foreground)",
           }}
         >
-          <div className="zeks-label" style={{ marginBottom: "2px" }}>
-            Oracle Price
-          </div>
-          <div
-            className="zeks-num-lg"
-            style={{
-              color: "var(--foreground)",
-            }}
-          >
-            {formatPrice(m.oraclePrice)}
-          </div>
+          {price.value}
         </div>
-      )}
+        <div
+          className="font-mono"
+          style={{
+            fontSize: "10.5px",
+            color: "var(--muted-foreground)",
+            marginTop: "2px",
+            letterSpacing: "0.02em",
+            minHeight: "14px",
+            lineHeight: 1.2,
+          }}
+        >
+          {price.source}
+        </div>
+      </div>
 
-      {/* 3 · Stat strip */}
+      {/* 3 · Stat strip — same height across all cards */}
       <dl
         className="grid grid-cols-3"
         style={{
           columnGap: "8px",
           paddingTop: "12px",
-          paddingBottom: spread != null ? "12px" : "0",
-          borderBottom: spread != null ? "1px solid var(--border)" : undefined,
+          paddingBottom: spread != null || isCuratedOnly ? "12px" : "12px",
+          borderBottom: "1px solid var(--border)",
+          minHeight: "var(--dash-stats-block-h, 56px)",
         }}
       >
         <StatField
@@ -305,9 +488,7 @@ function OpportunityCard({
         />
       </dl>
 
-      {/* 4 · Footer — strategy spread + CTA
-          Fixed row height so the CTA baseline matches across every card,
-          regardless of whether spread is present. */}
+      {/* 4 · Footer — strategy spread + CTA (baseline pinned) */}
       <div
         className="flex items-center justify-between"
         style={{
@@ -341,7 +522,7 @@ function OpportunityCard({
           </span>
         ) : (
           <span
-            className="font-mono uppercase inline-flex items-baseline"
+            className="font-mono uppercase inline-flex items-baseline gap-1.5"
             style={{
               fontSize: "var(--font-micro)",
               color: "var(--muted-foreground)",
@@ -349,7 +530,17 @@ function OpportunityCard({
               lineHeight: 1,
             }}
           >
-            Spread —
+            <span>Spread</span>
+            <span
+              style={{
+                color: "var(--muted-foreground)",
+                fontSize: "12px",
+                letterSpacing: "0",
+                opacity: 0.6,
+              }}
+            >
+              —
+            </span>
           </span>
         )}
         <Link
@@ -384,12 +575,15 @@ function OpportunityCard({
 function StatusChip({ m }: { m: LendingMarket }) {
   const isLive = m.sourceMode === "real-morpho" || m.sourceMode === "live"
   const isUnlisted = m.sourceMode === "real-morpho-unlisted"
-  const label = isLive ? "LIVE" : isUnlisted ? "UNLISTED" : "MOCK"
+  const isCuratedOnly = m.sourceMode === "curated-reference"
+  const label = isLive ? "LIVE" : isUnlisted ? "UNLISTED" : isCuratedOnly ? "QUOTE" : "MOCK"
   const color = isLive
     ? "var(--up)"
     : isUnlisted
       ? "var(--muted-foreground)"
-      : "var(--down)"
+      : isCuratedOnly
+        ? "var(--muted-foreground)"
+        : "var(--down)"
   return (
     <span
       className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
