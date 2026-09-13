@@ -381,7 +381,7 @@
   .zeks-ticker-item {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 9px;
     flex: 0 0 auto;
     flex-shrink: 0;
     white-space: nowrap;
@@ -420,24 +420,54 @@
     to   { transform: translateX(-50%); }
   }
 
+  /* ── Ticker item typography ────────────────────────────── */
+  /* Hierarchy (most → least prominent):
+       SYMBOL  bold, dark
+       PRICE   medium weight, muted
+       CHANGE  semibold, color-coded
+  */
   .zeks-ticker-symbol {
     font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 600;
     color: var(--foreground);
     letter-spacing: 0.02em;
+    line-height: 1;
   }
 
   .zeks-ticker-price {
     font-family: var(--font-mono);
     font-size: 12px;
+    font-weight: 500;
     color: var(--muted-foreground);
     font-variant-numeric: lining-nums tabular-nums;
     letter-spacing: -0.01em;
+    line-height: 1;
   }
 
-  .zeks-ticker-price-na {
-    opacity: 0.5;
+  .zeks-ticker-change {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    font-variant-numeric: lining-nums tabular-nums;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 4px;
+  }
+
+  .zeks-ticker-change-up {
+    color: #15803d; /* green-700 — readable on off-white */
+    background: rgba(34, 197, 94, 0.10);
+  }
+  .zeks-ticker-change-down {
+    color: #b91c1c; /* red-700 */
+    background: rgba(239, 68, 68, 0.10);
+  }
+  .zeks-ticker-change-flat {
+    color: var(--muted-foreground);
+    background: transparent;
+    opacity: 0.6;
   }
   .zeks-shell-main {
     min-height: 0;

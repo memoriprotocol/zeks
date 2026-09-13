@@ -1,28 +1,31 @@
 "use client"
 
 /**
- * MarketTicker — continuous horizontal marquee.
+ * MarketTicker — continuous horizontal marquee of stock tickers.
  *
- * DOM structure:
- *   .zeks-ticker-viewport          ← clips overflow (overflow:hidden)
- *     .zeks-ticker-row             ← the single flex row that animates
- *       .zeks-ticker-sequence      ← set A (display: flex, gap, flex: none)
- *         .zeks-ticker-item × N
- *       .zeks-ticker-sequence      ← set B (exact duplicate, flex: none)
- *         .zeks-ticker-item × N
+ * Each item shows: [logo] [SYMBOL] [$price] [±change%]
+ * SYMBOL is the most visually prominent text in each item.
+ * 24h % change is sourced from MarketQuote.previousClose (the same
+ * upstream Robinhood /rhj/prices payload as the price itself) — it
+ * is NEVER fabricated. When previousClose is missing or zero, the
+ * change column renders a muted "—" placeholder.
  *
- * Only ONE element animates: `.zeks-ticker-row` via `translateX(-50%)`.
- * Items never move on their own; they sit in two flex sequences
- * inside the row. When set A scrolls off the left, set B is in the
- * exact same position so the loop is seamless.
+ * DOM structure (animated by ONE node only):
+ *   .zeks-ticker-viewport        ← overflow: hidden
+ *     .zeks-ticker-scroller      ← overflow: hidden
+ *       .zeks-ticker-row         ← width: max-content, the animated row
+ *         .zeks-ticker-sequence  ← flex container, set A
+ *           .zeks-ticker-item × N
+ *         .zeks-ticker-sequence  ← set B (exact duplicate)
+ *           .zeks-ticker-item × N
  *
- * Data source: same server-side feed as every other price surface
- * (Robinhood /rhj/assets + /rhj/prices via AppShell). No new
- * fetches. No new endpoints.
+ * Items never move individually — only the row translates -50%.
+ * Two sequences inside the row make the loop seamless.
  *
  * Accessibility:
- *   - The animated track is `aria-hidden` because it's decorative.
- *   - A separate `sr-only` live region announces current prices.
+ *   - Animated tracks are aria-hidden.
+ *   - A sr-only live region announces the current prices.
+ *   - Static row takes over under prefers-reduced-motion.
  */
 
 import * as React from "react"
@@ -40,17 +43,16 @@ interface MarketTickerProps {
   quotes?: Record<string, MarketQuote>
 }
 
-/* ── Ticker item ─────────────────────────────────────── */
+/* ── Single ticker item ───────────────────────────────── */
 
-function TickerItem({
-  symbol,
-  logoUrl,
-  price,
-}: {
+interface ItemProps {
   symbol: string
   logoUrl: string | null
   price: number | null
-}) {
+  changePct: number | null
+}
+
+function TickerItem({ symbol, logoUrl, price, changePct }: ItemProps) {
   return (
     <span className="zeks-ticker-item">
       <AssetLogo
@@ -61,14 +63,34 @@ function TickerItem({
         className="zeks-ticker-logo"
       />
       <span className="zeks-ticker-symbol">{symbol}</span>
-      {price != null ? (
-        <span className="zeks-ticker-price">{formatPrice(price)}</span>
-      ) : (
-        <span className="zeks-ticker-price zeks-ticker-price-na">—</span>
-      )}
+      <span className="zeks-ticker-price">
+        {price != null ? formatPrice(price) : "—"}
+      </span>
+      <ChangeBadge pct={changePct} />
     </span>
   )
 }
+
+function ChangeBadge({ pct }: { pct: number | null }) {
+  if (pct == null || !Number.isFinite(pct)) {
+    return <span className="zeks-ticker-change zeks-ticker-change-flat">—</span>
+  }
+  const sign = pct > 0 ? "+" : pct < 0 ? "" : ""
+  const cls =
+    pct > 0
+      ? "zeks-ticker-change-up"
+      : pct < 0
+        ? "zeks-ticker-change-down"
+        : "zeks-ticker-change-flat"
+  return (
+    <span className={`zeks-ticker-change ${cls}`}>
+      {sign}
+      {pct.toFixed(2)}%
+    </span>
+  )
+}
+
+/* ── Helpers ──────────────────────────────────────────── */
 
 function formatPrice(p: number): string {
   if (p >= 1000) {
@@ -76,6 +98,19 @@ function formatPrice(p: number): string {
   }
   if (p >= 1) return `$${p.toFixed(2)}`
   return `$${p.toFixed(4)}`
+}
+
+/** 24h % change derived from MarketQuote.previousClose — real
+ * upstream field, never a fabricated value. Returns null when the
+ * upstream payload lacks a usable previousClose. */
+function computeChangePct(
+  price: number | null,
+  previousClose: number | null,
+): number | null {
+  if (price == null || previousClose == null) return null
+  if (!Number.isFinite(price) || !Number.isFinite(previousClose)) return null
+  if (previousClose <= 0) return null
+  return ((price - previousClose) / previousClose) * 100
 }
 
 /* ── Marquee container ────────────────────────────────── */
@@ -98,11 +133,16 @@ export default function MarketTicker({ assets, quotes = {} }: MarketTickerProps)
 
   const items = React.useMemo(
     () =>
-      symbols.map((s) => ({
-        symbol: s,
-        logoUrl: logoMap.get(s) ?? null,
-        price: quotes[s]?.referencePrice ?? null,
-      })),
+      symbols.map((s) => {
+        const q = quotes[s]
+        const price = q?.referencePrice ?? null
+        return {
+          symbol: s,
+          logoUrl: logoMap.get(s) ?? null,
+          price,
+          changePct: computeChangePct(price, q?.previousClose ?? null),
+        }
+      }),
     [symbols, logoMap, quotes],
   )
 
@@ -124,14 +164,12 @@ export default function MarketTicker({ assets, quotes = {} }: MarketTickerProps)
       {/* Animated: single flex row that scrolls left */}
       <div className="zeks-ticker-scroller" aria-hidden="true">
         <div className="zeks-ticker-row">
-          {/* Set A */}
-          <div className="zeks-ticker-sequence" aria-hidden="true">
+          <div className="zeks-ticker-sequence">
             {items.map((it, i) => (
               <TickerItem key={`a-${it.symbol}-${i}`} {...it} />
             ))}
           </div>
-          {/* Set B — exact duplicate */}
-          <div className="zeks-ticker-sequence" aria-hidden="true">
+          <div className="zeks-ticker-sequence">
             {items.map((it, i) => (
               <TickerItem key={`b-${it.symbol}-${i}`} {...it} />
             ))}
@@ -145,6 +183,9 @@ export default function MarketTicker({ assets, quotes = {} }: MarketTickerProps)
           <li key={`a11y-${it.symbol}`}>
             {it.symbol}{" "}
             {it.price != null ? formatPrice(it.price) : "price unavailable"}
+            {it.changePct != null
+              ? `, ${it.changePct >= 0 ? "+" : ""}${it.changePct.toFixed(2)} percent`
+              : ", change unavailable"}
           </li>
         ))}
       </ul>
