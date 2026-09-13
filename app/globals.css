@@ -327,90 +327,116 @@
   }
 
   /* ── Ticker marquee ─────────────────────────────────────── */
-  /* Continuous horizontal scroll: right-to-left, seamless loop.
-     Approach: duplicated sequence inside a fixed-width clipped container.
-     The outer .zeks-ticker-scroller clips the animated inner track. */
-  .zeks-ticker-track {
+  /* Viewport clips overflow.
+     Single inner row (.zeks-ticker-row) holds two flex sequences.
+     Only the row animates via translateX(-50%) — items are
+     static and never overlap. */
+  .zeks-ticker-viewport {
     position: relative;
     height: 100%;
     width: 100%;
-  }
-
-  /* Reduced motion: static clipped view instead of animation */
-  @media (prefers-reduced-motion: reduce) {
-    .zeks-ticker-static {
-      display: flex !important;
-    }
-    .zeks-ticker-scroller,
-    .zeks-ticker-inner {
-      animation: none !important;
-    }
-  }
-
-  .zeks-ticker-static {
-    display: none;
-    align-items: center;
-    height: 100%;
-    padding: 0 var(--content-pad-x);
-    gap: 28px;
     overflow: hidden;
-    white-space: nowrap;
+    min-width: 0;
   }
 
+  /* Animated scroller — clips overflow */
   .zeks-ticker-scroller {
     position: absolute;
     inset: 0;
     overflow: hidden;
   }
 
-  .zeks-ticker-inner {
+  /* The single moving row — width: max-content keeps it long enough
+     to contain both sequences end-to-end. translateX(-50%) scrolls
+     one full sequence width to the left for a seamless loop. */
+  .zeks-ticker-row {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     height: 100%;
+    width: max-content;
     white-space: nowrap;
     will-change: transform;
-    /* Speed: ~36s for one full pass through the duplicated sequence.
-       Adjust --ticker-duration if more/less space between items. */
-    animation: zeks-ticker-scroll linear infinite;
+    animation: zeks-ticker-marquee linear infinite;
   }
 
   /* Pause animation on hover */
-  .zeks-ticker-scroller:hover .zeks-ticker-inner {
+  .zeks-ticker-scroller:hover .zeks-ticker-row {
     animation-play-state: paused;
   }
 
-  @keyframes zeks-ticker-scroll {
+  /* Each sequence is a flex container holding one copy of all items.
+     flex: none + min-width: max-content prevents shrinking or wrapping. */
+  .zeks-ticker-sequence {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    flex: 0 0 auto;
+    min-width: max-content;
+    gap: 32px;
+    padding-right: 32px;
+  }
+
+  /* Single ticker item */
+  .zeks-ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 0;
+  }
+
+  .zeks-ticker-logo {
+    flex-shrink: 0;
+  }
+
+  /* Static (reduced motion) — visible only when motion is reduced */
+  .zeks-ticker-static {
+    display: none;
+    align-items: center;
+    height: 100%;
+    gap: 32px;
+    padding: 0 var(--content-pad-x);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zeks-ticker-static {
+      display: flex;
+    }
+    .zeks-ticker-scroller,
+    .zeks-ticker-row {
+      animation: none !important;
+      display: none;
+    }
+  }
+
+  /* Animation: linear, infinite, ~36s for the full pass */
+  @keyframes zeks-ticker-marquee {
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
   }
 
-  /* Ticker chip: [LOGO 20x20] [SYMBOL] [PRICE] */
-  .zeks-ticker-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 30px;
+  .zeks-ticker-symbol {
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--foreground);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .zeks-ticker-symbol {
     font-weight: 500;
     color: var(--foreground);
     letter-spacing: 0.02em;
   }
 
   .zeks-ticker-price {
+    font-family: var(--font-mono);
+    font-size: 12px;
     color: var(--muted-foreground);
     font-variant-numeric: lining-nums tabular-nums;
     letter-spacing: -0.01em;
   }
 
   .zeks-ticker-price-na {
-    color: var(--muted-foreground);
     opacity: 0.5;
   }
   .zeks-shell-main {
