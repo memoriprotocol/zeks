@@ -119,6 +119,20 @@ export interface MarketQuote {
    * UI renders "—" instead of a fabricated value.
    */
   previousClose: number | null
+  /**
+   * Pre-derived 24h change percentage: (price - previousClose) /
+   * previousClose * 100. Computed once at the normalize layer so
+   * the UI never has to redo the math and never sees NaN/Infinity.
+   * `null` when previousClose is null or <= 0, or when price is
+   * null / non-finite.
+   */
+  changePercent: number | null
+  /**
+   * ISO timestamp captured the moment the upstream price was
+   * generated (`generatedAt` from Robinhood /rhj/prices). Falls
+   * back to the local batch `fetchedAt` when upstream omits it.
+   */
+  updatedAt: string | null
   /** Provenance tag, useful for diagnostics and freshness labels. */
   source: "robinhood-prices"
 }

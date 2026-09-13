@@ -255,6 +255,31 @@ export function normalizeQuote(raw: unknown): MarketQuote | null {
     isTradingHalt,
     generatedAt,
     previousClose,
+    changePercent: deriveChangePercent(referencePrice, previousClose),
+    updatedAt: generatedAt,
     source: "robinhood-prices",
   }
+}
+
+/**
+ * Compute the 24h change percentage once at the normalize boundary
+ * so the UI never sees NaN / Infinity and never divides by zero.
+ *
+ *   changePercent = (price - previousClose) / previousClose * 100
+ *
+ * Returns null when:
+ *   - price is null or non-finite
+ *   - previousClose is null or non-finite
+ *   - previousClose <= 0  (no meaningful baseline)
+ */
+function deriveChangePercent(
+  price: number | null,
+  previousClose: number | null,
+): number | null {
+  if (price == null || previousClose == null) return null
+  if (!Number.isFinite(price) || !Number.isFinite(previousClose)) return null
+  if (previousClose <= 0) return null
+  const pct = ((price - previousClose) / previousClose) * 100
+  if (!Number.isFinite(pct)) return null
+  return pct
 }

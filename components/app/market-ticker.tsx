@@ -100,17 +100,22 @@ function formatPrice(p: number): string {
   return `$${p.toFixed(4)}`
 }
 
-/** 24h % change derived from MarketQuote.previousClose — real
- * upstream field, never a fabricated value. Returns null when the
- * upstream payload lacks a usable previousClose. */
+/** 24h % change derived from MarketQuote.changePercent (preferred —
+ * computed once at the normalize boundary so we never see NaN /
+ * Infinity) or, when the upstream payload did not include
+ * previousClose, derived locally as a fallback. Returns null when
+ * no valid price + previousClose pair exists. NEVER fabricated. */
 function computeChangePct(
   price: number | null,
   previousClose: number | null,
+  precomputed: number | null,
 ): number | null {
+  if (precomputed != null && Number.isFinite(precomputed)) return precomputed
   if (price == null || previousClose == null) return null
   if (!Number.isFinite(price) || !Number.isFinite(previousClose)) return null
   if (previousClose <= 0) return null
-  return ((price - previousClose) / previousClose) * 100
+  const pct = ((price - previousClose) / previousClose) * 100
+  return Number.isFinite(pct) ? pct : null
 }
 
 /* ── Marquee container ────────────────────────────────── */
@@ -140,7 +145,11 @@ export default function MarketTicker({ assets, quotes = {} }: MarketTickerProps)
           symbol: s,
           logoUrl: logoMap.get(s) ?? null,
           price,
-          changePct: computeChangePct(price, q?.previousClose ?? null),
+          changePct: computeChangePct(
+            price,
+            q?.previousClose ?? null,
+            q?.changePercent ?? null,
+          ),
         }
       }),
     [symbols, logoMap, quotes],
