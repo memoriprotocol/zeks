@@ -174,15 +174,33 @@ export function StockOpportunities({
 
     for (const sym of order) {
       const m = bySymbol.get(sym)
+      const quote = curatedQuotes[sym]
       if (m) {
-        out.push(m)
-      } else {
-        const quote = curatedQuotes[sym]
-        if (quote && quote.referencePrice != null) {
-          out.push(buildReferenceStub(sym, quote))
+        // Enrich real Morpho rows with the canonical referencePrice
+        // from the curated Robinhood quote batch whenever the
+        // upstream row didn't surface one. The referencePrice is
+        // informational only — never used as oracle input.
+        if (
+          quote &&
+          quote.referencePrice != null &&
+          Number.isFinite(quote.referencePrice) &&
+          (m.referencePrice == null || !Number.isFinite(m.referencePrice))
+        ) {
+          out.push({
+            ...m,
+            referencePrice: quote.referencePrice,
+            referenceBid: quote.bid ?? m.referenceBid,
+            referenceAsk: quote.ask ?? m.referenceAsk,
+            referenceGeneratedAt: quote.generatedAt ?? m.referenceGeneratedAt,
+            referenceIsHalt: quote.isTradingHalt,
+          })
         } else {
-          out.push(buildMissingStub(sym))
+          out.push(m)
         }
+      } else if (quote && quote.referencePrice != null) {
+        out.push(buildReferenceStub(sym, quote))
+      } else {
+        out.push(buildMissingStub(sym))
       }
       seen.add(sym)
     }
