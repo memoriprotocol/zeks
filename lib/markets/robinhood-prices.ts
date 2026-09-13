@@ -97,17 +97,75 @@ async function fetchSingleQuote(
     return { quote: null, failed: true }
   }
 
-  const quotesRaw = (body as { quotes?: unknown })?.quotes
-  const list = Array.isArray(quotesRaw) ? quotesRaw : []
-  // Each response carries a single quote per request, but the
-  // envelope is an array — we pick the first matching symbol.
-  for (const q of list) {
-    const normalized = normalizeQuote(q)
-    if (normalized && normalized.symbol === symbol.toUpperCase()) {
-      return { quote: normalized, failed: false }
+  // Upstream response envelope varies: { quotes: [...] }, { data: [...] },
+  // { results: [...] }, or a bare single quote object. Pick the first
+  // shape that parses to an array; otherwise treat the body as a
+  // single-quote envelope.
+  const bodyObj = body as Record<string, unknown> | null
+  const candidates: unknown[] = []
+  for (const key of ["quotes", "data", "results"]) {
+    const v = bodyObj && bodyObj[key]
+    if (Array.isArray(v)) {
+      candidates.push(...v)
+      break
     }
   }
+  if (candidates.length === 0 && bodyObj && typeof bodyObj === "object") {
+    candidates.push(bodyObj)
+  }
+
+  if (candidates.length === 0) {
+    return { quote: null, failed: true }
+  }
+
+  // Each response should carry a single quote for the requested symbol,
+  // but the envelope is sometimes an array — pick the first row whose
+  // identity (tokenSymbol / tokenContractAddress / instrumentId / rhid
+  // / contractAddress / id) matches the requested symbol. Falls back
+  // to the first usable quote when only one row exists.
+  const requested = symbol.toUpperCase()
+  let firstUsable: MarketQuote | null = null
+  for (const q of candidates) {
+    const normalized = normalizeQuote(q)
+    if (!normalized) continue
+    if (!firstUsable) firstUsable = normalized
+    const identityMatch = identityMatches(q, requested)
+    if (identityMatch) return { quote: normalized, failed: false }
+  }
+
+  // Identity didn't match — if we only got one row, take it anyway
+  // (some upstream endpoints ignore the path symbol). The caller still
+  // gets a quote, mapped to the requested canonical symbol below.
+  if (candidates.length === 1 && firstUsable) {
+    return { quote: { ...firstUsable, symbol: requested }, failed: false }
+  }
+
   return { quote: null, failed: true }
+}
+
+/**
+ * Match a raw upstream quote element to a canonical UI symbol using
+ * any of: tokenSymbol, symbol, tokenContractAddress, contractAddress,
+ * instrumentId, rhid, id. We never use fuzzy name matching.
+ */
+function identityMatches(raw: unknown, requestedSymbol: string): boolean {
+  if (!raw || typeof raw !== "object") return false
+  const r = raw as Record<string, unknown>
+  const upper = (v: unknown): string | null =>
+    typeof v === "string" && v.trim() !== ""
+      ? v.trim().toUpperCase()
+      : null
+
+  const candidates: Array<string | null> = [
+    upper(r.tokenSymbol),
+    upper(r.symbol),
+    upper(r.tokenContractAddress),
+    upper(r.contractAddress),
+    upper(r.instrumentId),
+    upper(r.rhid),
+    upper(r.id),
+  ]
+  return candidates.some((c) => c === requestedSymbol)
 }
 
 async function runWithConcurrency<T, R>(

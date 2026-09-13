@@ -205,6 +205,11 @@ const logoUrl: string | null = shouldKeepLogoUrl(r.logoUrl)
  * Returns `null` if the quote is structurally unusable. The
  * `isTradingHalt` and `bid/ask` are independent: a halted quote may
  * still carry valid bid / ask, and we surface that.
+ *
+ * Identity fields (tokenContractAddress, instrumentId, rhid) are
+ * captured even when we don't use them in the UI — they exist so
+ * the upstream row matcher can correlate a quote element to a
+ * canonical UI symbol even when the upstream `tokenSymbol` differs.
  */
 export function normalizeQuote(raw: unknown): MarketQuote | null {
   if (!raw || typeof raw !== "object") return null
@@ -217,6 +222,15 @@ export function normalizeQuote(raw: unknown): MarketQuote | null {
   const bid = safeNumber(r.bid)
   const ask = safeNumber(r.ask)
 
+  // Reference price priority: bid/ask mid → one-sided → authoritative
+  // single-field quote if the upstream only exposes one. Accepted
+  // authoritative single-field names: markPrice, lastPrice, price,
+  // referencePrice, reference_price. We prefer bid/ask when both are
+  // finite because that's the strictest mid.
+  const authoritativeSingle = safeNumber(
+    r.markPrice ?? r.mark_price ?? r.lastPrice ?? r.last_price ?? r.price ?? r.referencePrice ?? r.reference_price,
+  )
+
   let referencePrice: number | null = null
   if (bid !== null && ask !== null) {
     referencePrice = (bid + ask) / 2
@@ -224,6 +238,8 @@ export function normalizeQuote(raw: unknown): MarketQuote | null {
     referencePrice = bid
   } else if (ask !== null) {
     referencePrice = ask
+  } else if (authoritativeSingle !== null) {
+    referencePrice = authoritativeSingle
   }
 
   const dailyTradingVolume = safeNumber(r.dailyTradingVolume)
