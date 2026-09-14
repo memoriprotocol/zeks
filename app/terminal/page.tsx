@@ -78,7 +78,7 @@ export default async function TerminalOverviewPage() {
     markets.length === 0 ? null : new Set(markets.map((m) => m.symbol)).size
 
   return (
-    <AppShell current="overview">
+    <AppShell>
       <Dashboard
         markets={markets}
         marketsFetchedAt={marketsFetchedAt}
@@ -92,3 +92,4 @@ export default async function TerminalOverviewPage() {
     </AppShell>
   )
 }
+

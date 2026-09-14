@@ -11,17 +11,14 @@ import {
 /**
  * AppShell (v4 — single toolbar)
  *
- * Slim chrome: 168px sidebar + 48px toolbar + scrollable main.
+ * Slim chrome: 72px sidebar + 48px toolbar + scrollable main.
  */
 const STRIP_OVERALL_TIMEOUT_MS = 4_000
 const ASSETS_OVERALL_TIMEOUT_MS = 5_000
 
 export default async function AppShell({
-  current,
   children,
 }: {
-  /** Sidebar active key */
-  current?: string
   children: React.ReactNode
 }) {
   let tickerAssets: Awaited<ReturnType<typeof fetchRobinhoodAssets>> = []
@@ -58,7 +55,7 @@ export default async function AppShell({
         className="zeks-shell"
         data-app-shell
       >
-        <AppSidebar current={current} />
+        <AppSidebar />
         <div className="zeks-shell-body">
           <div className="zeks-shell-chrome">
             <AppHeader tickerAssets={tickerAssets} tickerQuotes={tickerQuotes} />

@@ -27,7 +27,7 @@ export default async function LendingMarketDetailPage({
   if (!market) notFound()
 
   return (
-    <AppShell current="markets">
+    <AppShell>
       <LendingMarketDetail market={market} />
     </AppShell>
   )

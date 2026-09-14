@@ -14,8 +14,9 @@ export const dynamic = "force-dynamic"
  */
 export default function LoopPage() {
   return (
-    <AppShell current="loop">
+    <AppShell>
       <LoopComposition />
     </AppShell>
   )
 }
+

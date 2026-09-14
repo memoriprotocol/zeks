@@ -17,7 +17,7 @@ export default async function TerminalBorrowPage() {
   const initialError = result.kind === "error" ? result.message : null
 
   return (
-    <AppShell current="borrow">
+    <AppShell>
       <div className="max-w-5xl">
         <BorrowLive
           initialMarkets={initialMarkets}
@@ -28,3 +28,4 @@ export default async function TerminalBorrowPage() {
     </AppShell>
   )
 }
+
