@@ -221,83 +221,37 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
   const isEmpty = !feed || feed.events.length === 0
   const feedUpdatedAt = feed?.updatedAt ?? null
 
-  // ── Right panel height = exact rendered height of the left stack.
-  // Measured via ResizeObserver so any future padding/border/gap
-  // changes on the LEFT automatically propagate. No magic numbers.
-  const leftStackRef = React.useRef<HTMLDivElement | null>(null)
-  const [rightHeight, setRightHeight] = React.useState<number | null>(null)
-  React.useEffect(() => {
-    const el = leftStackRef.current
-    if (!el) return
-    const apply = () => {
-      const h = el.getBoundingClientRect().height
-      // Round to nearest px so SSR/client + browser sub-pixel
-      // compensation does not cause a 1px gap.
-      setRightHeight(Math.round(h))
-    }
-    apply()
-    const ro = new ResizeObserver(apply)
-    ro.observe(el)
-    window.addEventListener("resize", apply)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("resize", apply)
-    }
-  }, [])
-
   return (
     <div
-      // Two columns · 1fr | 2fr · ~16px gap.
-      // No align-items:stretch — heights are fixed below so neither
-      // side inherits the other's content height.
+      // Single grid · LEFT col = 2 rows of 116px · RIGHT col spans
+      // both rows → its exact visual height = 116 + 22 + 116 = 254px
+      // by grid row geometry. No JS measurement.
       style={{
         display: "grid",
         gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)",
-        gap: "var(--page-card-gap)",
+        gridTemplateRows: "116px 116px",
+        columnGap: "var(--page-card-gap)",
+        rowGap: "22px",
+        alignItems: "stretch",
       }}
       data-testid="section-live-liquidity"
     >
-      {/* LEFT — 2 compact stacked cards · each exactly 122px */}
-      <div
-        ref={leftStackRef}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--liquidity-gap)",
-          alignSelf: "start",
-        }}
-      >
-        <div
-          style={{
-            height: "var(--liquidity-small-card-h)",
-            minHeight: "var(--liquidity-small-card-h)",
-            maxHeight: "var(--liquidity-small-card-h)",
-          }}
-        >
-          <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
-        </div>
-        <div
-          style={{
-            height: "var(--liquidity-small-card-h)",
-            minHeight: "var(--liquidity-small-card-h)",
-            maxHeight: "var(--liquidity-small-card-h)",
-          }}
-        >
-          <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
-        </div>
+      <div style={{ gridColumn: 1, gridRow: 1 }}>
+        <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
       </div>
 
-      {/* RIGHT — Live Activity · height = exact measured left-stack */}
+      <div style={{ gridColumn: 1, gridRow: 2 }}>
+        <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
+      </div>
+
+      {/* RIGHT — Live Activity · spans both rows · 254px by grid */}
       <div
         style={{
-          alignSelf: "start",
-          // First render before measurement: fall back to the
-          // compact spec (122 + 16 + 122 = 260) so SSR/initial
-          // paint does not flash. Replaced atomically once the
-          // ResizeObserver reports the real value.
-          height: rightHeight ?? 260,
+          gridColumn: 2,
+          gridRow: "1 / span 2",
+          height: "auto",
           minHeight: 0,
-          maxHeight: rightHeight ?? 260,
+          maxHeight: "none",
         }}
       >
         <ActivityFeedPanel

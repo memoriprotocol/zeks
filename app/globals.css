@@ -99,10 +99,9 @@
   --dash-explainer-mb: 24px;       /* mb-8 */
 
   /* LIVE LIQUIDITY section — fixed compact sizes (height-only fix).
-     122 + 16 + 122 = 260, so bottom edges align by construction. */
-  --liquidity-small-card-h:  122px;
-  --liquidity-gap:           16px;
-  --liquidity-panel-h:       260px;
+     116 + 22 + 116 = 254, so bottom edges align by grid row geometry. */
+  --liquidity-small-card-h:  116px;
+  --liquidity-gap:           22px;
 
   /* ── Typography scale (measured reference spec) ─────────── */
   --font-dash-title:   26px;       /* serif, -0.04em */
