@@ -95,8 +95,8 @@ export default function AppSidebar() {
           <img
             src="/assets/brand/zeks-logo.png"
             alt="ZEKS"
-            width={42}
-            height={42}
+            width={52}
+            height={52}
             style={{
               display: "block",
               objectFit: "contain",
