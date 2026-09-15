@@ -223,35 +223,41 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
 
   return (
     <div
-      className="zeks-grid"
-      // 2 cols (1fr / 2fr) × 2 rows. Left column puts 2 cards in rows
-      // 1 & 2. Right column spans both rows, so its height is exactly
-      // card1 + gap + card2 — no token, no guessing.
+      // Two columns · 1fr | 2fr · ~16px gap.
+      // align-items: stretch makes both columns share the same
+      // resolved height (= left stack = card1 + gap + card2).
+      // Right card uses height:100% to match by construction.
       style={{
+        display: "grid",
         gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)",
-        gridTemplateRows: "auto auto",
-        columnGap: "var(--page-card-gap)",
-        rowGap: "var(--page-card-gap)",
+        gap: "var(--page-card-gap)",
+        alignItems: "stretch",
       }}
       data-testid="section-live-liquidity"
     >
-      <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
-
-      {/* RIGHT col · spans both rows — bottom edge aligns exactly
-          with ADDED card bottom via row geometry, no token/guessing. */}
-      <div style={{ gridRow: "1 / span 2", minHeight: 0 }}>
-        <ActivityFeedPanel
-          feed={feed}
-          loading={loading}
-          isEmpty={isEmpty}
-          head={head}
-          feedUpdatedAt={feedUpdatedAt}
-          headUpdatedAt={headUpdatedAt}
-          freshIds={freshIds}
-        />
+      {/* LEFT — 2 compact stacked cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: "auto auto",
+          gap: "var(--page-card-gap)",
+          minHeight: 0,
+        }}
+      >
+        <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
+        <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
       </div>
 
-      <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
+      {/* RIGHT — Live Activity · fills its column height */}
+      <ActivityFeedPanel
+        feed={feed}
+        loading={loading}
+        isEmpty={isEmpty}
+        head={head}
+        feedUpdatedAt={feedUpdatedAt}
+        headUpdatedAt={headUpdatedAt}
+        freshIds={freshIds}
+      />
     </div>
   )
 }
@@ -397,6 +403,7 @@ function ActivityFeedPanel({
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
         height: "100%",
+        minHeight: 0,
       }}
     >
       {/* Header row — live indicator · label · block · synced timer */}
