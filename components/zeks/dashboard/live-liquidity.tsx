@@ -29,6 +29,7 @@ import { Pill } from "@/components/zeks/pill"
 import { AnimatedNumber } from "@/components/zeks/animated-number"
 import { useNow } from "@/components/zeks/use-now"
 import { useDocumentVisible } from "@/components/zeks/use-document-visible"
+import { useLiquidityTvl } from "@/components/zeks/dashboard/use-liquidity-tvl"
 import { formatTokenAmount } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
 import { explorerTxUrl } from "@/lib/explorer/robinhood-chain"
@@ -92,21 +93,14 @@ export function LiveLiquidity({
   markets,
   marketsFetchedAt,
 }: LiveLiquidityProps) {
-  // ── Derived: total liquidity from incoming market props ───────
-  const totalLiquidityUsd = React.useMemo(() => {
-    let total = 0
-    let any = false
-    for (const m of markets) {
-      const v = m.totalSupply ?? null
-      if (v != null && Number.isFinite(v)) {
-        total += v
-        any = true
-      }
-    }
-    return any ? total : null
-  }, [markets])
+  // ── Total liquidity + "synced Xs ago" timer · driven by the
+  // shared /api/markets/lending feed via useMarketSummary in the
+  // parent. Hook reuses that 3s upstream poll and stamps our own
+  // 10s-gated "synced" timer so the UI behaves exactly as spec'd.
+  const { totalLiquidityUsd, lastSyncedAtMs: syncedSecondsAgo } =
+    useLiquidityTvl({ markets, marketsFetchedAt })
 
-  // ── Pool counts · derived from the same markets prop ─────────
+  // ── Pool counts · derived from the same markets prop ───────
   // Total approved pools = all markets currently passed in.
   // Active pools        = status === "active".
   const poolCounts = React.useMemo(() => {
@@ -119,17 +113,9 @@ export function LiveLiquidity({
     return { total, active }
   }, [markets])
 
-  // "synced Xs ago" — ticks every 1s; resets when the upstream
-  // markets feed timestamp advances (useMarketSummary polls ~3s,
-  // but the spec asks for a display cadence ≈10s for the TVL).
-  const now = useNow(1000)
-  const syncedSecondsAgo = React.useMemo(() => {
-    if (!marketsFetchedAt) return null
-    const t = Date.parse(marketsFetchedAt)
-    if (!Number.isFinite(t)) return null
-    const diff = Math.max(0, Math.floor((now - t) / 1000))
-    return diff
-  }, [marketsFetchedAt, now])
+  // 1s ticker retained for any internal labels that still need it
+  // (kept for parity; the synced timer is now owned by the hook).
+  useNow(1000)
 
   // ── Feed state ────────────────────────────────────────────────
   const [feed, setFeed] = React.useState<ActivityPayload | null>(null)
