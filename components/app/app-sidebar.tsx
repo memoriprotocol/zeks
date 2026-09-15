@@ -34,10 +34,10 @@ const NAV_ITEMS: NavItem[] = [
  *
  * Layout (top→bottom):
  *   ┌──────────┐
- *   │  ZEKS    │  ← 52px brand block, centered logo, divider below
+ *   │  ZEKS    │  ← 76px brand block, centered logo, divider below
  *   │  logo    │
  *   ├──────────┤
- *   │ Dashboard│  ← nav items: icon + label, 60px each
+ *   │ Dashboard│  ← nav items: icon + label, 62px each
  *   │ Markets  │
  *   │ Loop     │
  *   │ Earn     │
@@ -45,11 +45,11 @@ const NAV_ITEMS: NavItem[] = [
  *   │ Portfolio│
  *   │ Activity │
  *   ├──────────┤
- *   │  ● Live  │  ← 40px bottom status
+ *   │  ● Live  │  ← 44px bottom status
  *   └──────────┘
  *
  * Active: soft cream background, 3px lime left indicator, bold label.
- * Width: 84px — compact enough for a nav rail; all labels render fully.
+ * Width: 92px — compact enough for a nav rail; all labels render fully.
  * Fixed positioning; does not scroll with page content.
  */
 export default function AppSidebar() {
@@ -68,7 +68,8 @@ export default function AppSidebar() {
       {/* ── Brand block ─────────────────────────────── */}
       <div
         style={{
-          height: "52px",
+          minHeight: "76px",
+          padding: "12px 0 10px 0",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -79,14 +80,23 @@ export default function AppSidebar() {
         <Link
           href="/terminal"
           aria-label="ZEKS — back to Dashboard"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "60px",
+            height: "60px",
+            borderRadius: "14px",
+            backgroundColor: "var(--sidebar-accent)",
+            boxShadow: "0 1px 0 rgba(0,0,0,0.04) inset",
+          }}
         >
           {/* ZEKS wordmark — sourced from /assets/brand/zeks-logo.png */}
           <img
             src="/assets/brand/zeks-logo.png"
             alt="ZEKS"
-            width={34}
-            height={34}
+            width={42}
+            height={42}
             style={{
               display: "block",
               objectFit: "contain",
@@ -123,8 +133,8 @@ export default function AppSidebar() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "4px",
-                minHeight: "60px",
+                gap: "5px",
+                minHeight: "62px",
                 paddingLeft: "3px",
                 paddingRight: "3px",
                 paddingTop: "7px",
@@ -172,10 +182,10 @@ export default function AppSidebar() {
                   }}
                 />
               )}
-              <Icon size={18} />
+              <Icon size={20} />
               <span
                 style={{
-                  fontSize: "11px",
+                  fontSize: "10.5px",
                   fontFamily: "var(--font-mono, 'Courier New', monospace)",
                   fontWeight: isActive ? 600 : 500,
                   lineHeight: 1.1,
@@ -196,7 +206,8 @@ export default function AppSidebar() {
       {/* ── Bottom status ───────────────────────────── */}
       <div
         style={{
-          height: "40px",
+          minHeight: "44px",
+          padding: "6px 0",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

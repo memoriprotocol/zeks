@@ -62,7 +62,7 @@
   --sidebar-ring: #1A1814;
 
   /* ── Layout chrome ─────────────────────────────────────── */
-  --shell-sidebar-w:  84px;        /* icon + label sidebar */
+  --shell-sidebar-w:  92px;        /* icon + label sidebar */
   --shell-header-h:   48px;        /* single toolbar (replaces header + strip) */
   --content-max:    1152px;        /* ~max-w-6xl */
   --content-pad-x:    28px;        /* desktop gutter */
