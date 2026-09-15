@@ -1,39 +1,37 @@
 "use client"
 
 /**
- * useLiquidityTvl — drives the TOTAL LIQUIDITY card refresh.
+ * useLiquidityTvl — drives the TOTAL LIQUIDITY card.
  *
  *   - Derives totalLiquidityUsd by summing totalSupply across the
- *     shared `markets` prop (provided by useMarketSummary at
- *     /components/zeks/dashboard/use-market-summary.ts, which
- *     polls /api/markets/lending).
- *   - Stamps `lastSyncedAtMs = Date.now()` ONLY when a fresh
- *     `marketsFetchedAt` arrives, and ONLY at most once per
- *     10-second cycle. This is what powers "synced Xs ago".
+ *     shared `markets` prop, which is fed by
+ *     /components/zeks/dashboard/use-market-summary.ts.
+ *   - That hook polls /api/markets/lending every 3s (POLL_MS in
+ *     use-market-summary.ts) and exposes the server-side
+ *     `fetchedAt` timestamp. We observe that timestamp and stamp
+ *     `lastSyncedAtMs = Date.now()` ONLY when it advances — i.e.
+ *     after a SUCCESSFUL refresh. No artificial gating, no extra
+ *     network requests, no duplicate polling loop.
  *
  * Why this shape:
- *   - Reuses the existing `/api/markets/lending` polling loop. No
- *     duplicate network requests.
- *   - The card's data refresh cadence is exactly 10s, as required.
- *   - On a failed fetch the parent never advances `marketsFetchedAt`,
- *     so `lastSyncedAtMs` is NOT reset → "synced Xs ago" keeps
- *     counting up (correct failure behavior).
- *   - Replaces the earlier bug where the label was derived from the
- *     upstream server timestamp, which drifted into the thousands
- *     of seconds during a long-lived browser tab.
+ *   - Reuses the existing 3s refresh cadence (or 30s when the tab
+ *     is hidden) directly. ONE source of truth for liquidity
+ *     refresh timing.
+ *   - On a failed fetch, `marketsFetchedAt` does NOT advance, so
+ *     `lastSyncedAtMs` is NOT reset → "synced Xs ago" keeps
+ *     counting up (correct failure behavior — no fake sync).
+ *   - Replaces the earlier bug where the label was derived from
+ *     an old upstream server timestamp that drifted into the
+ *     thousands of seconds.
  */
 
 import * as React from "react"
 import { useNow } from "@/components/zeks/use-now"
 import type { LendingMarket } from "@/lib/markets/lending"
 
-const SYNC_GATE_MS = 10_000
-
 export interface UseLiquidityTvlResult {
   totalLiquidityUsd: number | null
-  lastSyncedAtMs: number | null
-  /** True until the very first sample is stamped. */
-  loading: boolean
+  syncedSecondsAgo: number | null
 }
 
 export function useLiquidityTvl(opts: {
@@ -45,35 +43,28 @@ export function useLiquidityTvl(opts: {
   // Live ticker · 1s · drives the "synced Xs ago" label.
   const now = useNow(1000)
 
-  // True totalSupply sum across the shared markets feed.
+  // Total TVL = sum of totalSupply across the shared markets feed.
   const totalLiquidityUsd = React.useMemo(
     () => sumMarkets(markets),
     [markets],
   )
 
-  // Wall-clock ms of the most recent 10s-gated, SUCCESSFUL feed
-  // observation. The 10s gate guarantees the "synced" timer resets
-  // to 0 only every ~10s (matches the spec) even if the upstream
-  // poll arrives every 3s.
+  // Wall-clock ms of the most recent observed upstream fetch
+  // timestamp. Reset ONLY when the parent reports a new, valid
+  // `marketsFetchedAt`. This is the client-side stamp — it has
+  // no relationship to upstream server clocks.
   const [lastSyncedAtMs, setLastSyncedAtMs] = React.useState<number | null>(
     null,
   )
-  const lastAcceptedMsRef = React.useRef<number>(0)
+  const lastSeenTimestampRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
     if (!marketsFetchedAt) return
-    const t = Date.parse(marketsFetchedAt)
-    if (!Number.isFinite(t)) return
-    // Gate: ignore new fetch timestamps arriving within 10s of the
-    // last accepted one. The NEXT acceptable sample will reset the
-    // timer back to ~0s.
-    if (t < lastAcceptedMsRef.current) return
-    if (lastAcceptedMsRef.current !== 0 && t - lastAcceptedMsRef.current < SYNC_GATE_MS) {
-      return
-    }
-    lastAcceptedMsRef.current = t
-    // Stamp wall-clock "now" so the timer reads "0s ago" exactly
-    // when the cycle resets — independent of upstream server clock.
+    // Only react to genuinely NEW upstream timestamps. This guards
+    // against React 18 strict-mode double effects and against the
+    // case where the same fetchedAt is replayed on re-render.
+    if (lastSeenTimestampRef.current === marketsFetchedAt) return
+    lastSeenTimestampRef.current = marketsFetchedAt
     setLastSyncedAtMs(Date.now())
   }, [marketsFetchedAt])
 
@@ -82,15 +73,7 @@ export function useLiquidityTvl(opts: {
     return Math.max(0, Math.floor((now - lastSyncedAtMs) / 1000))
   }, [lastSyncedAtMs, now])
 
-  // Initial loading: we have a markets prop but no successful
-  // 10s-gated sample yet.
-  const loading = lastSyncedAtMs == null
-
-  return {
-    totalLiquidityUsd,
-    lastSyncedAtMs: syncedSecondsAgo,
-    loading,
-  }
+  return { totalLiquidityUsd, syncedSecondsAgo }
 }
 
 function sumMarkets(markets: LendingMarket[]): number | null {

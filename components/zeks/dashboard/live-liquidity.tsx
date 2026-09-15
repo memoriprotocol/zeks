@@ -95,10 +95,13 @@ export function LiveLiquidity({
 }: LiveLiquidityProps) {
   // ── Total liquidity + "synced Xs ago" timer · driven by the
   // shared /api/markets/lending feed via useMarketSummary in the
-  // parent. Hook reuses that 3s upstream poll and stamps our own
-  // 10s-gated "synced" timer so the UI behaves exactly as spec'd.
-  const { totalLiquidityUsd, lastSyncedAtMs: syncedSecondsAgo } =
-    useLiquidityTvl({ markets, marketsFetchedAt })
+  // parent (3s when visible, 30s when hidden). The hook stamps
+  // the sync time ONLY on a fresh upstream `fetchedAt`, so the
+  // UI never fakes a successful sync on a failed request.
+  const { totalLiquidityUsd, syncedSecondsAgo } = useLiquidityTvl({
+    markets,
+    marketsFetchedAt,
+  })
 
   // ── Pool counts · derived from the same markets prop ───────
   // Total approved pools = all markets currently passed in.
@@ -112,10 +115,6 @@ export function LiveLiquidity({
     }
     return { total, active }
   }, [markets])
-
-  // 1s ticker retained for any internal labels that still need it
-  // (kept for parity; the synced timer is now owned by the hook).
-  useNow(1000)
 
   // ── Feed state ────────────────────────────────────────────────
   const [feed, setFeed] = React.useState<ActivityPayload | null>(null)
