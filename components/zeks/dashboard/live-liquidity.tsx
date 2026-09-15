@@ -224,40 +224,63 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
   return (
     <div
       // Two columns · 1fr | 2fr · ~16px gap.
-      // align-items: stretch makes both columns share the same
-      // resolved height (= left stack = card1 + gap + card2).
-      // Right card uses height:100% to match by construction.
+      // No align-items:stretch — heights are fixed below so neither
+      // side inherits the other's content height.
       style={{
         display: "grid",
         gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)",
         gap: "var(--page-card-gap)",
-        alignItems: "stretch",
       }}
       data-testid="section-live-liquidity"
     >
-      {/* LEFT — 2 compact stacked cards */}
+      {/* LEFT — 2 compact stacked cards · each exactly 122px */}
       <div
         style={{
-          display: "grid",
-          gridTemplateRows: "auto auto",
-          gap: "var(--page-card-gap)",
-          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--liquidity-gap)",
+          alignSelf: "start",
         }}
       >
-        <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
-        <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
+        <div
+          style={{
+            height: "var(--liquidity-small-card-h)",
+            minHeight: "var(--liquidity-small-card-h)",
+            maxHeight: "var(--liquidity-small-card-h)",
+          }}
+        >
+          <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
+        </div>
+        <div
+          style={{
+            height: "var(--liquidity-small-card-h)",
+            minHeight: "var(--liquidity-small-card-h)",
+            maxHeight: "var(--liquidity-small-card-h)",
+          }}
+        >
+          <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
+        </div>
       </div>
 
-      {/* RIGHT — Live Activity · fills its column height */}
-      <ActivityFeedPanel
-        feed={feed}
-        loading={loading}
-        isEmpty={isEmpty}
-        head={head}
-        feedUpdatedAt={feedUpdatedAt}
-        headUpdatedAt={headUpdatedAt}
-        freshIds={freshIds}
-      />
+      {/* RIGHT — Live Activity · fixed 260px to match left stack */}
+      <div
+        style={{
+          alignSelf: "start",
+          height: "var(--liquidity-panel-h)",
+          minHeight: "var(--liquidity-panel-h)",
+          maxHeight: "var(--liquidity-panel-h)",
+        }}
+      >
+        <ActivityFeedPanel
+          feed={feed}
+          loading={loading}
+          isEmpty={isEmpty}
+          head={head}
+          feedUpdatedAt={feedUpdatedAt}
+          headUpdatedAt={headUpdatedAt}
+          freshIds={freshIds}
+        />
+      </div>
     </div>
   )
 }
