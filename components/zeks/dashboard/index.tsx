@@ -109,7 +109,10 @@ export function Dashboard({
       {/* 4 · Live Liquidity */}
       <section className="zeks-block">
         <SectionTitle>Live Liquidity</SectionTitle>
-        <LiveLiquidity markets={markets} />
+        <LiveLiquidity
+          markets={markets}
+          marketsFetchedAt={marketsFetchedAt}
+        />
       </section>
 
       {/* 5 · Stock Opportunities */}

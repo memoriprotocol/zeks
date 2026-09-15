@@ -29,10 +29,7 @@ import { Pill } from "@/components/zeks/pill"
 import { AnimatedNumber } from "@/components/zeks/animated-number"
 import { useNow } from "@/components/zeks/use-now"
 import { useDocumentVisible } from "@/components/zeks/use-document-visible"
-import {
-  formatCompact,
-  formatTokenAmount,
-} from "@/lib/markets/format"
+import { formatTokenAmount } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
 import { explorerTxUrl } from "@/lib/explorer/robinhood-chain"
 
@@ -71,6 +68,7 @@ interface HeadPayload {
 
 interface LiveLiquidityProps {
   markets: LendingMarket[]
+  marketsFetchedAt: string | null
 }
 
 const POLL_ACTIVITY_MS = 2_000
@@ -90,7 +88,10 @@ function parseUsdgNumber(s: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function LiveLiquidity({ markets }: LiveLiquidityProps) {
+export function LiveLiquidity({
+  markets,
+  marketsFetchedAt,
+}: LiveLiquidityProps) {
   // ── Derived: total liquidity from incoming market props ───────
   const totalLiquidityUsd = React.useMemo(() => {
     let total = 0
@@ -104,6 +105,31 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
     }
     return any ? total : null
   }, [markets])
+
+  // ── Pool counts · derived from the same markets prop ─────────
+  // Total approved pools = all markets currently passed in.
+  // Active pools        = status === "active".
+  const poolCounts = React.useMemo(() => {
+    let total = 0
+    let active = 0
+    for (const m of markets) {
+      total += 1
+      if (m.status === "active") active += 1
+    }
+    return { total, active }
+  }, [markets])
+
+  // "synced Xs ago" — ticks every 1s; resets when the upstream
+  // markets feed timestamp advances (useMarketSummary polls ~3s,
+  // but the spec asks for a display cadence ≈10s for the TVL).
+  const now = useNow(1000)
+  const syncedSecondsAgo = React.useMemo(() => {
+    if (!marketsFetchedAt) return null
+    const t = Date.parse(marketsFetchedAt)
+    if (!Number.isFinite(t)) return null
+    const diff = Math.max(0, Math.floor((now - t) / 1000))
+    return diff
+  }, [marketsFetchedAt, now])
 
   // ── Feed state ────────────────────────────────────────────────
   const [feed, setFeed] = React.useState<ActivityPayload | null>(null)
@@ -237,7 +263,12 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
       data-testid="section-live-liquidity"
     >
       <div style={{ gridColumn: 1, gridRow: 1 }}>
-        <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
+        <TotalLiquidityCard
+          totalLiquidityUsd={totalLiquidityUsd}
+          totalPools={poolCounts.total}
+          activePools={poolCounts.active}
+          syncedSecondsAgo={syncedSecondsAgo}
+        />
       </div>
 
       <div style={{ gridColumn: 1, gridRow: 2 }}>
@@ -275,17 +306,54 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
 
 function TotalLiquidityCard({
   totalLiquidityUsd,
+  totalPools,
+  activePools,
+  syncedSecondsAgo,
 }: {
   totalLiquidityUsd: number | null
+  totalPools: number
+  activePools: number
+  syncedSecondsAgo: number | null
 }) {
-  const formatFn = React.useCallback(
-    (v: number) => formatCompact(v),
-    [],
-  )
+  // Full comma-separated USD (no K/M/B abbreviation).
+  // Examples: 483739194 → "$483,739,194", 495600000 → "$495,600,000".
+  // Falls back to "$0" while upstream data is loading so the layout
+  // never shifts.
+  const formatFn = React.useCallback((v: number) => {
+    const safe = Number.isFinite(v) ? v : 0
+    return `$${Math.round(safe).toLocaleString("en-US", {
+      maximumFractionDigits: 0,
+    })}`
+  }, [])
+
+  const syncedLabel =
+    syncedSecondsAgo == null ? "syncing…" : `synced ${syncedSecondsAgo}s ago`
+
   return (
     <Card>
-      <span className="zeks-label" style={{ marginBottom: "8px" }}>
-        Total Liquidity
+      <span
+        className="zeks-label"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          marginBottom: "8px",
+        }}
+      >
+        {/* Green status dot before the title (matches reference). */}
+        <span
+          aria-hidden="true"
+          style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: "var(--up)",
+            boxShadow:
+              "0 0 0 2px color-mix(in srgb, var(--up) 18%, transparent)",
+            flexShrink: 0,
+          }}
+        />
+        <span>Total Liquidity in Approved Pools</span>
       </span>
       <AnimatedNumber
         value={totalLiquidityUsd}
@@ -303,7 +371,7 @@ function TotalLiquidityCard({
           marginTop: "4px",
         }}
       >
-        Across curated Morpho markets
+        across {totalPools} pools · {activePools} active · {syncedLabel}
       </span>
     </Card>
   )
