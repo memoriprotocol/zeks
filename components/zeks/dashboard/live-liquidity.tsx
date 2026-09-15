@@ -234,7 +234,8 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
         style={{
           gridTemplateRows: "auto auto",
           gap: "var(--page-card-gap)",
-          alignSelf: "start",
+          height: "var(--dash-live-feed-h)",
+          alignContent: "start",
         }}
       >
         <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
@@ -395,8 +396,7 @@ function ActivityFeedPanel({
         borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
-        minHeight: "256px",
-        height: "100%",
+        height: "var(--dash-live-feed-h)",
       }}
     >
       {/* Header row — live indicator · label · block · synced timer */}
@@ -442,7 +442,7 @@ function ActivityFeedPanel({
         </div>
       </div>
 
-      {/* Feed body */}
+      {/* Feed body — internal scroll */}
       {isEmpty ? (
         <EmptyFeed
           loading={loading}
@@ -451,6 +451,22 @@ function ActivityFeedPanel({
       ) : (
         <ActivityFeed events={feed!.events} freshIds={freshIds} />
       )}
+
+      {/* Footer — "+N more" pinned at bottom (informational; list scrolls) */}
+      {!isEmpty && feed!.events.length > VISIBLE_ROWS ? (
+        <div
+          className="flex items-center justify-end shrink-0 font-mono"
+          style={{
+            paddingTop: "6px",
+            borderTop: "1px solid var(--border)",
+            fontSize: "11px",
+            color: "var(--muted-foreground)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          +{feed!.events.length - VISIBLE_ROWS} more
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -545,18 +561,14 @@ function ActivityFeed({
   events: ActivityEvent[]
   freshIds: Set<string>
 }) {
-  const [showAll, setShowAll] = React.useState(false)
-  const visible = showAll ? events.length : Math.min(events.length, VISIBLE_ROWS)
-  const items = events.slice(0, visible)
-  const more = events.length - visible
   // `now` is null on the server / first client paint — relative
   // timestamps then render as "—" so SSR / client markup matches.
   const now = useNow(1000)
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       <ol
-        className="relative flex-1 overflow-auto"
+        className="relative flex-1 min-h-0 overflow-y-auto"
         style={{ padding: "0 0 4px" }}
         data-testid="protocol-feed-list"
       >
@@ -566,7 +578,7 @@ function ActivityFeed({
           className="absolute left-[11px] top-3 bottom-3 w-px"
           style={{ backgroundColor: "var(--border)" }}
         />
-        {items.map((e) => (
+        {events.map((e) => (
           <ActivityRow
             key={e.id}
             event={e}
@@ -575,38 +587,6 @@ function ActivityFeed({
           />
         ))}
       </ol>
-
-      {more > 0 && !showAll && (
-        <div
-          className="flex items-center justify-end shrink-0"
-          style={{
-            paddingTop: "6px",
-            borderTop: "1px solid var(--border)",
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => setShowAll(true)}
-            className="font-mono tracking-wide transition-colors"
-            style={{
-              fontSize: "11px",
-              color: "var(--muted-foreground)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "4px 0",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "var(--foreground)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--muted-foreground)")
-            }
-          >
-            +{more} more
-          </button>
-        </div>
-      )}
     </div>
   )
 }

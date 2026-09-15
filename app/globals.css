@@ -98,6 +98,10 @@
   --dash-banner-mb:    12px;       /* mb-4 */
   --dash-explainer-mb: 24px;       /* mb-8 */
 
+  /* Live Liquidity right card height — matches left stack
+     (compact card ~120px + 14px gap + compact card ~120px). */
+  --dash-live-feed-h:  260px;
+
   /* ── Typography scale (measured reference spec) ─────────── */
   --font-dash-title:   26px;       /* serif, -0.04em */
   --font-section-head: 13px;       /* mono uppercase */
