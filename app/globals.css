@@ -1222,3 +1222,17 @@
   }
 }
 
+/* ── Hidden scrollbar · keeps wheel/trackpad scrolling ────────── */
+/* Used by LIVE ACTIVITY event list — the visual scrollbar must
+   not appear, but programmatic & input-based scrolling still works. */
+.activity-list {
+  -ms-overflow-style: none;          /* IE / old Edge */
+  scrollbar-width: none;             /* Firefox */
+  scrollbar-gutter: auto;            /* do NOT reserve gutter */
+}
+.activity-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+

@@ -221,6 +221,30 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
   const isEmpty = !feed || feed.events.length === 0
   const feedUpdatedAt = feed?.updatedAt ?? null
 
+  // ── Right panel height = exact rendered height of the left stack.
+  // Measured via ResizeObserver so any future padding/border/gap
+  // changes on the LEFT automatically propagate. No magic numbers.
+  const leftStackRef = React.useRef<HTMLDivElement | null>(null)
+  const [rightHeight, setRightHeight] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    const el = leftStackRef.current
+    if (!el) return
+    const apply = () => {
+      const h = el.getBoundingClientRect().height
+      // Round to nearest px so SSR/client + browser sub-pixel
+      // compensation does not cause a 1px gap.
+      setRightHeight(Math.round(h))
+    }
+    apply()
+    const ro = new ResizeObserver(apply)
+    ro.observe(el)
+    window.addEventListener("resize", apply)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("resize", apply)
+    }
+  }, [])
+
   return (
     <div
       // Two columns · 1fr | 2fr · ~16px gap.
@@ -235,6 +259,7 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
     >
       {/* LEFT — 2 compact stacked cards · each exactly 122px */}
       <div
+        ref={leftStackRef}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -262,13 +287,17 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
         </div>
       </div>
 
-      {/* RIGHT — Live Activity · fixed 260px to match left stack */}
+      {/* RIGHT — Live Activity · height = exact measured left-stack */}
       <div
         style={{
           alignSelf: "start",
-          height: "var(--liquidity-panel-h)",
-          minHeight: "var(--liquidity-panel-h)",
-          maxHeight: "var(--liquidity-panel-h)",
+          // First render before measurement: fall back to the
+          // compact spec (122 + 16 + 122 = 260) so SSR/initial
+          // paint does not flash. Replaced atomically once the
+          // ResizeObserver reports the real value.
+          height: rightHeight ?? 260,
+          minHeight: 0,
+          maxHeight: rightHeight ?? 260,
         }}
       >
         <ActivityFeedPanel
@@ -582,7 +611,7 @@ function ActivityFeed({
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       <ol
-        className="relative flex-1 min-h-0 overflow-y-auto"
+        className="activity-list relative flex-1 min-h-0 overflow-y-auto"
         style={{ padding: "0 0 4px" }}
         data-testid="protocol-feed-list"
       >
