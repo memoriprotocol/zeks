@@ -228,13 +228,13 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
       style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)" }}
       data-testid="section-live-liquidity"
     >
-      {/* LEFT — 2 stacked metric cards */}
+      {/* LEFT — 2 stacked metric cards (natural sizing, no stretching) */}
       <div
         className="grid"
         style={{
-          gridTemplateRows: "1fr 1fr",
+          gridTemplateRows: "auto auto",
           gap: "var(--page-card-gap)",
-          minHeight: "256px",
+          alignSelf: "start",
         }}
       >
         <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
@@ -276,7 +276,7 @@ function TotalLiquidityCard({
         format={formatFn}
         durationMs={300}
         className="zeks-num-xl"
-        style={{ color: "var(--foreground)", marginTop: "auto" }}
+        style={{ color: "var(--foreground)" }}
         testId="metric-total-liquidity"
       />
       <span
@@ -326,7 +326,7 @@ function AddedLastDepositsCard({
         format={formatFn}
         durationMs={300}
         className="zeks-num-xl"
-        style={{ color: "var(--foreground)", marginTop: "auto" }}
+        style={{ color: "var(--up)" }}
         testId="metric-added-last-6"
       />
       <span
@@ -346,13 +346,12 @@ function AddedLastDepositsCard({
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="flex flex-col h-full"
+      className="flex flex-col"
       style={{
         padding: "var(--dash-card-pad)",
         borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
-        minHeight: "0",
       }}
     >
       {children}
