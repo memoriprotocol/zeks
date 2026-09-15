@@ -241,7 +241,10 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
       </div>
 
       <div style={{ gridColumn: 1, gridRow: 2 }}>
-        <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
+        <AddedLastDepositsCard
+          addedLast6Usdg={addedLast6Num}
+          depositCount={feed?.events.length ?? 0}
+        />
       </div>
 
       {/* RIGHT — Live Activity · spans both rows · 254px by grid */}
@@ -308,31 +311,48 @@ function TotalLiquidityCard({
 
 function AddedLastDepositsCard({
   addedLast6Usdg,
+  depositCount,
 }: {
   addedLast6Usdg: number | null
+  depositCount: number
 }) {
   // The raw onchain value is an 18-decimal bigint formatted as a
-  // decimal string. To keep the UI in human-readable units (not raw
-  // wei), we normalize it: divide by 1e6 (so the displayed number
-  // is in millions of USDG, which matches the onchain magnitude).
-  // If the upstream ever switches to a "human" string, this still
-  // parses the integer part safely.
-  const displayValue = React.useMemo<number | null>(() => {
-    if (addedLast6Usdg == null || !Number.isFinite(addedLast6Usdg)) return null
-    return addedLast6Usdg
-  }, [addedLast6Usdg])
+  // decimal string. parseUsdgNumber upstream has already converted
+  // it to a human-readable numeric (e.g. 2394.58 → "$2,394.58").
+  const displayValue = React.useMemo<number | null>(
+    () => (addedLast6Usdg != null && Number.isFinite(addedLast6Usdg) ? addedLast6Usdg : null),
+    [addedLast6Usdg],
+  )
 
+  // Comma-formatted USD with 2 decimals (no K/M/B abbreviation).
+  // Examples: 0 → "$0", 2394.58 → "$2,394.58", 12610.45 → "$12,610.45".
   const formatFn = React.useCallback((v: number) => {
-    // If value is very large (raw wei), treat it as bigint-shaped
-    // by trimming to a compact human form. Otherwise just format
-    // with the project's compact formatter.
-    return formatTokenAmount(String(v))
+    const safe = Number.isFinite(v) ? v : 0
+    return `$${safe.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
   }, [])
 
   return (
     <Card>
-      <span className="zeks-label" style={{ marginBottom: "8px" }}>
-        Added · last 6 deposits
+      <span
+        className="zeks-label"
+        style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}
+      >
+        {/* Green status dot before the title (matches reference). */}
+        <span
+          aria-hidden="true"
+          style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: "var(--up)",
+            boxShadow: "0 0 0 2px color-mix(in srgb, var(--up) 18%, transparent)",
+            flexShrink: 0,
+          }}
+        />
+        <span>Added in last {depositCount} on-chain deposits</span>
       </span>
       <AnimatedNumber
         value={displayValue}
@@ -350,7 +370,7 @@ function AddedLastDepositsCard({
           marginTop: "4px",
         }}
       >
-        USDG · onchain vault events
+        USDG, read straight off vault Transfer events
       </span>
     </Card>
   )
