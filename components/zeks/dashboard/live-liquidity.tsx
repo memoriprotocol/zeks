@@ -73,7 +73,6 @@ interface LiveLiquidityProps {
   markets: LendingMarket[]
 }
 
-const VISIBLE_ROWS = 8
 const POLL_ACTIVITY_MS = 2_000
 const POLL_HEAD_MS = 2_000
 const POLL_HIDDEN_MS = 15_000 // throttle when tab is hidden
@@ -225,33 +224,34 @@ export function LiveLiquidity({ markets }: LiveLiquidityProps) {
   return (
     <div
       className="zeks-grid"
-      style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)" }}
+      // 2 cols (1fr / 2fr) × 2 rows. Left column puts 2 cards in rows
+      // 1 & 2. Right column spans both rows, so its height is exactly
+      // card1 + gap + card2 — no token, no guessing.
+      style={{
+        gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)",
+        gridTemplateRows: "auto auto",
+        columnGap: "var(--page-card-gap)",
+        rowGap: "var(--page-card-gap)",
+      }}
       data-testid="section-live-liquidity"
     >
-      {/* LEFT — 2 stacked metric cards (natural sizing, no stretching) */}
-      <div
-        className="grid"
-        style={{
-          gridTemplateRows: "auto auto",
-          gap: "var(--page-card-gap)",
-          height: "var(--dash-live-feed-h)",
-          alignContent: "start",
-        }}
-      >
-        <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
-        <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
+      <TotalLiquidityCard totalLiquidityUsd={totalLiquidityUsd} />
+
+      {/* RIGHT col · spans both rows — bottom edge aligns exactly
+          with ADDED card bottom via row geometry, no token/guessing. */}
+      <div style={{ gridRow: "1 / span 2", minHeight: 0 }}>
+        <ActivityFeedPanel
+          feed={feed}
+          loading={loading}
+          isEmpty={isEmpty}
+          head={head}
+          feedUpdatedAt={feedUpdatedAt}
+          headUpdatedAt={headUpdatedAt}
+          freshIds={freshIds}
+        />
       </div>
 
-      {/* RIGHT — live protocol activity */}
-      <ActivityFeedPanel
-        feed={feed}
-        loading={loading}
-        isEmpty={isEmpty}
-        head={head}
-        feedUpdatedAt={feedUpdatedAt}
-        headUpdatedAt={headUpdatedAt}
-        freshIds={freshIds}
-      />
+      <AddedLastDepositsCard addedLast6Usdg={addedLast6Num} />
     </div>
   )
 }
@@ -396,7 +396,7 @@ function ActivityFeedPanel({
         borderRadius: "var(--dash-card-radius)",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
-        height: "var(--dash-live-feed-h)",
+        height: "100%",
       }}
     >
       {/* Header row — live indicator · label · block · synced timer */}
@@ -442,7 +442,7 @@ function ActivityFeedPanel({
         </div>
       </div>
 
-      {/* Feed body — internal scroll */}
+      {/* Feed body — internal scroll (fills remaining height) */}
       {isEmpty ? (
         <EmptyFeed
           loading={loading}
@@ -451,22 +451,6 @@ function ActivityFeedPanel({
       ) : (
         <ActivityFeed events={feed!.events} freshIds={freshIds} />
       )}
-
-      {/* Footer — "+N more" pinned at bottom (informational; list scrolls) */}
-      {!isEmpty && feed!.events.length > VISIBLE_ROWS ? (
-        <div
-          className="flex items-center justify-end shrink-0 font-mono"
-          style={{
-            paddingTop: "6px",
-            borderTop: "1px solid var(--border)",
-            fontSize: "11px",
-            color: "var(--muted-foreground)",
-            letterSpacing: "0.04em",
-          }}
-        >
-          +{feed!.events.length - VISIBLE_ROWS} more
-        </div>
-      ) : null}
     </div>
   )
 }
