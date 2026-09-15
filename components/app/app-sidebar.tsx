@@ -61,7 +61,7 @@ export default function AppSidebar() {
       aria-label="Primary navigation"
       style={{
         width: "var(--shell-sidebar-w)",
-        backgroundColor: "var(--sidebar)",
+        backgroundColor: "var(--background)",
         borderRight: "1px solid var(--border)",
       }}
     >
