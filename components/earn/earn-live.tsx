@@ -16,12 +16,17 @@
 import * as React from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
+import AssetLogo from "@/components/asset-logo"
 import {
   formatPrice,
   formatApy,
   formatUtilization,
 } from "@/lib/markets/format"
 import type { LendingMarket } from "@/lib/markets/lending"
+import {
+  SUPPORTED_EARN_SYMBOLS,
+  filterToSupportedEarnMarkets,
+} from "@/lib/markets/lending/supported"
 import { useLendingMarkets } from "./use-lending-markets"
 import { resolveProtocolContractsForChain } from "@/lib/markets/protocol/registry"
 import { ROBINHOOD_CHAIN_ID } from "@/lib/markets/types"
@@ -73,10 +78,10 @@ export default function EarnLive({
   // If the user has paged out and a new market arrives, snap back.
   const totalRows = React.useMemo(
     () =>
-      allMarkets.filter((m) =>
+      supportedRows.filter((m) =>
         query ? m.symbol.toLowerCase().includes(query.toLowerCase()) : true,
       ).length,
-    [allMarkets, query],
+    [supportedRows, query],
   )
   React.useEffect(() => {
     setVisible(INITIAL_VISIBLE)
@@ -87,14 +92,23 @@ export default function EarnLive({
     contracts.morphoBlueAddress != null &&
     contracts.morphoBlueAddress !== "0x"
 
+  // Filter once to the supported 8 Robinhood Stock Token tickers.
+  // Comparison is normalized (trim + upper) — never consults logoUrl.
+  // This memo runs before sort/search/hero so every downstream step
+  // sees only the supported universe.
+  const supportedRows = React.useMemo(
+    () => filterToSupportedEarnMarkets(allMarkets),
+    [allMarkets],
+  )
+
   const rows = React.useMemo(() => {
     const sort = sortFor(filter)
-    let list = allMarkets.filter((m) =>
+    let list = supportedRows.filter((m) =>
       query ? m.symbol.toLowerCase().includes(query.toLowerCase()) : true,
     )
     list = [...list].sort((a, b) => compareFor(a, b, sort))
     return list
-  }, [allMarkets, filter, query])
+  }, [supportedRows, filter, query])
 
   const featured = rows[0]
   const rest = rows.slice(1)
@@ -288,7 +302,20 @@ function EarnHero({ market }: { market: LendingMarket }) {
             <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
               HIGHEST SUPPLY APY
             </span>
-            <div className="flex items-baseline gap-3 mt-2">
+            <div className="flex items-center gap-3 mt-2">
+              <AssetLogo
+                symbol={market.symbol}
+                name={market.name}
+                src={market.logoUrl ?? undefined}
+                rhLogoUrl={market.rhLogoUrl ?? undefined}
+                contractAddress={
+                  market.contractAddress ??
+                  market.rhContractAddress ??
+                  market.collateralTokenAddress ??
+                  undefined
+                }
+                size={32}
+              />
               <span className="font-serif text-[28px] md:text-[32px] leading-none tracking-tight text-foreground">
                 {market.symbol}
               </span>
@@ -363,12 +390,27 @@ function OpportunityRow({ market }: { market: LendingMarket }) {
         href={`/terminal/markets/${encodeURIComponent(market.symbol)}`}
         className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center px-5 h-12 hover:bg-secondary/40 transition-colors"
       >
-        <div className="min-w-0">
-          <div className="zeks-display-sm truncate">
-            {market.symbol}
-          </div>
-          <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 truncate">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <AssetLogo
+            symbol={market.symbol}
+            name={market.name}
+            src={market.logoUrl ?? undefined}
+            rhLogoUrl={market.rhLogoUrl ?? undefined}
+            contractAddress={
+              market.contractAddress ??
+              market.rhContractAddress ??
+              market.collateralTokenAddress ??
+              undefined
+            }
+            size={22}
+          />
+          <div className="min-w-0">
+            <div className="zeks-display-sm truncate">
+              {market.symbol}
+            </div>
+            <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 truncate">
             {market.collateralAssetSymbol} collateral
+          </div>
           </div>
         </div>
         <span className="zeks-num-cell text-up text-right">

@@ -24,6 +24,15 @@ export {
   knownLendingSymbols,
 } from "./service"
 
+export {
+  SUPPORTED_EARN_SYMBOLS,
+  filterToSupportedEarnMarkets,
+  isSupportedEarnSymbol,
+  isSupportedEarnMarket,
+  normalizeSymbol,
+  type SupportedMarketLike,
+} from "./supported"
+
 export type {
   LendingSortField,
   LendingSortDir,
