@@ -75,6 +75,15 @@ export default function EarnLive({
   const [query, setQuery] = React.useState("")
   const [visible, setVisible] = React.useState(INITIAL_VISIBLE)
 
+  // Filter once to the supported 8 Robinhood Stock Token tickers.
+  // Comparison is normalized (trim + upper) — never consults logoUrl.
+  // This memo runs before sort/search/hero so every downstream step
+  // sees only the supported universe.
+  const supportedRows = React.useMemo(
+    () => filterToSupportedEarnMarkets(allMarkets),
+    [allMarkets],
+  )
+
   // If the user has paged out and a new market arrives, snap back.
   const totalRows = React.useMemo(
     () =>
@@ -91,15 +100,6 @@ export default function EarnLive({
   const protocolReady =
     contracts.morphoBlueAddress != null &&
     contracts.morphoBlueAddress !== "0x"
-
-  // Filter once to the supported 8 Robinhood Stock Token tickers.
-  // Comparison is normalized (trim + upper) — never consults logoUrl.
-  // This memo runs before sort/search/hero so every downstream step
-  // sees only the supported universe.
-  const supportedRows = React.useMemo(
-    () => filterToSupportedEarnMarkets(allMarkets),
-    [allMarkets],
-  )
 
   const rows = React.useMemo(() => {
     const sort = sortFor(filter)
