@@ -400,6 +400,8 @@ function ChartBody({
         : result
 
   const heightClass = "h-[240px] md:h-[340px]"
+  const canvasHeight = 240
+  // (md+) handled by responsive Tailwind class on the canvas wrapper
 
   if (effective.kind === "loading") {
     return (
@@ -685,12 +687,7 @@ function PriceChart({
 
       {/* ── Chart canvas ────────────────────────────────────────────── */}
       <div
-        style={{
-          marginTop: "12px",
-          borderRadius: "14px",
-          overflow: "hidden",
-          height: "340px",
-        }}
+        className="mt-3 rounded-[14px] overflow-hidden h-[240px] md:h-[340px]"
         data-testid="history-chart-canvas"
         aria-label={`${series.symbol} price chart, ${HISTORY_RANGE_META[range].durationLabel}`}
       >
@@ -698,7 +695,7 @@ function PriceChart({
           series={series}
           range={range}
           isStale={isStale}
-          height={340}
+          height={canvasHeight}
         />
       </div>
 

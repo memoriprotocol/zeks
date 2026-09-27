@@ -339,9 +339,8 @@ function LegRow({
 }) {
   const disabled =
     isPending ||
-    !done === false
-      ? false
-      : eligibility.kind !== "ready" || (!isActive && !done)
+    eligibility.kind !== "ready" ||
+    (!isActive && !done)
 
   return (
     <div
@@ -436,14 +435,11 @@ function LegRow({
 function GateBanner({
   tx,
   collateralSymbol,
-  loanSymbol,
 }: {
   tx: ReturnType<typeof useLoopTransaction>
   collateralSymbol: string
-  loanSymbol: string
+  loanSymbol?: string
 }) {
-  const _void = loanSymbol // suppress unused
-  void _void
   if (tx.stage === "disconnected") {
     return (
       <Banner tone="warn">
