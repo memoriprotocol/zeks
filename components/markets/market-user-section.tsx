@@ -274,7 +274,7 @@ function PositionCard({
                     ? "var(--down-strong)"
                     : borrowedUsd / collateralUsd / position.lltv > 0.5
                       ? "var(--up-strong)"
-                      : "var(--up-strong)",
+                      : "var(--up)",
                 transition: "width 200ms ease-out",
               }}
             />
@@ -557,10 +557,8 @@ function LoadingCard() {
 /**
  * Total position value (USD):
  *
- *   collateral + supplied − borrowed   (when collateral > 0)
- *   supplied − borrowed                (when only debt and supply)
- *   supplied                          (when only supply)
- *   borrowed (or collateral only)     (otherwise, the largest of the three)
+ *   margin available -> marginUsd (Morpho Blue equity)
+ *   otherwise       -> c + s - b (net position: collateral + supplied - borrowed)
  *
  * Returns null when no USD values are available.
  */
