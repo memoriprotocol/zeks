@@ -37,3 +37,15 @@ next-env.d.ts
 
 # Local dev error output
 *.err
+
+# Local scratch files
+/tmp/
+/.tmp/
+/0
+/.tmp-*.json
+/verify-*.log
+/eslint-*.log
+/tsc-*.log
+/nextlint-*.log
+/dev-*.log
+/dev-*.err

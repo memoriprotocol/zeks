@@ -1092,6 +1092,7 @@ function MarketsActionPanel({ market }: { market: LendingMarket }) {
     readiness.kind === "no-position" ||
     readiness.kind === "exceeds-supplied" ||
     readiness.kind === "exceeds-withdrawable" ||
+    readiness.kind === "approval-required" ||
     (approvalRequired && approval.isPending) ||
     supply.isPending ||
     withdraw.isPending ||

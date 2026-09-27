@@ -64,13 +64,13 @@ export default function PortfolioBorrowPositions({
           {collateral.map((c) => (
             <li
               key={`c-${c.marketId ?? c.symbol}`}
-              className="grid grid-cols-[minmax(0,1fr)_minmax(0,80px)_minmax(0,90px)_minmax(0,auto)] items-center gap-3 px-3 h-10 text-[12px] font-sans"
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,72px)_minmax(0,96px)_minmax(0,90px)] items-center gap-3 px-3 h-10 text-[12px] font-sans"
             >
               <span className="text-foreground font-semibold truncate">
                 {c.symbol}
               </span>
               <span className="zeks-eyebrow text-muted-foreground">collateral</span>
-              <span className="text-foreground tabular-nums text-right">
+              <span className="text-foreground tabular-nums text-right truncate">
                 {c.balanceUsd != null ? formatPrice(c.balanceUsd) : formatRawAmount(c.balanceRaw, 18)}
               </span>
               <span className="text-right whitespace-nowrap">
@@ -81,13 +81,13 @@ export default function PortfolioBorrowPositions({
           {borrowed.map((d) => (
             <li
               key={`d-${d.marketId ?? d.symbol}`}
-              className="grid grid-cols-[minmax(0,1fr)_minmax(0,80px)_minmax(0,90px)_minmax(0,auto)] items-center gap-3 px-3 h-10 text-[12px] font-sans"
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,72px)_minmax(0,96px)_minmax(0,90px)] items-center gap-3 px-3 h-10 text-[12px] font-sans"
             >
               <span className="text-foreground font-semibold truncate">
                 {d.symbol}
               </span>
               <span className="zeks-eyebrow text-down">debt</span>
-              <span className="text-foreground tabular-nums text-right">
+              <span className="text-foreground tabular-nums text-right truncate">
                 {d.balanceUsd != null ? formatPrice(d.balanceUsd) : formatRawAmount(d.balanceRaw, 18)}
               </span>
               <span className="text-right whitespace-nowrap">
