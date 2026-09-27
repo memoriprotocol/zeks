@@ -3,22 +3,18 @@
 /**
  * AssetDetailClient
  *
- * Phase 2A — Asset Detail Shell + Real Current Data.
- *
- *   - Receives the initial real `MarketAsset` + `MarketQuote` from
- *     the server (see `app/terminal/markets/[symbol]/page.tsx`).
+ * Receives the initial real `MarketAsset` + `MarketQuote` from the
+ * server (see `app/terminal/markets/[symbol]/page.tsx`).
  *   - Owns the 20 s quote-polling loop on the client. Same pattern
  *     as `MarketsPageClient` so the whole terminal shares one
  *     refresh cadence.
  *   - On poll failure, keeps the prior quote visible and surfaces a
- *     `STALE` indicator (spec §25).
+ *     `STALE` indicator.
  *   - All fields on screen come from the upstream Robinhood Stock
  *     Token API via `MarketQuote` / `MarketAsset`. No fake numbers,
  *     no fabricated contract addresses, no "execution price" naming.
- *
- * Phase 2B (not in this commit) will replace the `ChartPlaceholder`
- * with a real historical chart fed by Chainlink Data Streams or
- * whatever the next-phase data source turns out to be.
+ *   - Wires `AssetHistoryChart` for real Robinhood RPC price
+ *     history (Phase 2B chart layer, Phase 4C3 DB-backed samples).
  */
 
 import * as React from "react"
@@ -140,7 +136,7 @@ export default function AssetDetailClient({
       <div className="px-4 md:px-6 pt-5 pb-3 flex items-center justify-between gap-3 flex-wrap">
         <nav
           aria-label="Breadcrumb"
-          className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-muted-foreground"
+          className="flex items-center gap-2 zeks-eyebrow"
         >
           <Link
             href="/terminal/markets"
@@ -231,13 +227,13 @@ function AssetHeader({
             size={48}
           />
           <div className="min-w-0">
-            <div className="text-[10px] font-mono tracking-wider text-muted-foreground">
+            <div className="zeks-eyebrow">
               STOCK TOKEN · ROBINHOOD CHAIN
             </div>
-            <h1 className="font-serif text-[28px] md:text-[32px] leading-tight tracking-tight text-foreground mt-1.5">
+            <h1 className="zeks-symbol text-[26px] md:text-[30px] tracking-tight text-foreground mt-1.5">
               {asset.symbol}
             </h1>
-            <div className="text-sm font-mono text-muted-foreground mt-1.5 truncate">
+            <div className="zeks-company mt-1.5 truncate">
               {asset.displayName}
             </div>
           </div>
@@ -252,7 +248,7 @@ function StatusPill({ halted }: { halted: boolean }) {
   if (halted) {
     return (
       <span
-        className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-destructive/10 border border-destructive/30 text-[10px] font-mono tracking-wider text-destructive"
+        className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-destructive/10 border border-destructive/30 zeks-eyebrow text-destructive"
         data-status="halted"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
@@ -262,7 +258,7 @@ function StatusPill({ halted }: { halted: boolean }) {
   }
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-primary/10 border border-primary/30 text-[10px] font-mono tracking-wider text-foreground"
+      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-primary/10 border border-primary/30 zeks-eyebrow-strong"
       data-status="active"
     >
       <span className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -298,7 +294,7 @@ function PriceSummary({
       data-testid="asset-price-summary"
       className="zeks-surface-padded"
     >
-      <div className="flex items-baseline gap-3 text-[10px] font-mono tracking-wider text-muted-foreground">
+      <div className="flex items-baseline gap-3 zeks-eyebrow">
         <span>REFERENCE PRICE</span>
         {halted ? (
           <span className="text-destructive" data-detail="halt-note">
@@ -344,7 +340,7 @@ function PriceSummary({
 
       {quoteUnavailable ? (
         <div
-          className="mt-6 px-3 py-2 rounded-md bg-secondary/60 border border-border text-[11px] font-mono text-muted-foreground"
+          className="mt-6 px-3 py-2 rounded-md bg-secondary/60 border border-border text-[11.5px] text-muted-foreground"
           role="status"
           data-detail="quote-unavailable"
         >
@@ -375,12 +371,12 @@ function SummaryCell({
         : "text-foreground"
   return (
     <div className="min-w-0 px-3.5 py-3 bg-card">
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+      <div className="zeks-eyebrow text-muted-foreground/70">
         {label}
       </div>
       <div
         className={
-          "font-mono tabular-nums text-[16px] mt-1 truncate " + toneClass
+          "tabular-nums font-sans text-[16px] mt-1 truncate " + toneClass
         }
         data-testid={testId}
       >
@@ -420,11 +416,11 @@ function MarketDataPanel({
       className="zeks-surface-padded"
     >
       <header className="flex items-baseline justify-between gap-3">
-        <h2 className="font-serif text-[18px] md:text-[20px] leading-tight text-foreground">
+        <h2 className="zeks-section-title text-foreground">
           Market data
         </h2>
-        <span className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
-          {quoteUnavailable ? "QUOTE UNAVAILABLE" : "ROBINHOOD STOCK TOKEN API"}
+        <span className="zeks-eyebrow">
+          {quoteUnavailable ? "Quote unavailable" : "Robinhood Stock Token API"}
         </span>
       </header>
 
@@ -451,7 +447,7 @@ function MarketDataPanel({
           value={spreadAbs === null ? "—" : formatUsd(spreadAbs, 2)}
           trailing={
             spreadPct !== null ? (
-              <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+              <span className="tabular-nums font-sans text-[11px] text-muted-foreground">
                 {spreadPct.toFixed(2)}%
               </span>
             ) : null
@@ -489,12 +485,12 @@ function DataRow({
     tone === "destructive" ? "text-destructive" : "text-foreground"
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto] sm:gap-4 py-3">
-      <dt className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+      <dt className="zeks-eyebrow text-muted-foreground/70">
         {label}
       </dt>
       <dd
         className={
-          "font-mono tabular-nums text-sm mt-0.5 sm:mt-0 " + toneClass
+          "tabular-nums font-sans text-sm mt-0.5 sm:mt-0 " + toneClass
         }
       >
         {value}
@@ -502,7 +498,7 @@ function DataRow({
       <div className="mt-1 sm:mt-0 flex items-center gap-2">
         {trailing}
         {hint ? (
-          <span className="text-[10px] font-mono tracking-wider text-muted-foreground/60 hidden md:inline">
+          <span className="zeks-eyebrow text-muted-foreground/60 hidden md:inline">
             {hint}
           </span>
         ) : null}
@@ -529,10 +525,10 @@ function TokenDetailsPanel({
       className="zeks-surface-padded"
     >
       <header>
-        <h2 className="font-serif text-[18px] md:text-[20px] leading-tight text-foreground">
+        <h2 className="zeks-section-title text-foreground">
           Token details
         </h2>
-        <p className="text-[10px] font-mono tracking-wider text-muted-foreground/70 mt-1">
+        <p className="zeks-eyebrow mt-1">
           Real onchain metadata · from the asset registry
         </p>
       </header>
@@ -592,12 +588,12 @@ function DetailRow({
     tone === "destructive" ? "text-destructive" : "text-foreground"
   return (
     <div className="grid grid-cols-[minmax(0,110px)_minmax(0,1fr)] gap-3 py-3">
-      <dt className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+      <dt className="zeks-eyebrow text-muted-foreground/70">
         {label}
       </dt>
       <dd
         className={
-          "font-mono tabular-nums text-xs break-all " + toneClass
+          "tabular-nums font-sans text-xs break-all " + toneClass
         }
       >
         {value}
@@ -657,12 +653,12 @@ function ContractRow({ address }: { address: string | null }) {
 
   return (
     <div className="grid grid-cols-[minmax(0,110px)_minmax(0,1fr)] gap-3 py-3">
-      <dt className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+      <dt className="zeks-eyebrow text-muted-foreground/70">
         Contract
       </dt>
       <dd className="flex items-center gap-2 flex-wrap min-w-0">
         <span
-          className="font-mono tabular-nums text-xs text-foreground"
+          className="zeks-tech-sm break-all"
           data-testid="asset-contract"
           title={address}
         >
@@ -672,7 +668,7 @@ function ContractRow({ address }: { address: string | null }) {
           type="button"
           onClick={() => void onCopy()}
           aria-label="Copy contract address"
-          className="text-[10px] font-mono tracking-wider h-6 px-2 rounded-md border border-border bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          className="zeks-eyebrow h-6 px-2.5 rounded-md border border-border bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           data-testid="asset-contract-copy"
         >
           {copied ? "COPIED" : "COPY"}
@@ -682,7 +678,7 @@ function ContractRow({ address }: { address: string | null }) {
             href={explorerUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] font-mono tracking-wider h-6 px-2 rounded-md border border-border bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary inline-flex items-center transition-colors"
+            className="zeks-eyebrow h-6 px-2.5 rounded-md border border-border bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary inline-flex items-center transition-colors"
             data-testid="asset-contract-explorer"
           >
             EXPLORER ↗
@@ -707,7 +703,7 @@ function SourceFooter() {
     <footer
       aria-label="Source"
       data-testid="asset-source-footer"
-      className="text-[10px] font-mono tracking-wider text-muted-foreground/70 px-1"
+      className="zeks-eyebrow px-1"
     >
       Source · Robinhood Stock Token API
     </footer>
@@ -728,7 +724,7 @@ function Freshness({
   stale: boolean
 }) {
   return (
-    <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-muted-foreground">
+    <div className="flex items-center gap-2 zeks-eyebrow">
       <span aria-hidden="true" className="relative inline-flex w-1.5 h-1.5">
         <span
           className={

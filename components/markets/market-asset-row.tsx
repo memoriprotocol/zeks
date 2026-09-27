@@ -50,7 +50,7 @@ export default function MarketAssetRow({ market }: MarketAssetRowProps) {
           <div className="zeks-display-sm truncate">
             {market.symbol}
           </div>
-          <div className="text-[10.5px] font-mono text-muted-foreground leading-none truncate mt-1">
+          <div className="zeks-company leading-none truncate mt-1">
             {market.name}
           </div>
         </div>
@@ -103,7 +103,7 @@ function StatusBadge({ status }: { status: LendingMarket["status"] }) {
   if (status === "paused") {
     return (
       <span
-        className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-destructive/10 border border-destructive/30 text-[10px] font-mono tracking-wider text-destructive"
+        className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-destructive/10 border border-destructive/30 zeks-eyebrow text-destructive"
         data-status="paused"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
@@ -114,7 +114,7 @@ function StatusBadge({ status }: { status: LendingMarket["status"] }) {
   if (status === "delisted") {
     return (
       <span
-        className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-secondary border border-border text-[10px] font-mono tracking-wider text-muted-foreground"
+        className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-secondary border border-border zeks-eyebrow text-muted-foreground"
         data-status="delisted"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60" />
@@ -124,7 +124,7 @@ function StatusBadge({ status }: { status: LendingMarket["status"] }) {
   }
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-secondary border border-border text-[10px] font-mono tracking-wider text-foreground/80"
+      className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-secondary border border-border zeks-eyebrow text-foreground/80"
       data-status="active"
     >
       <span className="w-1.5 h-1.5 rounded-full bg-foreground/70" />

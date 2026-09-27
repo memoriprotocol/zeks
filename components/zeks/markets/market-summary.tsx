@@ -1,15 +1,24 @@
 "use client"
 
 /**
- * MarketSummary — compact 3-metric strip.
+ * MarketSummary — composed soft-sage container with 4 metrics (UI-2).
  *
- *   · Active markets count
- *   · Total liquidity (USD)
- *   · Avg borrow APY
+ *   · Markets        — count of the displayed universe
+ *   · Total Liquidity — sum of available liquidity / total supply
+ *   · Avg Supply APY  — simple mean over finite values
+ *   · Avg Borrow APY  — simple mean over finite values
  *
- * No admin chrome. Same beige surface as the rest of the
- * dashboard. Fields with no underlying data render as `—`.
- * Uses locked tokens: --dash-card-radius · --dash-card-pad.
+ * UI-2 visual pass:
+ *   · Single composed container — soft sage surface, ~18px radius,
+ *     subtle border, no internal gap-px grid lines.
+ *   · Sans-first typography for everything (numbers AND labels).
+ *   · Numbers > labels in size and weight.
+ *   · Green only semantically (Supply APY in up-green tone); Borrow
+ *     APY uses neutral foreground, never aggressive red.
+ *
+ * Calculation rules are unchanged from the prior version — stats are
+ * always derived from whatever `markets` the parent passes in. No
+ * admin chrome. Read-only. No data fetched here.
  */
 
 import * as React from "react"
@@ -32,11 +41,18 @@ export function MarketSummary({ markets }: MarketSummaryProps) {
       }
     }
 
+    const supplies: number[] = []
     const borrows: number[] = []
     for (const m of markets) {
+      if (m.supplyApy != null && Number.isFinite(m.supplyApy))
+        supplies.push(m.supplyApy)
       if (m.borrowApy != null && Number.isFinite(m.borrowApy))
         borrows.push(m.borrowApy)
     }
+    const avgSupplyApy =
+      supplies.length > 0
+        ? supplies.reduce((a, b) => a + b, 0) / supplies.length
+        : null
     const avgBorrowApy =
       borrows.length > 0
         ? borrows.reduce((a, b) => a + b, 0) / borrows.length
@@ -45,6 +61,7 @@ export function MarketSummary({ markets }: MarketSummaryProps) {
     return {
       active: markets.length,
       liquidity: anyLiquidity ? totalLiquidityUsd : null,
+      avgSupplyApy,
       avgBorrowApy,
     }
   }, [markets])
@@ -53,44 +70,78 @@ export function MarketSummary({ markets }: MarketSummaryProps) {
     <div
       data-testid="markets-summary"
       aria-label="Market summary"
-      className="zeks-card"
+      data-markets-stats
+      style={{
+        backgroundColor: "var(--card-soft)",
+        borderRadius: "18px",
+        border: "1px solid var(--border)",
+        padding: "22px 24px",
+        display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        columnGap: "32px",
+        rowGap: "20px",
+      }}
     >
-      <div
-        className="grid grid-cols-1 sm:grid-cols-3"
-        style={{ rowGap: "var(--page-card-gap)", columnGap: "var(--page-card-gap)" }}
-      >
-        <SummaryCell label="Active Markets" value={String(stats.active)} />
-        <SummaryCell
-          label="Total Liquidity"
-          value={stats.liquidity != null ? formatCompact(stats.liquidity) : "—"}
-        />
-        <SummaryCell
-          label="Avg Borrow APY"
-          value={formatApy(stats.avgBorrowApy)}
-          tone={stats.avgBorrowApy != null ? "down" : undefined}
-        />
-      </div>
+      <Metric label="Markets" value={String(stats.active)} />
+      <Metric
+        label="Total Liquidity"
+        value={
+          stats.liquidity != null ? formatCompact(stats.liquidity) : "—"
+        }
+      />
+      <Metric
+        label="Avg Supply APY"
+        value={formatApy(stats.avgSupplyApy)}
+        tone={stats.avgSupplyApy != null ? "up" : undefined}
+      />
+      <Metric
+        label="Avg Borrow APY"
+        value={formatApy(stats.avgBorrowApy)}
+      />
     </div>
   )
 }
 
-function SummaryCell({
+function Metric({
   label,
   value,
   tone,
 }: {
   label: string
   value: string
-  tone?: "down"
+  tone?: "up" | "down"
 }) {
+  const valueColor =
+    tone === "up"
+      ? "var(--up-strong)"
+      : tone === "down"
+        ? "var(--down-strong)"
+        : "var(--foreground)"
+
   return (
     <div className="flex flex-col" style={{ minWidth: 0 }}>
-      <div className="zeks-label">{label}</div>
       <div
-        className="zeks-num-lg"
         style={{
-          color: tone === "down" ? "var(--down)" : "var(--foreground)",
-          marginTop: "6px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "12px",
+          fontWeight: 500,
+          color: "var(--muted-foreground)",
+          letterSpacing: 0,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className="tabular-nums"
+        data-finance
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "26px",
+          fontWeight: 500,
+          color: valueColor,
+          lineHeight: 1.05,
+          marginTop: "8px",
+          letterSpacing: "-0.018em",
         }}
       >
         {value}

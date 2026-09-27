@@ -25,7 +25,7 @@
  */
 
 import { NextResponse } from "next/server"
-import { fetchLendingMarkets } from "@/lib/markets/lending"
+import { fetchLendingMarkets, toWireLendingMarket } from "@/lib/markets/lending"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -69,7 +69,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: true,
-        markets: data.markets,
+        markets: data.markets.map(toWireLendingMarket),
         failedSymbols: data.failedSymbols,
         fetchedAt: data.fetchedAt,
       },

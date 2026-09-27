@@ -23,10 +23,18 @@
  *        collateralAssetSymbol, loanAssetSymbol, listed,
  *        protocolSource ("morpho"), sourceMode
  *
- * Mock fallback:
- *   - Only when a source genuinely has no data for a symbol.
- *   - Every mock row carries `sourceMode: "mock"` so the UI
- *     can never mistake it for live data.
+ * No runtime financial mock fallback.
+ *
+ *   - When Morpho returns a market for a curated symbol → emit
+ *     `real-morpho` / `real-morpho-unlisted` row with all real fields.
+ *   - When Morpho returns NO market for a curated symbol → emit a
+ *     `curated-reference` row with every financial / onchain field
+ *     set to `null`. The row preserves discoverability and
+ *     navigation, but never fabricates APY, TVL, liquidity,
+ *     utilization, LLTV, price, borrow availability, supply
+ *     availability, position state, lifecycle, or transaction
+ *     eligibility. `transactionEligible` is always `false` for
+ *     curated-reference rows.
  *
  * Diagnostics (dev only):
  *   - morphoEndpoint, chainId, morphoMarketsReturned, chainMarketsReturned,
@@ -38,8 +46,10 @@ import type {
   LendingServiceResult,
   LendingMarketSet,
   LendingDiagnostics,
+  OracleSource,
+  ProtocolSource,
 } from "./types"
-import { MOCK_LENDING_MARKETS } from "./mock"
+import { ROBINHOOD_CHAIN_ID } from "../types"
 import {
   fetchMorphoMarkets,
   type MorphoMarket,
@@ -62,6 +72,44 @@ import {
   resolveProtocolContractsForChain,
   ROBINHOOD_CHAIN_ID_DEC,
 } from "../onchain"
+import {
+  verifyF12Markets,
+  applyLifecycleClassification,
+  type F12LifecycleMap,
+} from "./verify"
+
+/**
+ * Curated 8-asset universe metadata (non-financial only).
+ *
+ * This list is the single source of truth for the ZEKS curated
+ * 8-symbol experience. It contains ONLY display metadata — no APY,
+ * no TVL, no liquidity, no price, no oracle values, no borrow
+ * availability, no position state. Every financial field on a row
+ * produced for a symbol in this list comes from real onchain data
+ * (Morpho / Chainlink / Robinhood RPC) or is `null`.
+ *
+ * If a symbol has no real onchain market, the service emits a
+ * `sourceMode: "curated-reference"` row with every financial field
+ * set to `null` — the row stays discoverable for navigation but
+ * renders honest `—` placeholders and is `transactionEligible: false`.
+ *
+ * The canonical 8-symbol experience is preserved by listing the
+ * symbols here. SPCX is intentionally NOT in this list — SPCX
+ * surfaces via its dedicated dashboard path and the SPCX page.
+ */
+const CURATED_UNIVERSE_METADATA: ReadonlyArray<{
+  symbol: string
+  name: string
+  logoUrl: string | null
+}> = [
+  { symbol: "AAPL", name: "Apple", logoUrl: "/assets/logos/AAPL.png" },
+  { symbol: "TSLA", name: "Tesla", logoUrl: "/assets/logos/TSLA.png" },
+  { symbol: "NVDA", name: "NVIDIA", logoUrl: "/assets/logos/NVDA.png" },
+  { symbol: "GOOGL", name: "Alphabet (Class A)", logoUrl: "/assets/logos/GOOGL.png" },
+  { symbol: "AMZN", name: "Amazon", logoUrl: "/assets/logos/AMZN.png" },
+  { symbol: "MSFT", name: "Microsoft", logoUrl: "/assets/logos/MSFT.png" },
+  { symbol: "META", name: "Meta Platforms", logoUrl: "/assets/logos/META.png" },
+] as const
 
 /** Enable to print diagnostics to the server console. */
 const DEBUG = process.env.NODE_ENV !== "production"
@@ -96,10 +144,10 @@ export async function fetchLendingMarkets(
     ? new Set(symbols.map((s) => s.toUpperCase()))
     : null
 
-  const mockUniverse = MOCK_LENDING_MARKETS.filter(
+  const curatedUniverse = CURATED_UNIVERSE_METADATA.filter(
     (m) => !requested || requested.has(m.symbol),
   )
-  if (mockUniverse.length === 0) {
+  if (curatedUniverse.length === 0) {
     return {
       kind: "empty",
       payload: { markets: [], fetchedAt, failedSymbols: [] },
@@ -107,7 +155,7 @@ export async function fetchLendingMarkets(
     }
   }
 
-  const symbolList = mockUniverse.map((m) => m.symbol)
+  const symbolList = curatedUniverse.map((m) => m.symbol)
 
   // ── Parallel source fetches ─────────────────────────────────────
   const [morphoResult, rhMeta, oracleReadings, refPrices] = await Promise.all([
@@ -136,8 +184,8 @@ export async function fetchLendingMarkets(
   const oracleResolved: string[] = []
   const rhResolved: string[] = []
 
-  for (const mock of mockUniverse) {
-    const sym = mock.symbol
+  for (const entry of curatedUniverse) {
+    const sym = entry.symbol
     symbolMapping[sym] = null
 
     const morphoMarket = morphoByCollateral.get(sym.toUpperCase())
@@ -164,12 +212,14 @@ export async function fetchLendingMarkets(
         ),
       )
     } else {
-      // No Morpho market → use mock, but enrich with whatever
-      // Robinhood / oracle data is available.
+      // No Morpho market for this curated symbol → emit a
+      // curated-reference row. Every financial / onchain field is
+      // `null`; this row is NEVER transaction-eligible. Honest
+      // `—` placeholders in the UI; navigation preserved.
       failedSymbols.push(sym)
       markets.push(
-        buildFromMock(
-          mock,
+        buildCuratedReference(
+          entry,
           fetchedAt,
           rh ?? null,
           oracle ?? null,
@@ -180,7 +230,7 @@ export async function fetchLendingMarkets(
   }
 
   // ── Append surplus Morpho markets not in the ZEKS universe ──────
-  const zeksSymbols = new Set(mockUniverse.map((m) => m.symbol.toUpperCase()))
+  const zeksSymbols = new Set(curatedUniverse.map((m) => m.symbol.toUpperCase()))
   for (const m of morphoResult.markets) {
     const collateral = (m.collateralAssetSymbol || "").toUpperCase()
     if (!collateral) continue
@@ -214,10 +264,72 @@ export async function fetchLendingMarkets(
     console.info(`[lending] symbolMapping=${JSON.stringify(symbolMapping)}`)
   }
 
-  // ── Build result ───────────────────────────────────────────────
-  const payload: LendingMarketSet = { markets, fetchedAt, failedSymbols }
+  // ── F12 — on-chain MarketParams lifecycle verification ─────────
+  // Pure read-only pass. Mutates the local `markets` array's three
+  // F12 fields (`lifecycle`, `onchainLltvWad`,
+  // `transactionEligible`) via `applyLifecycleClassification`.
+  // The locked F1–F11 fields (loanTokenAddress / collateralTokenAddress
+  // / oracleAddress / irmAddress / lltv / status / sourceMode / etc.)
+  // are NOT touched.
+  //
+  // Provider is null because this runs server-side without a wallet;
+  // the verifier uses the public Robinhood Chain RPC via
+  // `publicEthCall` (`https://rpc.mainnet.chain.robinhood.com`).
+  // A single RPC failure on one row does NOT block the rest — the
+  // verifier marks that row `unknown` and continues.
+  const f12Symbols = Array.from(
+    new Set(markets.map((m) => m.symbol.toUpperCase())),
+  )
+  let f12LifecycleMap: F12LifecycleMap = new Map()
+  try {
+    f12LifecycleMap = await verifyF12Markets(markets, {
+      provider: null,
+      chainId: ROBINHOOD_CHAIN_ID_DEC,
+      symbols: f12Symbols,
+      concurrency: 4,
+    })
+  } catch (err) {
+    if (debug) {
+      console.warn(
+        `[lending] F12 verifier batch failed; falling back to unknown: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
+    }
+    // Fall back to a fully-unknown map so the UI can still render.
+    f12LifecycleMap = new Map(
+      f12Symbols.map((sym) => [
+        sym,
+        {
+          lifecycle: "unknown" as const,
+          onchainLltvWad: null,
+          transactionEligible: false,
+          discrepancies: [],
+          reason: "F12 verifier batch failed (RPC unavailable)",
+        },
+      ]),
+    )
+  }
+  const classifiedMarkets = applyLifecycleClassification(
+    markets,
+    f12LifecycleMap,
+  )
+  if (debug) {
+    const summary = classifiedMarkets
+      .filter((m) => m.sourceMode !== "mock")
+      .map((m) => `${m.symbol}=${m.lifecycle ?? "unknown"}`)
+      .join(",")
+    console.info(`[lending] F12 lifecycle: ${summary || "(no Morpho rows)"}`)
+  }
 
-  if (markets.length === 0) {
+  // ── Build result ───────────────────────────────────────────────
+  const payload: LendingMarketSet = {
+    markets: classifiedMarkets,
+    fetchedAt,
+    failedSymbols,
+  }
+
+  if (classifiedMarkets.length === 0) {
     return {
       kind: "empty",
       payload,
@@ -230,7 +342,7 @@ export async function fetchLendingMarkets(
       kind: "partial",
       payload,
       reason:
-        failedSymbols.length === markets.length
+        failedSymbols.length === classifiedMarkets.length
           ? "All markets are using mock data (no Morpho markets found for these symbols)."
           : `${failedSymbols.length} symbol(s) have no live Morpho market and are using mock data.`,
     }
@@ -265,10 +377,10 @@ export async function fetchLendingMarket(
       ref.get(upper) ?? null,
     )
   }
-  const mock = MOCK_LENDING_MARKETS.find((x) => x.symbol === upper)
-  if (mock) {
-    return buildFromMock(
-      mock,
+  const entry = CURATED_UNIVERSE_METADATA.find((x) => x.symbol === upper)
+  if (entry) {
+    return buildCuratedReference(
+      entry,
       fetchedAt,
       rh.get(upper) ?? null,
       oracle.get(upper) ?? null,
@@ -279,7 +391,7 @@ export async function fetchLendingMarket(
 }
 
 export function knownLendingSymbols(): string[] {
-  return MOCK_LENDING_MARKETS.map((m) => m.symbol)
+  return CURATED_UNIVERSE_METADATA.map((m) => m.symbol)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -384,31 +496,71 @@ function buildFromMorpho(
     referenceIsHalt: ref?.isTradingHalt ?? false,
     chainId: 4663,
     fetchedAt,
+    // F12 — the verifier (`applyLifecycleVerification`) populates
+    // these after the row is built. Defaults are conservative.
+    lifecycle: null,
+    onchainLltvWad: null,
+    transactionEligible: false,
   }
 }
 
-function buildFromMock(
-  mock: LendingMarket,
+function buildCuratedReference(
+  entry: { symbol: string; name: string; logoUrl: string | null },
   fetchedAt: string,
   rh: StockTokenMetadata | null,
   oracle: OracleReading | null,
   ref: ReferenceMarketPrice | null,
 ): LendingMarket {
+  const oracleSource: OracleSource = oracle?.isLive ? "chainlink" : "none"
+  const protocolSource: ProtocolSource = "none"
   return {
-    ...mock,
+    symbol: entry.symbol,
+    name: entry.name,
+    logoUrl: entry.logoUrl,
+    // ── Oracle — real if available, otherwise explicitly none ───
+    oraclePrice: oracle?.price ?? null,
+    oracleSource,
+    // ── Lending rates — never fabricated ───────────────────────
+    supplyApy: null,
+    borrowApy: null,
+    // ── Vault / market state — never fabricated ─────────────────
+    totalSupply: null,
+    totalBorrow: null,
+    availableLiquidity: null,
+    utilization: null,
+    tvl: null,
+    // ── Lifecycle / status — explicitly unknown when no market ──
+    status: "unknown",
+    lifecycle: null,
+    onchainLltvWad: null,
+    // No onchain market → never transaction-eligible.
+    transactionEligible: false,
+    // ── Provenance — explicitly curated-reference, no Morpho data
+    protocolSource,
+    sourceMode: "curated-reference",
+    listed: null,
+    contractAddress: null,
+    marketId: null,
+    collateralAssetSymbol: entry.symbol,
+    loanAssetSymbol: null,
+    lltv: null,
+    oracleAddress: null,
+    irmAddress: null,
+    loanTokenAddress: null,
+    collateralTokenAddress: null,
+    loanTokenDecimals: null,
+    // ── Robinhood Stock Token metadata (real if available) ──────
+    rhContractAddress: rh?.contractAddress ?? null,
+    rhMultiplier: rh?.currentMultiplier ?? null,
+    rhTokenDecimals: rh?.tokenDecimals ?? null,
+    rhLogoUrl: rh?.logoUrl ?? null,
+    // ── Reference market (real if available) ────────────────────
+    referenceBid: ref?.bid ?? null,
+    referenceAsk: ref?.ask ?? null,
+    referencePrice: ref?.referencePrice ?? null,
+    referenceGeneratedAt: ref?.generatedAt ?? null,
+    referenceIsHalt: ref?.isTradingHalt ?? false,
+    chainId: ROBINHOOD_CHAIN_ID,
     fetchedAt,
-    sourceMode: "mock",
-    protocolSource: "mock",
-    oracleSource: oracle?.isLive ? "chainlink" : "mock",
-    oraclePrice: oracle?.price ?? mock.oraclePrice,
-    rhContractAddress: rh?.contractAddress ?? mock.rhContractAddress,
-    rhMultiplier: rh?.currentMultiplier ?? mock.rhMultiplier,
-    rhTokenDecimals: rh?.tokenDecimals ?? mock.rhTokenDecimals,
-    rhLogoUrl: rh?.logoUrl ?? mock.rhLogoUrl,
-    referenceBid: ref?.bid ?? mock.referenceBid,
-    referenceAsk: ref?.ask ?? mock.referenceAsk,
-    referencePrice: ref?.referencePrice ?? mock.referencePrice,
-    referenceGeneratedAt: ref?.generatedAt ?? mock.referenceGeneratedAt,
-    referenceIsHalt: ref?.isTradingHalt ?? mock.referenceIsHalt,
   }
 }

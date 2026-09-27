@@ -16,6 +16,7 @@ import { ArrowRight } from "lucide-react"
 import type { PortfolioSnapshot } from "@/lib/markets/portfolio"
 import { formatPrice, formatApy } from "@/lib/markets/format"
 import { formatRawAmount } from "@/lib/markets/format-display"
+import { PortfolioPositionLink } from "./portfolio-position-link"
 
 interface PortfolioEarnPositionsProps {
   dataUnavailable: boolean
@@ -38,8 +39,8 @@ export default function PortfolioEarnPositions({
 
     if (supplied.length === 0) {
       return (
-        <Card title="EARN" subtitle="Morpho supply">
-          <p className="text-[12px] font-mono text-muted-foreground">
+        <Card title="Earn" subtitle="Morpho supply">
+          <p className="zeks-secondary">
             No supplied positions yet.{" "}
             <Link
               href="/terminal/earn"
@@ -54,7 +55,7 @@ export default function PortfolioEarnPositions({
     }
 
     return (
-      <Card title="EARN" subtitle="Morpho supply">
+      <Card title="Earn" subtitle="Morpho supply">
         <div className="grid grid-cols-3 gap-3 mb-4">
           <Stat label="Deposited" value={formatPrice(deposited)} />
           <Stat
@@ -69,9 +70,9 @@ export default function PortfolioEarnPositions({
           {supplied.map((s) => (
             <li
               key={s.marketId ?? s.symbol}
-              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,90px)] items-center gap-3 px-3 h-10 text-[12px] font-mono"
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,90px)_minmax(0,auto)] items-center gap-3 px-3 h-10 text-[12px] font-sans"
             >
-              <span className="text-foreground font-medium truncate">
+              <span className="text-foreground font-semibold truncate">
                 {s.symbol}
               </span>
               <span className="text-muted-foreground tabular-nums">
@@ -79,6 +80,9 @@ export default function PortfolioEarnPositions({
               </span>
               <span className="text-up tabular-nums text-right">
                 {s.supplyApy != null ? formatApy(s.supplyApy) : "—"}
+              </span>
+              <span className="text-right whitespace-nowrap">
+                <PortfolioPositionLink kind="supplied" symbol={s.symbol} marketSymbol={s.collateralSymbol} short />
               </span>
             </li>
           ))}
@@ -88,8 +92,8 @@ export default function PortfolioEarnPositions({
   }
 
   return (
-    <Card title="EARN" subtitle="Morpho supply">
-      <p className="text-[12px] font-mono text-muted-foreground">
+    <Card title="Earn" subtitle="Morpho supply">
+      <p className="zeks-secondary">
         {dataUnavailable
           ? "Connect your wallet to view earn positions."
           : "Loading…"}
@@ -114,10 +118,10 @@ function Card({
       className="rounded-2xl border border-border bg-card overflow-hidden"
     >
       <header className="px-5 md:px-6 py-3 border-b border-border flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
+        <span className="zeks-eyebrow text-muted-foreground/80">
           {title}
         </span>
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+        <span className="zeks-eyebrow text-muted-foreground/70">
           {subtitle}
         </span>
       </header>
@@ -137,12 +141,12 @@ function Stat({
 }) {
   return (
     <div className="border-l border-border pl-3">
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+      <div className="zeks-eyebrow text-muted-foreground/70">
         {label}
       </div>
       <div
         className={
-          "font-mono tabular-nums text-[16px] mt-1 " +
+          "tabular-nums font-sans font-semibold text-[16px] mt-1 " +
           (tone === "up" ? "text-up" : "text-foreground")
         }
       >

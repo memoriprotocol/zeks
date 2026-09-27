@@ -82,7 +82,7 @@ export default function MarketsTable({
         <SearchInput query={query} onChange={setQuery} />
 
         <span
-          className="hidden sm:inline text-[10px] font-mono tracking-wider text-muted-foreground tabular-nums shrink-0"
+          className="hidden sm:inline zeks-eyebrow text-muted-foreground tabular-nums shrink-0"
           aria-live="polite"
         >
           {displayed.length === totalMarkets
@@ -187,7 +187,7 @@ export default function MarketsTable({
 
       {/* Stale footer */}
       {stale && !loading && !errorReason ? (
-        <div className="px-4 py-2 border-t border-border bg-amber-500/5 text-[10px] font-mono text-amber-700 dark:text-amber-300 tracking-wider flex items-center gap-2">
+        <div className="px-4 py-2 border-t border-border bg-amber-500/5 zeks-eyebrow text-amber-700 dark:text-amber-300 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
           Showing the most recent data.
           {failedSymbols && failedSymbols.length > 0 ? (
@@ -232,7 +232,7 @@ function SearchInput({
         <button
           type="button"
           onClick={() => onChange("")}
-          className="text-[10px] font-mono text-muted-foreground hover:text-foreground shrink-0"
+          className="zeks-eyebrow text-muted-foreground hover:text-foreground shrink-0"
           aria-label="Clear search"
         >
           CLEAR
@@ -273,7 +273,7 @@ function FilterTabs({
             aria-selected={active}
             onClick={() => onChange(tab.key)}
             className={
-              "h-9 px-3 text-[11px] font-mono tracking-wider transition-colors " +
+              "h-9 px-3 zeks-eyebrow transition-colors " +
               (active
                 ? "bg-secondary text-foreground"
                 : "bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/40")
@@ -311,14 +311,14 @@ function SortControl({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] font-mono text-muted-foreground tracking-wider shrink-0 hidden md:inline">
+      <span className="zeks-eyebrow text-muted-foreground tracking-wider shrink-0 hidden md:inline">
         SORT
       </span>
       <select
         value={field}
         onChange={(e) => onFieldChange(e.target.value as LendingSortField)}
         aria-label="Sort by column"
-        className="h-9 pl-2.5 pr-7 rounded-md bg-secondary/60 border border-border text-[11px] font-mono text-foreground appearance-none cursor-pointer outline-none hover:bg-secondary/80 transition-colors"
+        className="h-9 pl-2.5 pr-7 rounded-md bg-secondary/60 border border-border text-[12px] font-sans font-medium text-foreground appearance-none cursor-pointer outline-none hover:bg-secondary/80 transition-colors"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%23999999' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m1 1 4 4 4-4'/%3E%3C/svg%3E")`,
           backgroundRepeat: "no-repeat",
@@ -357,7 +357,7 @@ function HeaderCell({
   return (
     <span
       className={
-        "text-[10px] font-mono tracking-wider text-muted-foreground " +
+        "zeks-eyebrow text-muted-foreground " +
         (align === "right" ? "text-right" : "text-left")
       }
     >
@@ -393,7 +393,7 @@ function SortHeader({
           onDir("asc")
         }
       }}
-      className="text-[10px] font-mono tracking-wider text-right transition-colors hover:text-foreground"
+      className="zeks-eyebrow text-right transition-colors hover:text-foreground"
       aria-label={`Sort by ${label}`}
     >
       <span className={active ? "text-foreground" : "text-muted-foreground"}>
@@ -454,13 +454,13 @@ function EmptyState({
   if (query) {
     return (
       <div className="px-4 py-12 text-center space-y-3" role="status">
-        <p className="text-xs font-mono text-muted-foreground tracking-wider">
+        <p className="text-xs zeks-eyebrow text-muted-foreground">
           No markets match &ldquo;{query}&rdquo;.
         </p>
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex items-center h-8 px-3 rounded-md bg-secondary border border-border text-[11px] font-mono tracking-wider text-foreground hover:bg-secondary/80 transition-colors"
+          className="inline-flex items-center h-8 px-3 rounded-md bg-secondary border border-border text-[12px] font-sans font-medium text-foreground hover:bg-secondary/80 transition-colors"
         >
           Clear search
         </button>
@@ -469,7 +469,7 @@ function EmptyState({
   }
   return (
     <div className="px-4 py-12 text-center" role="status">
-      <p className="text-xs font-mono text-muted-foreground tracking-wider">
+      <p className="text-xs zeks-eyebrow text-muted-foreground">
         No markets in this filter.
       </p>
     </div>
@@ -486,12 +486,12 @@ function ErrorState({
   return (
     <div className="px-4 py-12 text-center" role="alert" data-testid="markets-error">
       <p className="text-sm font-sans text-foreground">Market data temporarily unavailable.</p>
-      <p className="text-[11px] font-mono text-muted-foreground mt-1.5">{reason}</p>
+      <p className="text-[11.5px] zeks-secondary text-muted-foreground mt-1.5">{reason}</p>
       {onRetry ? (
         <button
           type="button"
           onClick={onRetry}
-          className="mt-4 inline-flex items-center h-8 px-3 rounded-md bg-primary text-primary-foreground text-[11px] font-mono hover:bg-primary/90 transition-colors"
+          className="mt-4 inline-flex items-center h-8 px-3 rounded-md bg-primary text-primary-foreground text-[12px] font-sans font-medium hover:bg-primary/90 transition-colors"
         >
           Retry
         </button>

@@ -1,11 +1,13 @@
 "use client"
 
 /**
- * ProductExplainer — editorial two-column explainer.
+ * ProductExplainer — single-line product strip.
  *
- *   rounded-2xl · p-5 · mb-8 · warm beige surface · thin border
- *   left = product copy (≤ 2 lines, 13px sans)
- *   right = 2 small ZEKS metrics
+ *   sage-cream surface · rounded-2xl · p-4
+ *   left = product copy
+ *   right = 2 KPI metrics
+ *
+ *   No editorial feel — sans throughout, tight spacing.
  */
 
 import * as React from "react"
@@ -40,24 +42,27 @@ export function ProductExplainer({
       aria-label="Product explainer"
       className="grid"
       style={{
-        padding: "var(--dash-card-pad)",
-        borderRadius: "var(--dash-card-radius)",
+        padding: "16px 20px",
+        borderRadius: "12px",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
         gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)",
         gap: "24px",
-        marginBottom: "20px",
+        marginBottom: "24px",
+        alignItems: "center",
       }}
     >
       {/* Left — product copy */}
       <div className="flex items-center">
         <p
           style={{
-            fontSize: "var(--font-body)",
+            fontFamily: "var(--font-sans)",
+            fontSize: "13.5px",
             lineHeight: 1.5,
             color: "var(--foreground)",
-            opacity: 0.78,
-            maxWidth: "60ch",
+            fontWeight: 400,
+            maxWidth: "62ch",
+            letterSpacing: "-0.005em",
           }}
         >
           Deposit a tokenized stock as collateral on Morpho, borrow a stablecoin
@@ -66,7 +71,7 @@ export function ProductExplainer({
       </div>
 
       {/* Right — metrics */}
-      <div className="flex items-center gap-8">
+      <div className="flex items-center gap-10">
         <MiniMetric label="Markets" value={stockMarketCount ?? "—"} />
         <MiniMetric
           label="Liquidity"
@@ -90,12 +95,22 @@ function MiniMetric({
 }) {
   return (
     <div>
-      <div className="zeks-label">{label}</div>
+      <div
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
+          letterSpacing: 0,
+          color: "var(--muted-foreground)",
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </div>
       <div
         className="zeks-num-lg"
         style={{
           color: "var(--foreground)",
-          marginTop: "4px",
+          marginTop: "2px",
         }}
       >
         {value}

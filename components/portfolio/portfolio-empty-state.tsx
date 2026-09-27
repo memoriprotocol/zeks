@@ -44,7 +44,7 @@ export default function PortfolioEmptyState({
 
   return (
     <div className="zeks-empty" data-testid={testId} data-variant={variant}>
-      <span className="font-mono text-[12px] text-foreground">{title}</span>
+      <span className="zeks-section-title text-[14px] text-foreground">{title}</span>
       {description ? (
         <span className="zeks-dim">{description}</span>
       ) : null}

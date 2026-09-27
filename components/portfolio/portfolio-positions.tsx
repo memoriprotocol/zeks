@@ -19,6 +19,7 @@ import { ArrowRight } from "lucide-react"
 import type { PortfolioSnapshot } from "@/lib/markets/portfolio"
 import { formatRawAmount } from "@/lib/markets/format-display"
 import { formatPrice, formatApy } from "@/lib/markets/format"
+import { PortfolioPositionLink } from "./portfolio-position-link"
 
 interface PortfolioPositionsProps {
   dataUnavailable: boolean
@@ -49,10 +50,10 @@ export default function PortfolioPositions({
         className="rounded-2xl border border-border bg-card overflow-hidden"
       >
         <header className="px-5 md:px-6 py-3 border-b border-border flex items-baseline justify-between gap-2">
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            POSITIONS
+          <span className="zeks-eyebrow text-muted-foreground/80">
+            Positions
           </span>
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+          <span className="zeks-eyebrow text-muted-foreground/70">
             Wallet · Morpho
           </span>
         </header>
@@ -85,6 +86,8 @@ export default function PortfolioPositions({
                     type: null,
                     apy: s.supplyApy,
                     usd: s.balanceUsd,
+                    kind: "supplied" as const,
+                    marketSymbol: s.collateralSymbol ?? null,
                   }))}
                 />
               ) : null}
@@ -98,6 +101,8 @@ export default function PortfolioPositions({
                     type: "debt",
                     apy: b.borrowApy,
                     usd: b.balanceUsd,
+                    kind: "borrowed" as const,
+                    marketSymbol: b.collateralSymbol ?? null,
                   }))}
                 />
               ) : null}
@@ -110,6 +115,8 @@ export default function PortfolioPositions({
                     type: "collateral",
                     apy: null,
                     usd: c.balanceUsd,
+                    kind: "collateral" as const,
+                    marketSymbol: c.collateralSymbol ?? null,
                   }))}
                 />
               ) : null}
@@ -127,15 +134,15 @@ export default function PortfolioPositions({
       className="rounded-2xl border border-border bg-card"
     >
       <header className="px-5 md:px-6 py-3 border-b border-border flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          POSITIONS
+        <span className="zeks-eyebrow text-muted-foreground/80">
+          Positions
         </span>
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+        <span className="zeks-eyebrow text-muted-foreground/70">
           Wallet · Morpho
         </span>
       </header>
       <div className="p-5 md:p-6">
-        <p className="text-[12px] font-mono text-muted-foreground">
+        <p className="zeks-secondary">
           {dataUnavailable
             ? "Connect your wallet to see your positions."
             : "Loading…"}
@@ -148,10 +155,10 @@ export default function PortfolioPositions({
 function EmptyBlock() {
   return (
     <div className="rounded-xl border border-dashed border-border bg-secondary/40 px-4 py-5">
-      <p className="font-serif text-[16px] text-foreground leading-snug">
+      <p className="zeks-section-title text-[15px] text-foreground leading-snug">
         No active positions
       </p>
-      <p className="mt-1 text-[12px] text-muted-foreground leading-relaxed">
+      <p className="mt-1 zeks-secondary leading-relaxed">
         Supply to a Morpho market to start earning.
       </p>
       <Link
@@ -179,27 +186,29 @@ function Group({
     apy: number | null
     usd: number | null
     raw?: bigint
+    kind?: "supplied" | "borrowed" | "collateral"
+    marketSymbol?: string | null
   }>
 }) {
   return (
     <div>
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 mb-1.5">
-        {label.toUpperCase()}
+      <div className="zeks-eyebrow text-muted-foreground/70 mb-1.5">
+        {label}
       </div>
       <div className="rounded-md border border-border overflow-hidden divide-y divide-border">
         {rows.map((r) => (
           <div
             key={r.key}
-            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,90px)] items-center gap-3 px-3 h-10"
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,90px)_minmax(0,auto)] items-center gap-3 px-3 h-11"
           >
-            <span className="font-mono text-[12.5px] font-medium text-foreground truncate">
+            <span className="font-sans text-[12.5px] font-semibold text-foreground truncate">
               {r.symbol}
             </span>
             <div className="flex items-center gap-2 min-w-0">
               {r.type ? (
                 <span
                   className={
-                    "text-[10px] font-mono " +
+                    "zeks-eyebrow " +
                     (r.type === "debt" ? "text-down" : "text-muted-foreground")
                   }
                 >
@@ -208,7 +217,7 @@ function Group({
               ) : null}
               <span
                 className={
-                  "font-mono tabular-nums text-[11px] " +
+                  "tabular-nums font-sans text-[11.5px] " +
                   (tone === "up"
                     ? "text-up"
                     : tone === "down"
@@ -223,8 +232,18 @@ function Group({
                     : "—"}
               </span>
             </div>
-            <span className="font-mono tabular-nums text-[11px] text-foreground tabular-nums text-right">
+            <span className="tabular-nums font-sans text-[11.5px] text-foreground text-right">
               {r.usd != null ? formatPrice(r.usd) : "—"}
+            </span>
+            <span className="zeks-meta text-muted-foreground text-right whitespace-nowrap">
+              {r.kind ? (
+                <PortfolioPositionLink
+                  kind={r.kind}
+                  symbol={r.symbol}
+                  marketSymbol={r.marketSymbol ?? null}
+                  short
+                />
+              ) : null}
             </span>
           </div>
         ))}

@@ -50,7 +50,9 @@ export {
   sendApprove,
   sendSupply,
   sendSupplyCollateral,
+  sendRepay,
   sendBorrow,
+  sendWithdrawCollateral,
   sendVaultDeposit,
   sendTransaction,
   ensureAllowance,
@@ -58,10 +60,11 @@ export {
   simulateWrite,
   decodeErrorString,
   preSendGuard,
-  MAX_UINT256,
   type ApproveArgs,
   type SupplyArgs,
   type SupplyCollateralArgs,
+  type RepayArgs,
+  type WithdrawCollateralArgs,
   type BorrowArgs,
   type VaultDepositArgs,
   type SendTransactionArgs,
@@ -82,6 +85,9 @@ export {
   encodeErc4626Deposit,
   encodeMorphoSupply,
   encodeMorphoSupplyCollateral,
+  encodeMorphoRepay,
+  encodeMorphoWithdraw,
+  encodeMorphoWithdrawCollateral,
   encodeMorphoBorrow,
   marketParamsFromLendingMarket,
   encodeMorphoMarketParams,
@@ -89,6 +95,7 @@ export {
   encodeIdToMarketParamsCall,
   MORPHO_BLUE_SELECTORS,
   MORPHO_BLUE_VERIFIED_DEPLOYMENT_4663,
+  MAX_UINT256,
   type MorphoMarketParams,
   type MorphoSelectors,
 } from "./abi"
@@ -106,3 +113,12 @@ export {
   describeProtocolContracts,
   type ProtocolContracts,
 } from "../protocol/registry"
+
+export {
+  readMorphoOraclePrice,
+  collateralValueInLoanAssets,
+  maxWithdrawableCollateral,
+  MORPHO_ORACLE_PRICE_SELECTOR,
+  MORPHO_ORACLE_PRICE_SCALE,
+  type MorphoOraclePrice,
+} from "./morpho-oracle"

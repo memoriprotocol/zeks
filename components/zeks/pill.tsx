@@ -1,10 +1,10 @@
 "use client"
 
 /**
- * Pill — small mono-letter-spaced label with optional tone + dot.
+ * Pill — small sans-serif label with optional tone + dot.
  *
- * Used for IN / OUT / TRANSFER chips, status badges, ranking markers.
- * Tighter padding, smaller radius — feels more like a label than a button.
+ * Used for In/Out/Transfer chips, status badges.
+ * Tighter padding, small radius — feels like a label, not a button.
  */
 
 import * as React from "react"
@@ -18,21 +18,40 @@ interface PillProps {
   className?: string
 }
 
-const TONE_CLS: Record<Tone, string> = {
-  neutral:
-    "border-border/60 bg-secondary/60 text-muted-foreground",
-  primary: "border-primary/50 bg-primary/20 text-foreground",
-  up:      "border-up/40 bg-up/15 text-up",
-  down:    "border-down/40 bg-down/15 text-down",
-  muted:   "border-border/40 bg-transparent text-muted-foreground/70",
+const TONE_STYLE: Record<Tone, React.CSSProperties> = {
+  neutral: {
+    borderColor: "var(--border)",
+    backgroundColor: "var(--secondary)",
+    color: "var(--muted-foreground)",
+  },
+  primary: {
+    borderColor: "color-mix(in srgb, var(--primary) 50%, transparent)",
+    backgroundColor: "color-mix(in srgb, var(--primary) 22%, transparent)",
+    color: "var(--foreground)",
+  },
+  up: {
+    borderColor: "color-mix(in srgb, var(--up) 40%, transparent)",
+    backgroundColor: "color-mix(in srgb, var(--up) 12%, transparent)",
+    color: "var(--up)",
+  },
+  down: {
+    borderColor: "color-mix(in srgb, var(--down) 40%, transparent)",
+    backgroundColor: "color-mix(in srgb, var(--down) 12%, transparent)",
+    color: "var(--down)",
+  },
+  muted: {
+    borderColor: "color-mix(in srgb, var(--border) 60%, transparent)",
+    backgroundColor: "transparent",
+    color: "var(--muted-foreground)",
+  },
 }
 
-const DOT_CLS: Record<Tone, string> = {
-  neutral: "bg-muted-foreground/60",
-  primary: "bg-primary",
-  up:      "bg-up",
-  down:    "bg-down",
-  muted:   "bg-muted-foreground/50",
+const DOT_COLOR: Record<Tone, string> = {
+  neutral: "var(--muted-foreground)",
+  primary: "var(--primary)",
+  up: "var(--up)",
+  down: "var(--down)",
+  muted: "var(--muted-foreground)",
 }
 
 export function Pill({
@@ -43,19 +62,32 @@ export function Pill({
 }: PillProps) {
   return (
     <span
-      className={[
-        "inline-flex items-center gap-1 h-[18px] px-1.5 rounded-md",
-        "font-mono text-[9.5px] tracking-wide border",
-        TONE_CLS[tone],
-        className ?? "",
-      ]
+      className={["inline-flex items-center gap-1.5", className ?? ""]
         .filter(Boolean)
         .join(" ")}
+      style={{
+        height: "20px",
+        padding: "0 8px",
+        borderRadius: "999px",
+        border: "1px solid",
+        fontFamily: "var(--font-sans)",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: 0,
+        lineHeight: 1.2,
+        ...TONE_STYLE[tone],
+      }}
     >
       {dot ? (
         <span
           aria-hidden="true"
-          className={["w-1 h-1 rounded-full shrink-0", DOT_CLS[tone]].join(" ")}
+          className="rounded-full shrink-0"
+          style={{
+            width: "5px",
+            height: "5px",
+            backgroundColor: DOT_COLOR[tone],
+            opacity: 0.85,
+          }}
         />
       ) : null}
       {children}

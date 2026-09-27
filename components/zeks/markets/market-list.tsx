@@ -1,17 +1,31 @@
 "use client"
 
 /**
- * MarketList — dense 8-column market table.
+ * MarketList — composed soft-sage container with 8-column market table
+ * (UI-2 visual pass).
  *
- *   Columns: Asset · Oracle Price · LLTV · Supply APY · Borrow APY ·
+ *   Columns: Asset · Price · LLTV · Supply APY · Borrow APY ·
  *            Liquidity · Utilization · Status
  *
- *   · Single beige surface, no row borders (thin dividers between rows)
- *   · 16px radius · 20px card padding
- *   · Row click navigates to /terminal/markets/[symbol]
- *   · Each cell hides cleanly when its source field is missing
+ * UI-2 visual pass:
+ *   · One composed container — soft `--card-soft` surface, ~18px radius,
+ *     subtle border. No internal gap-px / grid lines.
+ *   · Column headers: small muted sans labels — no uppercase / letter
+ *     spacing nightmare.
+ *   · Rows: ~64px, subtle bottom separator, clickable, subtle hover lift.
+ *   · Asset column: 32-36px logo + prominent symbol + muted company name.
+ *   · Financial numbers rendered in clean sans-serif (Inter/DM Sans).
+ *     Mono reserved for hashes/addresses (not used here).
+ *   · Status pills: small soft pill — restrained green / neutral grey,
+ *     no orange or red unless semantically critical.
  *
- * No admin chrome. Read-only.
+ * Behavior (unchanged):
+ *   · 8-col grid template used by both header and rows.
+ *   · Row click navigates to /terminal/markets/[symbol].
+ *   · Filter + search logic preserved.
+ *   · Each cell renders "—" when its source field is missing.
+ *
+ * No admin chrome. Read-only. No new fetches.
  */
 
 import * as React from "react"
@@ -32,9 +46,10 @@ interface MarketListProps {
   status: StatusFilter
 }
 
-/** 8-col grid template, used by both header and rows. */
+/** 8-col grid template, used by both header and rows.
+ *  Asset is wider; price columns share a tight rhythm. */
 const COL_TEMPLATE =
-  "minmax(0,1.7fr) minmax(0,1fr) minmax(0,0.7fr) minmax(0,0.8fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.7fr) minmax(0,0.7fr)"
+  "minmax(0,2fr) minmax(0,1.05fr) minmax(0,0.7fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,1fr) minmax(0,0.8fr) minmax(0,0.9fr)"
 
 export function MarketList({ markets, query, status }: MarketListProps) {
   const router = useRouter()
@@ -62,48 +77,45 @@ export function MarketList({ markets, query, status }: MarketListProps) {
   )
 
   return (
-    <div data-testid="market-list">
-      <div
-        className="border overflow-hidden"
+    <div data-testid="market-list" data-markets-table>
+      <section
         style={{
           backgroundColor: "var(--card-soft)",
-          borderColor: "var(--border)",
-          borderRadius: "var(--dash-card-radius)",
+          borderRadius: "18px",
+          border: "1px solid var(--border)",
+          overflow: "hidden",
         }}
       >
-        {/* Column header */}
+        {/* Column header row — small muted sans labels. */}
         <div
-          className="hidden md:grid items-center border-b"
+          className="hidden md:grid items-center"
           style={{
             gridTemplateColumns: COL_TEMPLATE,
             columnGap: "16px",
-            padding: "12px 20px",
-            borderColor: "var(--border)",
-            fontFamily: "var(--font-mono)",
-            fontSize: "var(--font-micro)",
-            color: "var(--muted-foreground)",
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
+            padding: "0 22px",
+            height: "40px",
+            borderBottom: "1px solid var(--border)",
+            backgroundColor: "var(--card-soft-hi)",
           }}
+          data-markets-cols
         >
-          <span>Asset</span>
-          <span style={{ textAlign: "right" }}>Oracle Price</span>
-          <span style={{ textAlign: "right" }}>LLTV</span>
-          <span style={{ textAlign: "right" }}>Supply APY</span>
-          <span style={{ textAlign: "right" }}>Borrow APY</span>
-          <span style={{ textAlign: "right" }}>Liquidity</span>
-          <span style={{ textAlign: "right" }}>Utilization</span>
-          <span style={{ textAlign: "right" }}>Status</span>
+          <ColumnLabel align="right">Asset</ColumnLabel>
+          <ColumnLabel align="right">Price</ColumnLabel>
+          <ColumnLabel align="right">LLTV</ColumnLabel>
+          <ColumnLabel align="right">Supply APY</ColumnLabel>
+          <ColumnLabel align="right">Borrow APY</ColumnLabel>
+          <ColumnLabel align="right">Liquidity</ColumnLabel>
+          <ColumnLabel align="right">Utilization</ColumnLabel>
+          <ColumnLabel align="right">Status</ColumnLabel>
         </div>
 
         {filtered.length === 0 ? (
           <p
-            className="font-mono"
             style={{
-              padding: "24px 20px",
-              fontSize: "11px",
+              padding: "32px 24px",
+              fontSize: "13px",
               color: "var(--muted-foreground)",
-              letterSpacing: "0.04em",
+              fontFamily: "var(--font-sans)",
             }}
           >
             No markets match the current search or filter.
@@ -124,25 +136,50 @@ export function MarketList({ markets, query, status }: MarketListProps) {
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
       <p
-        className="font-mono"
         style={{
-          fontSize: "11px",
+          fontSize: "12px",
           color: "var(--muted-foreground)",
-          marginTop: "12px",
+          marginTop: "14px",
           paddingLeft: "4px",
-          letterSpacing: "0.02em",
+          letterSpacing: 0,
+          fontFamily: "var(--font-sans)",
         }}
+        data-markets-count
       >
-        {filtered.length} / {markets.length} markets
+        {filtered.length} of {markets.length} shown
       </p>
     </div>
   )
 }
 
-/* ── Single dense row ─────────────────────────────────────────── */
+function ColumnLabel({
+  align,
+  children,
+}: {
+  align: "left" | "right"
+  children: React.ReactNode
+}) {
+  return (
+    <Cell align={align}>
+      <span
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "12px",
+          fontWeight: 500,
+          color: "var(--muted-foreground)",
+          letterSpacing: 0,
+        }}
+      >
+        {children}
+      </span>
+    </Cell>
+  )
+}
+
+/* ── Single composed row ─────────────────────────────────────────── */
 
 function Row({
   market: m,
@@ -154,9 +191,6 @@ function Row({
   const liquidity = m.availableLiquidity ?? m.totalSupply ?? null
   const utilizationPct = React.useMemo(() => {
     if (m.utilization == null || !Number.isFinite(m.utilization)) return null
-    // Morpho Blue expresses utilization in basis points × 1e9; our
-    // normalized type stores a 0..1 ratio. To be safe, also accept
-    // percentages directly (values > 1).
     const v =
       m.utilization > 1 ? m.utilization / 100 : m.utilization
     return v * 100
@@ -167,52 +201,75 @@ function Row({
       type="button"
       onClick={onClick}
       data-testid="market-list-row"
-      className="w-full text-left transition-colors cursor-pointer focus:outline-none focus-visible:bg-secondary/60"
+      className="w-full text-left transition-colors cursor-pointer focus:outline-none"
       style={{
         background: "transparent",
         border: "none",
-        padding: "var(--dash-card-pad)",
+        padding: "0",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = "var(--secondary)"
+        e.currentTarget.style.backgroundColor =
+          "var(--card-soft-hi)"
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "transparent"
       }}
     >
-      {/* Desktop: 8-col grid */}
+      {/* Desktop: 8-col grid, ~64px row height */}
       <div
         className="hidden md:grid items-center"
         style={{
           gridTemplateColumns: COL_TEMPLATE,
           columnGap: "16px",
+          padding: "0 22px",
+          height: "64px",
         }}
       >
         <AssetCell m={m} />
-        <PriceCell value={m.oraclePrice} />
-        <LltvCell value={m.lltv} />
-        <ApyCell value={m.supplyApy} tone="up" />
-        <ApyCell value={m.borrowApy} tone="down" />
-        <LiquidityCell value={liquidity} />
-        <UtilizationCell value={utilizationPct} />
+        <FinanceCell value={m.oraclePrice} format={(v) => formatPrice(v)} />
+        <FinanceCell
+          value={m.lltv}
+          format={(v) => `${(v * 100).toFixed(1)}%`}
+        />
+        <FinanceCell
+          value={m.supplyApy}
+          format={(v) => formatApy(v)}
+          tone="up"
+        />
+        <FinanceCell
+          value={m.borrowApy}
+          format={(v) => formatApy(v)}
+        />
+        <FinanceCell
+          value={liquidity}
+          format={(v) => formatCompact(v)}
+        />
+        <FinanceCell
+          value={utilizationPct}
+          format={(v) => formatPct(v)}
+        />
         <StatusCell mode={m.sourceMode} live={m.status === "active"} />
       </div>
 
       {/* Mobile: stacked summary (still navigable) */}
-      <div className="md:hidden flex items-center gap-3">
+      <div
+        className="md:hidden flex items-center gap-3"
+        style={{ padding: "16px 22px" }}
+      >
         <AssetLogo
           symbol={m.symbol}
           name={m.name ?? m.symbol}
           src={m.logoUrl ?? undefined}
           rhLogoUrl={m.rhLogoUrl ?? undefined}
           contractAddress={m.contractAddress ?? m.rhContractAddress ?? undefined}
-          size={28}
+          size={32}
         />
         <div className="min-w-0 flex-1">
           <div
             style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: "var(--font-card-symbol)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "15px",
+              fontWeight: 500,
               color: "var(--foreground)",
               lineHeight: 1.1,
             }}
@@ -220,9 +277,10 @@ function Row({
             {m.symbol}
           </div>
           <div
-            className="font-mono truncate"
+            className="truncate"
             style={{
-              fontSize: "var(--font-card-company)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
               color: "var(--muted-foreground)",
               marginTop: "4px",
             }}
@@ -233,7 +291,6 @@ function Row({
         <StatusCell
           mode={m.sourceMode}
           live={m.status === "active"}
-          compact
         />
       </div>
     </button>
@@ -244,20 +301,21 @@ function Row({
 
 function AssetCell({ m }: { m: LendingMarket }) {
   return (
-    <div className="flex items-center gap-2.5 min-w-0">
+    <div className="flex items-center gap-3 min-w-0">
       <AssetLogo
         symbol={m.symbol}
         name={m.name ?? m.symbol}
         src={m.logoUrl ?? undefined}
         rhLogoUrl={m.rhLogoUrl ?? undefined}
         contractAddress={m.contractAddress ?? m.rhContractAddress ?? undefined}
-        size={28}
+        size={34}
       />
       <div className="min-w-0 flex-1">
         <div
           style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "var(--font-card-symbol)",
+            fontFamily: "var(--font-sans)",
+            fontSize: "15px",
+            fontWeight: 500,
             color: "var(--foreground)",
             lineHeight: 1.1,
             letterSpacing: "-0.01em",
@@ -267,12 +325,13 @@ function AssetCell({ m }: { m: LendingMarket }) {
           {m.symbol}
         </div>
         <div
-          className="font-mono truncate"
+          className="truncate"
           style={{
-            fontSize: "var(--font-card-company)",
+            fontFamily: "var(--font-sans)",
+            fontSize: "12px",
             color: "var(--muted-foreground)",
             marginTop: "4px",
-            letterSpacing: "0.02em",
+            fontWeight: 400,
           }}
         >
           {m.name ?? m.symbol}
@@ -282,99 +341,43 @@ function AssetCell({ m }: { m: LendingMarket }) {
   )
 }
 
-function PriceCell({ value }: { value: number | null | undefined }) {
-  const has = value != null && Number.isFinite(value)
-  return (
-    <Cell align="right">
-      <span
-        className="tabular-nums"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "13px",
-          color: "var(--foreground)",
-        }}
-      >
-        {has ? formatPrice(value as number) : "—"}
-      </span>
-    </Cell>
-  )
-}
-
-function LltvCell({ value }: { value: number | null | undefined }) {
-  const has = value != null && Number.isFinite(value)
-  return (
-    <Cell align="right">
-      <span
-        className="tabular-nums"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "13px",
-          color: "var(--foreground)",
-        }}
-      >
-        {has ? `${((value as number) * 100).toFixed(1)}%` : "—"}
-      </span>
-    </Cell>
-  )
-}
-
-function ApyCell({
+/**
+ * FinanceCell — clean sans numerical cell with optional semantic tone.
+ * No mono. No uppercase.
+ */
+function FinanceCell<T extends number | null>({
   value,
+  format,
   tone,
 }: {
-  value: number | null | undefined
-  tone: "up" | "down"
+  value: T
+  format: (v: number) => string
+  tone?: "up" | "down"
 }) {
   const has = value != null && Number.isFinite(value)
-  return (
-    <Cell align="right">
-      <span
-        className="tabular-nums"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "13px",
-          color: has ? (tone === "up" ? "var(--up)" : "var(--down)") : "var(--foreground)",
-          opacity: has ? 1 : 0.5,
-        }}
-      >
-        {has ? formatApy(value as number) : "—"}
-      </span>
-    </Cell>
-  )
-}
+  const color = !has
+    ? "var(--muted-foreground)"
+    : tone === "up"
+      ? "var(--up-strong)"
+      : tone === "down"
+        ? "var(--down-strong)"
+        : "var(--foreground)"
 
-function LiquidityCell({ value }: { value: number | null }) {
-  const has = value != null && Number.isFinite(value)
   return (
     <Cell align="right">
       <span
         className="tabular-nums"
+        data-finance
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "13px",
-          color: "var(--foreground)",
+          fontFamily: "var(--font-sans)",
+          fontSize: "14px",
+          fontWeight: 500,
+          color,
+          letterSpacing: "-0.012em",
+          opacity: has ? 1 : 0.55,
         }}
       >
-        {has ? formatCompact(value) : "—"}
-      </span>
-    </Cell>
-  )
-}
-
-function UtilizationCell({ value }: { value: number | null }) {
-  const has = value != null && Number.isFinite(value)
-  return (
-    <Cell align="right">
-      <span
-        className="tabular-nums"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "13px",
-          color: "var(--foreground)",
-          opacity: has ? 1 : 0.5,
-        }}
-      >
-        {has ? `${formatPct(value)}` : "—"}
+        {has ? format(value as number) : "—"}
       </span>
     </Cell>
   )
@@ -383,15 +386,13 @@ function UtilizationCell({ value }: { value: number | null }) {
 function StatusCell({
   mode,
   live,
-  compact,
 }: {
   mode: LendingMarket["sourceMode"]
   live: boolean
-  compact?: boolean
 }) {
   return (
     <Cell align="right">
-      <StatusBadge mode={mode} live={live} compact={compact} />
+      <StatusBadge mode={mode} live={live} />
     </Cell>
   )
 }
@@ -417,52 +418,68 @@ function Cell({
   )
 }
 
-/* ── Status badge — only meaningful markers ──────────────────── */
+/* ── Status pill — small, restrained ───────────────────────────── */
 
 function StatusBadge({
   mode,
   live,
-  compact,
 }: {
   mode: LendingMarket["sourceMode"]
   live: boolean
-  compact?: boolean
 }) {
+  // Live = real Morpho market whose lifecycle is active → soft green pill.
   if (mode === "real-morpho" && live) {
     return (
       <span
-        className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
         style={{
-          fontSize: "9px",
-          color: "var(--up)",
-          letterSpacing: "0.08em",
-          opacity: 0.95,
-          padding: "2px 5px",
-          border: "1px solid var(--up)",
-          borderRadius: "4px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "3px 9px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
+          fontWeight: 500,
+          color: "var(--up-strong)",
+          backgroundColor: "var(--up-soft)",
+          border: "1px solid transparent",
+          borderRadius: "999px",
+          lineHeight: 1,
+          letterSpacing: 0,
+          whiteSpace: "nowrap",
         }}
       >
         <span
           aria-hidden="true"
-          className="rounded-full shrink-0"
-          style={{ width: "4px", height: "4px", backgroundColor: "var(--up)" }}
+          style={{
+            width: "5px",
+            height: "5px",
+            borderRadius: "999px",
+            backgroundColor: "var(--up-strong)",
+          }}
         />
-        {compact ? "Live" : "LIVE"}
+        Live
       </span>
     )
   }
+  // Unlisted = real Morpho but the lifecycle isn't active (AMZN-style
+  // pre-listed state). Honest neutral pill — no orange, no red.
   if (mode === "real-morpho-unlisted") {
     return (
       <span
-        className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
         style={{
-          fontSize: "9px",
+          display: "inline-flex",
+          alignItems: "center",
+          padding: "3px 9px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
+          fontWeight: 500,
           color: "var(--muted-foreground)",
-          letterSpacing: "0.08em",
-          opacity: 0.85,
-          padding: "2px 5px",
+          backgroundColor: "var(--background)",
           border: "1px solid var(--border)",
-          borderRadius: "4px",
+          borderRadius: "999px",
+          lineHeight: 1,
+          letterSpacing: 0,
+          whiteSpace: "nowrap",
         }}
       >
         Unlisted
@@ -472,15 +489,20 @@ function StatusBadge({
   if (mode === "mock") {
     return (
       <span
-        className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
         style={{
-          fontSize: "9px",
+          display: "inline-flex",
+          alignItems: "center",
+          padding: "3px 9px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
+          fontWeight: 500,
           color: "var(--muted-foreground)",
-          letterSpacing: "0.08em",
-          opacity: 0.85,
-          padding: "2px 5px",
+          backgroundColor: "var(--background)",
           border: "1px solid var(--border)",
-          borderRadius: "4px",
+          borderRadius: "999px",
+          lineHeight: 1,
+          letterSpacing: 0,
+          whiteSpace: "nowrap",
         }}
       >
         Mock
@@ -489,12 +511,18 @@ function StatusBadge({
   }
   return (
     <span
-      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
       style={{
-        fontSize: "9px",
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "3px 9px",
+        fontFamily: "var(--font-sans)",
+        fontSize: "11.5px",
+        fontWeight: 500,
         color: "var(--muted-foreground)",
-        letterSpacing: "0.08em",
-        opacity: 0.7,
+        border: "1px solid transparent",
+        borderRadius: "999px",
+        lineHeight: 1,
+        opacity: 0.6,
       }}
     >
       —

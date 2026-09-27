@@ -60,13 +60,15 @@ export function LiveSyncedTag({
   return (
     <span
       className={
-        "font-mono tabular-nums inline-flex items-center gap-1.5 " +
+        "tabular-nums inline-flex items-center gap-1.5 " +
         (className ?? "")
       }
       data-testid={testId}
       style={{
-        fontSize: "11px",
+        fontFamily: "var(--font-sans)",
+        fontSize: "11.5px",
         color: "var(--muted-foreground)",
+        fontWeight: 500,
       }}
     >
       <span

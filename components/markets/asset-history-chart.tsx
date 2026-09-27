@@ -3,54 +3,44 @@
 /**
  * AssetHistoryChart
  *
- * Phase 2B — Asset Detail historical price chart (UI + state machine).
+ * Phase 2B — Asset Detail historical price chart (state machine).
+ * Phase E — Renderer swapped from `recharts` to TradingView
+ *           `lightweight-charts` (`LightweightLineChart`).
+ * Final pass — Card chrome stripped. The previous wrapper
+ *           `bg-card border border-border rounded-xl p-5 md:p-6`
+ *           is gone: this component is now rendered *inside* the
+ *           outer unified chart card owned by `EarnDetail`. The
+ *           component owns only:
  *
- * Responsibilities:
+ *             • chart-card header (symbol · range · freshness)
+ *             • timeframe controls
+ *             • the chart itself (LightweightLineChart)
+ *             • empty / loading / error surfaces
+ *
+ *           No second white card, no developer footnotes.
+ *
+ * Responsibilities (unchanged):
  *
  *   - Owns its fetch lifecycle for the historical price series.
  *   - Reads / writes the small in-memory client cache so rapid
  *     timeframe switching feels instant when the data is fresh.
  *   - Renders ONE of six first-class states, mapped 1:1 from the
- *     `HistoryFetchResult` discriminated union:
+ *     `HistoryFetchResult` discriminated union.
+ *   - Cancels in-flight requests when the user switches ranges.
+ *   - Never blocks Asset Detail rendering.
+ *   - Never invents data.
  *
- *       LOADING                 -> geometry-matched skeleton
- *       READY                   -> real line, tooltip, range change
- *       EMPTY                   -> "Historical price data unavailable."
- *       PROVIDER_NOT_CONFIGURED -> "Historical data provider not configured."
- *       ERROR                   -> "Historical price data temporarily unavailable." + retry
- *       STALE                   -> last real data + stale badge
- *
- *   - Cancels in-flight requests when the user switches ranges
- *     (via AbortController on the upstream fetch). Old responses
- *     cannot overwrite newer selections.
- *   - Never blocks Asset Detail rendering. If the history service
- *     is unreachable, the asset header + price summary still show.
- *   - Never invents data. If the provider returns nothing, the
- *     chart says so explicitly.
- *
- * Chart library: `recharts` (already in package.json — no install
- * needed per the spec §05 reuse rule). We render a single-area
- * line chart with a custom tooltip. Recharts handles
- * responsiveness via `ResponsiveContainer`.
+ * Chart library: `lightweight-charts` (TradingView, Inc.). We use
+ * it purely as a renderer; the upstream data remains the existing
+ * ZEKS history pipeline.
  */
 
 import * as React from "react"
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
 
 import type {
   HistoryFetchResult,
   HistoryRange,
   HistoricalSeries,
-  HistoricalPoint,
 } from "@/lib/markets/history/types"
 import {
   DEFAULT_HISTORY_RANGE,
@@ -62,6 +52,7 @@ import {
   invalidateCachedSeries,
 } from "./history-cache"
 import HistoryRangeControls from "./history-range-controls"
+import LightweightLineChart from "./lightweight-line-chart"
 import {
   absoluteTimestamp,
   formatUsd,
@@ -75,9 +66,9 @@ import {
  */
 const FETCH_TIMEOUT_MS = 10_000
 
-/** Chart geometry — kept identical to the Phase 2A placeholder. */
+/** Chart geometry — minimal padding inside the unified card. */
 const CHART_HEIGHT_MOBILE = 220
-const CHART_HEIGHT_DESKTOP = 260
+const CHART_HEIGHT_DESKTOP = 280
 
 interface AssetHistoryChartProps {
   symbol: string
@@ -91,18 +82,7 @@ export default function AssetHistoryChart({ symbol, initialNowMs }: AssetHistory
   const [result, setResult] = React.useState<HistoryFetchResult>({
     kind: "loading",
   })
-  /**
-   * `lastKnownSeries` retains the most recent READY/STALE series so
-   * switching ranges back to one that is now EMPTY still shows the
-   * prior real chart with a STALE badge (per spec state machine).
-   */
   const [lastKnown, setLastKnown] = React.useState<HistoricalSeries | null>(null)
-  /**
-   * Hydration-stable initial value — comes from the server via the
-   * `initialNowMs` prop so the "Updated Xs ago" label renders
-   * identically on server and first client paint. Parent owns the
-   * 5s tick interval.
-   */
   const [nowMs, setNowMs] = React.useState<number>(initialNowMs)
 
   // We keep a reference to the current AbortController so we can
@@ -111,16 +91,12 @@ export default function AssetHistoryChart({ symbol, initialNowMs }: AssetHistory
 
   const fetchSeries = React.useCallback(
     async (target: HistoryRange) => {
-      // 1. Cancel any in-flight request for a previous range so its
-      //    response cannot overwrite the new selection.
       if (inflightRef.current) {
         inflightRef.current.abort()
       }
       const controller = new AbortController()
       inflightRef.current = controller
 
-      // 2. Permissive cache lookup. The cache only ever returns a
-      //    usable READY/STALE result, never a non-data state.
       const cached = getCachedSeries(symbol, target)
       if (cached) {
         setResult(cached)
@@ -130,10 +106,8 @@ export default function AssetHistoryChart({ symbol, initialNowMs }: AssetHistory
         return
       }
 
-      // 3. Otherwise, mark LOADING and fetch.
       setResult({ kind: "loading" })
 
-      // Defensive timeout. The route also enforces its own ceiling.
       const timeoutId = window.setTimeout(
         () => controller.abort(),
         FETCH_TIMEOUT_MS,
@@ -151,7 +125,7 @@ export default function AssetHistoryChart({ symbol, initialNowMs }: AssetHistory
           message?: string
         }
 
-        if (controller.signal.aborted) return // already cancelled
+        if (controller.signal.aborted) return
 
         if (!res.ok || !body.ok || !body.result) {
           setResult({
@@ -166,16 +140,9 @@ export default function AssetHistoryChart({ symbol, initialNowMs }: AssetHistory
         const next: HistoryFetchResult = body.result
         setResult(next)
 
-        // Update cache + retained chart fallback.
         if (next.kind === "ready" || next.kind === "stale") {
           setCachedSeries(symbol, target, next)
           setLastKnown(next.series)
-        } else if (next.kind === "empty") {
-          // No data: keep any prior `lastKnown` so the user still
-          // sees the most recent real chart, marked STALE.
-          //
-          // (The STALE badge is rendered in the READY-with-fallback
-          // path; here we just don't overwrite lastKnown.)
         }
       } catch (err) {
         if (controller.signal.aborted) return
@@ -197,34 +164,28 @@ export default function AssetHistoryChart({ symbol, initialNowMs }: AssetHistory
     [symbol],
   )
 
-  // Fetch on mount and whenever the user changes range.
   React.useEffect(() => {
     void fetchSeries(range)
     return () => {
-      // Cancel on unmount.
       if (inflightRef.current) inflightRef.current.abort()
     }
   }, [range, fetchSeries])
 
-  // Lightweight "Updated Xs ago" ticker — same cadence as the
-  // asset-header freshness indicator, intentionally cheap.
   React.useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 5_000)
     return () => window.clearInterval(id)
   }, [])
 
-  // Manual retry from the ERROR state. Drops the in-memory entry
-  // (if any) and refetches.
   const onRetry = React.useCallback(() => {
     invalidateCachedSeries(symbol, range)
     void fetchSeries(range)
   }, [fetchSeries, range, symbol])
 
   return (
-    <section
+    <div
       aria-label={`${symbol} price history`}
       data-testid="asset-history-chart"
-      className="bg-card border border-border rounded-xl p-5 md:p-6"
+      className="flex flex-col"
     >
       <ChartHeader
         symbol={symbol}
@@ -241,7 +202,7 @@ export default function AssetHistoryChart({ symbol, initialNowMs }: AssetHistory
         lastKnown={lastKnown}
         onRetry={onRetry}
       />
-    </section>
+    </div>
   )
 }
 
@@ -262,38 +223,96 @@ function ChartHeader({
   result: HistoryFetchResult
   nowMs: number
 }) {
-  const meta = HISTORY_RANGE_META[range]
-  // Range-change badge is only meaningful when we actually have
-  // enough real points to compute it. We surface it from the chart
-  // body via a CSS class marker; this header keeps the structural
-  // copy.
-  const seriesFreshnessLabel =
+  const lastPoint =
     result.kind === "ready" || result.kind === "stale"
-      ? `${meta.durationLabel} · multiplier-adjusted`
+      ? result.series.points[result.series.points.length - 1]
       : null
-
+  const hasData = lastPoint != null
   return (
-    <header className="flex items-center justify-between gap-3 flex-wrap">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+        gap: "16px",
+        flexWrap: "wrap",
+      }}
+      data-testid="history-header"
+    >
       <div className="min-w-0">
-        <h2 className="font-serif text-[18px] md:text-[20px] leading-tight text-foreground">
-          Price history
-        </h2>
-        <p className="text-[10px] font-mono tracking-wider text-muted-foreground/70 mt-1">
-          {symbol} ·{" "}
-          {seriesFreshnessLabel ?? "provider-pending"}
-        </p>
+        <div
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "12px",
+            fontWeight: 500,
+            color: "var(--muted-foreground)",
+            letterSpacing: 0,
+          }}
+        >
+          Historical price
+        </div>
+        <div
+          className="tabular-nums"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "26px",
+            fontWeight: 500,
+            color: "var(--foreground)",
+            marginTop: "4px",
+            letterSpacing: "-0.018em",
+            lineHeight: 1.1,
+          }}
+          data-field="historical-price"
+        >
+          {lastPoint
+            ? `$${lastPoint.price.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`
+            : "—"}
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "12px",
+            color: "var(--muted-foreground)",
+            marginTop: "6px",
+            fontWeight: 400,
+            letterSpacing: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          <span>
+            {symbol} · {HISTORY_RANGE_META[range].durationLabel}
+          </span>
+          {hasData ? (
+            <span
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "12px",
+                color: "var(--muted-foreground)",
+                fontWeight: 400,
+              }}
+            >
+              Latest stored sample · {relativeUpdated(result.kind === "ready" || result.kind === "stale" ? (result.series.generatedAt ?? null) : null, nowMs)}
+            </span>
+          ) : null}
+        </div>
       </div>
-      <div className="flex items-center gap-3 flex-wrap">
-        {result.kind === "ready" || result.kind === "stale" ? (
-          <FreshnessChip
-            fetchedAt={result.series.generatedAt}
-            nowMs={nowMs}
-            stale={result.kind === "stale"}
-          />
-        ) : null}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
         <HistoryRangeControls value={range} onChange={onRangeChange} />
       </div>
-    </header>
+    </div>
   )
 }
 
@@ -308,33 +327,37 @@ function FreshnessChip({
 }) {
   if (!fetchedAt) return null
   return (
-    <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider text-muted-foreground">
-      <span aria-hidden="true" className="relative inline-flex w-1.5 h-1.5">
-        <span
-          className={
-            "absolute inset-0 rounded-full opacity-70 animate-ping " +
-            (stale ? "bg-destructive" : "bg-primary")
-          }
-        />
-        <span
-          className={
-            "relative inline-block w-1.5 h-1.5 rounded-full " +
-            (stale ? "bg-destructive" : "bg-primary")
-          }
-        />
-      </span>
-      <span data-testid="history-freshness">
-        Updated {relativeUpdated(fetchedAt, nowMs)} ·{" "}
-        {absoluteTimestamp(fetchedAt)}
-      </span>
-      {stale ? (
-        <span
-          className="ml-1 px-1.5 h-5 inline-flex items-center rounded bg-destructive/10 border border-destructive/30 text-destructive"
-          data-testid="history-stale-badge"
-        >
-          STALE
-        </span>
-      ) : null}
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "5px 10px",
+        borderRadius: "999px",
+        backgroundColor: stale ? "var(--background)" : "var(--up-soft)",
+        color: stale ? "var(--down-strong)" : "var(--up-strong)",
+        fontFamily: "var(--font-sans)",
+        fontSize: "11.5px",
+        fontWeight: 500,
+        letterSpacing: 0,
+        whiteSpace: "nowrap",
+        border: stale
+          ? "1px solid var(--border)"
+          : "1px solid transparent",
+      }}
+      data-testid="history-freshness"
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: "6px",
+          height: "6px",
+          borderRadius: "999px",
+          backgroundColor: stale ? "var(--down-strong)" : "var(--up-strong)",
+        }}
+      />
+      Updated {relativeUpdated(fetchedAt, nowMs)}
+      {stale ? " · stale" : ""}
     </div>
   )
 }
@@ -356,9 +379,6 @@ function ChartBody({
   lastKnown: HistoricalSeries | null
   onRetry: () => void
 }) {
-  // If the latest fetch yielded an EMPTY/ERROR/PROVIDER_NOT_CONFIGURED
-  // state but we still have a known real series, fall back to the
-  // most recent one with a STALE wrapper.
   const effective: HistoryFetchResult =
     result.kind === "ready" ||
     result.kind === "stale" ||
@@ -379,10 +399,7 @@ function ChartBody({
           }
         : result
 
-  // Geometry — identical to the Phase 2A placeholder so the page
-  // never jumps when Phase 2B lands.
-  const heightClass =
-    "h-[220px] md:h-[260px]"
+  const heightClass = "h-[240px] md:h-[340px]"
 
   if (effective.kind === "loading") {
     return (
@@ -400,14 +417,6 @@ function ChartBody({
           series={effective.series}
           range={range}
           isStale={effective.kind === "stale"}
-        />
-        <ChartFootnote
-          series={effective.series}
-          range={range}
-          stale={effective.kind === "stale"}
-          staleReason={
-            effective.kind === "stale" ? effective.reason : null
-          }
         />
       </div>
     )
@@ -428,14 +437,13 @@ function ChartBody({
     return (
       <ChartMessage
         heightClass={heightClass}
-        title="Historical data provider not configured."
-        hint={`Add RHRPC_API_KEY to .env.local to enable historical charts for ${symbol}.`}
+        title="Historical price data is not available yet."
+        hint="Price history will appear here when historical data is available."
         testId="history-chart-provider-pending"
       />
     )
   }
 
-  // ERROR — the only state with a retry affordance.
   return (
     <div data-testid="history-chart-error">
       <ChartMessage
@@ -449,7 +457,7 @@ function ChartBody({
         <button
           type="button"
           onClick={onRetry}
-          className="h-8 px-3 text-[11px] font-mono tracking-wider rounded-md border border-border bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          className="h-8 px-3 zeks-eyebrow rounded-md border border-border bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           data-testid="history-chart-retry"
         >
           RETRY
@@ -460,7 +468,7 @@ function ChartBody({
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Skeleton (geometry-matched loading state)                                  */
+/* Skeleton                                                                   */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function ChartSkeleton({
@@ -481,9 +489,6 @@ function ChartSkeleton({
       aria-live="polite"
       data-testid="history-chart-skeleton"
     >
-      {/* Geometry-matched horizontal grid lines so the skeleton has
-          the same visual mass as the rendered chart. NO chart line,
-          NO fake data points. */}
       <div className="absolute inset-0 flex flex-col">
         {[0, 1, 2, 3].map((i) => (
           <div
@@ -493,7 +498,14 @@ function ChartSkeleton({
         ))}
       </div>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[11px] font-mono tracking-wider text-muted-foreground/70 bg-card/80 px-3 py-1 rounded-md border border-border">
+        <span
+          style={{
+            fontFamily:
+              "DM Sans, ui-sans-serif, system-ui, -apple-system, sans-serif",
+            fontSize: 12,
+            color: "var(--muted-foreground)",
+          }}
+        >
           {message}
         </span>
       </div>
@@ -502,7 +514,7 @@ function ChartSkeleton({
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Generic message surface (EMPTY / PROVIDER_NOT_CONFIGURED / ERROR header)   */
+/* Empty / Provider / Error surfaces                                          */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function ChartMessage({
@@ -525,11 +537,26 @@ function ChartMessage({
       data-testid={testId}
     >
       <div className="text-center px-4 max-w-md">
-        <div className="text-[12px] font-mono tracking-wider text-foreground">
+        <div
+          style={{
+            fontFamily:
+              "DM Sans, ui-sans-serif, system-ui, -apple-system, sans-serif",
+            fontSize: 13,
+            color: "var(--foreground)",
+          }}
+        >
           {title}
         </div>
         {hint ? (
-          <div className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground/80">
+          <div
+            style={{
+              fontFamily:
+                "DM Sans, ui-sans-serif, system-ui, -apple-system, sans-serif",
+              fontSize: 11.5,
+              marginTop: 6,
+              color: "var(--muted-foreground)",
+            }}
+          >
             {hint}
           </div>
         ) : null}
@@ -539,48 +566,8 @@ function ChartMessage({
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Real chart                                                                 */
+/* Real chart — Phase E renderer                                              */
 /* ────────────────────────────────────────────────────────────────────────── */
-
-/**
- * Compute `rangeChange` / `rangeChangePct` from the FIRST and LAST
- * real points. Returns `null` for either side when there are fewer
- * than two points OR the first price is non-positive. We NEVER
- * compute a change from the live bid/ask to fake one.
- */
-function computeRangeChange(points: HistoricalPoint[]): {
-  absolute: number | null
-  percent: number | null
-} {
-  if (points.length < 2) return { absolute: null, percent: null }
-  const first = points[0]
-  const last = points[points.length - 1]
-  if (
-    !Number.isFinite(first.price) ||
-    !Number.isFinite(last.price) ||
-    first.price <= 0
-  ) {
-    return { absolute: null, percent: null }
-  }
-  const absolute = last.price - first.price
-  const percent = (absolute / first.price) * 100
-  return { absolute, percent }
-}
-
-/** Build the Recharts dataset — only the fields it needs. */
-type ChartDatum = { ts: number; price: number }
-
-function toChartData(points: HistoricalPoint[]): ChartDatum[] {
-  return points.map((p) => ({ ts: p.timestamp, price: p.price }))
-}
-
-/** Decide whether to render a green or red line based on the range move. */
-function changeTone(absolute: number | null): "up" | "down" | "neutral" {
-  if (absolute === null) return "neutral"
-  if (absolute > 0) return "up"
-  if (absolute < 0) return "down"
-  return "neutral"
-}
 
 function PriceChart({
   series,
@@ -591,287 +578,161 @@ function PriceChart({
   range: HistoryRange
   isStale: boolean
 }) {
-  const data = React.useMemo(() => toChartData(series.points), [series.points])
-  const change = React.useMemo(() => computeRangeChange(series.points), [series.points])
-  const tone = changeTone(change.absolute)
+  const { absolute, percent } = React.useMemo(() => {
+    if (series.points.length < 2)
+      return { absolute: null as number | null, percent: null as number | null }
+    const first = series.points[0]
+    const last = series.points[series.points.length - 1]
+    if (
+      !Number.isFinite(first.price) ||
+      !Number.isFinite(last.price) ||
+      first.price <= 0
+    )
+      return { absolute: null as number | null, percent: null as number | null }
+    const diff = last.price - first.price
+    return { absolute: diff, percent: (diff / first.price) * 100 }
+  }, [series.points])
 
-  const stroke =
-    tone === "up"
-      ? "var(--zeks-line-up, hsl(var(--primary)))"
-      : tone === "down"
-        ? "hsl(var(--destructive))"
-        : "var(--zeks-line-neutral, hsl(var(--muted-foreground)))"
+  const tone: "up" | "down" | "neutral" =
+    absolute === null
+      ? "neutral"
+      : absolute > 0
+        ? "up"
+        : absolute < 0
+          ? "down"
+          : "neutral"
+  const isUp = tone === "up"
+  const isDown = tone === "down"
 
-  const fillTop =
-    tone === "up"
-      ? "var(--zeks-area-up-top, hsl(var(--primary) / 0.18))"
-      : tone === "down"
-        ? "hsl(var(--destructive) / 0.18)"
-        : "hsl(var(--muted-foreground) / 0.10)"
-
-  // Pre-compute y-axis bounds with a small breathing margin so the
-  // line never kisses the top/bottom edge.
-  const { yMin, yMax } = React.useMemo(() => {
-    if (data.length === 0) return { yMin: 0, yMax: 1 }
-    let min = Infinity
-    let max = -Infinity
-    for (const d of data) {
-      if (d.price < min) min = d.price
-      if (d.price > max) max = d.price
-    }
-    if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
-      const pad = min === 0 ? 1 : Math.abs(min) * 0.02
-      return { yMin: min - pad, yMax: max + pad }
-    }
-    const pad = (max - min) * 0.08
-    return { yMin: min - pad, yMax: max + pad }
-  }, [data])
-
-  const rangeChange = change.absolute
-  const rangeChangePct = change.percent
+  const isSparse = series.points.length >= 1 && series.points.length <= 6
 
   return (
-    <div className="mt-4">
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <span className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
-          {HISTORY_RANGE_META[range].durationLabel.toUpperCase()} CHANGE
+    <div className="mt-3">
+      {/* ── Change indicator (real derived first→last) ───────────── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "12px",
+            color: "var(--muted-foreground)",
+            fontWeight: 400,
+            letterSpacing: 0,
+          }}
+        >
+          {HISTORY_RANGE_META[range].durationLabel} change
         </span>
-        {rangeChange === null ? (
-          <span className="font-mono tabular-nums text-sm text-muted-foreground">
-            —
-          </span>
-        ) : (
+        {absolute !== null ? (
           <>
             <span
-              className={
-                "font-mono tabular-nums text-sm " +
-                (rangeChange > 0
-                  ? "text-foreground"
-                  : rangeChange < 0
-                    ? "text-destructive"
-                    : "text-muted-foreground")
-              }
+              className="tabular-nums"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "13.5px",
+                fontWeight: 500,
+                letterSpacing: "-0.01em",
+                color: isUp
+                  ? "var(--up-strong)"
+                  : isDown
+                    ? "var(--down-strong)"
+                    : "var(--muted-foreground)",
+              }}
               data-testid="history-range-change"
             >
-              {rangeChange >= 0 ? "+" : ""}
-              {formatUsd(rangeChange, 2)}
+              {absolute >= 0 ? "+" : ""}
+              {formatUsd(absolute, 2)}
             </span>
-            {rangeChangePct !== null ? (
-              <span
-                className={
-                  "font-mono tabular-nums text-[11px] " +
-                  (rangeChangePct > 0
-                    ? "text-foreground"
-                    : rangeChangePct < 0
-                      ? "text-destructive"
-                      : "text-muted-foreground")
-                }
-                data-testid="history-range-change-pct"
-              >
-                ({rangeChangePct >= 0 ? "+" : ""}
-                {rangeChangePct.toFixed(2)}%)
-              </span>
-            ) : null}
+            <span
+              className="tabular-nums"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "12.5px",
+                letterSpacing: 0,
+                fontWeight: 500,
+                color: isUp
+                  ? "var(--up-strong)"
+                  : isDown
+                    ? "var(--down-strong)"
+                    : "var(--muted-foreground)",
+                opacity: 0.85,
+              }}
+              data-testid="history-range-change-pct"
+            >
+              {percent !== null && percent >= 0 ? "+" : ""}
+              {percent !== null ? percent.toFixed(2) : "0.00"}%
+            </span>
           </>
+        ) : (
+          <span
+            className="tabular-nums"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "12.5px",
+              color: "var(--muted-foreground)",
+              fontWeight: 500,
+            }}
+          >
+            —
+          </span>
         )}
       </div>
 
+      {/* ── Chart canvas ────────────────────────────────────────────── */}
       <div
-        className="mt-3 h-[220px] md:h-[260px] rounded-lg border border-border bg-secondary/20 relative overflow-hidden"
+        style={{
+          marginTop: "12px",
+          borderRadius: "14px",
+          overflow: "hidden",
+          height: "340px",
+        }}
         data-testid="history-chart-canvas"
         aria-label={`${series.symbol} price chart, ${HISTORY_RANGE_META[range].durationLabel}`}
-        style={{ ["--zeks-line-tone" as string]: stroke }}
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={data}
-            margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
-          >
-            <defs>
-              <linearGradient id="zeks-area-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={fillTop} stopOpacity={1} />
-                <stop
-                  offset="100%"
-                  stopColor={fillTop}
-                  stopOpacity={0}
-                />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              stroke="hsl(var(--border))"
-              strokeDasharray="2 4"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="ts"
-              type="number"
-              domain={["dataMin", "dataMax"]}
-              scale="time"
-              tickFormatter={xTickFormatter(range)}
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={10}
-              tickLine={false}
-              axisLine={{ stroke: "hsl(var(--border))" }}
-              minTickGap={48}
-              tick={{ fill: "hsl(var(--muted-foreground))" }}
-            />
-            <YAxis
-              domain={[yMin, yMax]}
-              tickFormatter={(v: number) => formatUsd(v, 2)}
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={10}
-              tickLine={false}
-              axisLine={false}
-              width={64}
-              tick={{ fill: "hsl(var(--muted-foreground))" }}
-            />
-            <Tooltip
-              content={<ChartTooltip range={range} />}
-              cursor={{
-                stroke: "hsl(var(--muted-foreground))",
-                strokeOpacity: 0.4,
-                strokeDasharray: "3 3",
-              }}
-            />
-            {data.length > 0 ? (
-              <ReferenceLine
-                y={data[0].price}
-                stroke="hsl(var(--muted-foreground))"
-                strokeOpacity={0.35}
-                strokeDasharray="2 4"
-                ifOverflow="extendDomain"
-              />
-            ) : null}
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke={stroke}
-              strokeWidth={1.5}
-              fill="url(#zeks-area-fill)"
-              isAnimationActive={false}
-              dot={false}
-              activeDot={{
-                r: 3,
-                stroke: stroke,
-                strokeWidth: 1.5,
-                fill: "hsl(var(--card))",
-              }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-        {isStale ? (
-          <div className="pointer-events-none absolute inset-0 bg-background/40" />
-        ) : null}
+        <LightweightLineChart
+          series={series}
+          range={range}
+          isStale={isStale}
+          height={340}
+        />
       </div>
+
+      {/* ── Chart footer · very subtle sparse-data note ─────────── */}
+      {isSparse ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            marginTop: "8px",
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            fontWeight: 400,
+            color: "var(--muted-foreground)",
+            opacity: 0.75,
+            letterSpacing: 0,
+          }}
+          data-testid="history-sparse-note"
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: "4px",
+              height: "4px",
+              borderRadius: "9999px",
+              backgroundColor: "var(--muted-foreground)",
+              opacity: 0.5,
+              display: "inline-block",
+            }}
+          />
+          History is still accumulating
+        </div>
+      ) : null}
     </div>
-  )
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* X-axis tick formatter — chosen per range for readable density              */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function xTickFormatter(
-  range: HistoryRange,
-): (value: number) => string {
-  switch (range) {
-    case "1H":
-      return (v) => {
-        const d = new Date(v * 1000)
-        const hh = String(d.getHours()).padStart(2, "0")
-        const mm = String(d.getMinutes()).padStart(2, "0")
-        return `${hh}:${mm}`
-      }
-    case "1D":
-      return (v) => {
-        const d = new Date(v * 1000)
-        const hh = String(d.getHours()).padStart(2, "0")
-        const mm = String(d.getMinutes()).padStart(2, "0")
-        return `${hh}:${mm}`
-      }
-    case "1W":
-      return (v) => {
-        const d = new Date(v * 1000)
-        const weekday = d.toLocaleDateString("en-US", {
-          weekday: "short",
-        })
-        return weekday
-      }
-    case "1M":
-      return (v) => {
-        const d = new Date(v * 1000)
-        return d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        })
-      }
-  }
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Custom tooltip — production-quality, ZEKS typography                        */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-interface ChartTooltipProps {
-  active?: boolean
-  payload?: Array<{ payload?: ChartDatum }>
-  range: HistoryRange
-}
-
-function ChartTooltip({ active, payload, range }: ChartTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null
-  const datum = payload[0].payload
-  if (!datum) return null
-
-  const ts = new Date(datum.ts * 1000)
-  const time = ts.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-
-  return (
-    <div
-      className="bg-card border border-border rounded-md px-3 py-2 shadow-sm min-w-[160px]"
-      data-testid="history-chart-tooltip"
-    >
-      <div className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
-        {time}
-      </div>
-      <div className="font-mono tabular-nums text-sm text-foreground mt-0.5">
-        {formatUsd(datum.price, 4)}
-      </div>
-      <div className="text-[10px] font-mono tracking-wider text-muted-foreground/70 mt-1">
-        {HISTORY_RANGE_META[range].durationLabel} · multiplier-adjusted
-      </div>
-    </div>
-  )
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Footnote (line under the chart)                                            */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function ChartFootnote({
-  series,
-  range,
-  stale,
-  staleReason,
-}: {
-  series: HistoricalSeries
-  range: HistoryRange
-  stale: boolean
-  staleReason: string | null
-}) {
-  return (
-    <p
-      className="mt-3 text-[10px] font-mono tracking-wider text-muted-foreground/70"
-      data-testid="history-chart-footnote"
-    >
-      {`${series.points.length} points · ${HISTORY_RANGE_META[range].durationLabel} · ${series.source} · ${series.priceSemantics}`}
-      {stale && staleReason ? ` · ${staleReason}` : null}
-    </p>
   )
 }

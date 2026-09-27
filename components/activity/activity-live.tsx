@@ -66,22 +66,21 @@ export default function ActivityLive() {
 
   return (
     <div className="zeks-page">
-      <header className="zeks-block" style={{ gap: "var(--page-title-gap)" }}>
+      <header className="zeks-page-title-row" data-activity-header>
         <div className="zeks-block" style={{ gap: "6px" }}>
-          <span
-            className="zeks-label"
-            data-testid="activity-eyebrow"
-          >
+          <span className="zeks-label" data-testid="activity-eyebrow">
             Activity
           </span>
-          <h1 className="zeks-display">Activity</h1>
+          <h1 className="zeks-display" style={{ fontSize: "26px", letterSpacing: "-0.035em", lineHeight: 1.05 }}>
+            Activity
+          </h1>
           <p
             style={{
-              fontSize: "var(--font-body)",
+              fontSize: "13px",
               color: "var(--muted-foreground)",
               maxWidth: "52ch",
-              marginTop: "2px",
               lineHeight: 1.5,
+              letterSpacing: "-0.005em",
             }}
           >
             Verified Loopr vault transfers on Robinhood Chain.
@@ -89,7 +88,7 @@ export default function ActivityLive() {
         </div>
       </header>
 
-      <div className="zeks-footer-nav">
+      <div className="zeks-footer-nav" data-activity-status-row>
         <StatusPill
           label={statusLabel}
           tone={
@@ -125,16 +124,16 @@ export default function ActivityLive() {
 
       {events.length === 0 && !errorMessage ? (
         <section
-          className="rounded-2xl border border-dashed border-border bg-secondary/30 px-5 py-6"
+          className="zeks-empty"
           data-activity-empty
         >
-          <p className="font-serif text-[16px] text-foreground leading-snug">
+          <span className="zeks-section-title text-[14px] text-foreground">
             No recent activity
-          </p>
-          <p className="mt-1 text-[12px] text-muted-foreground leading-relaxed">
+          </span>
+          <span className="zeks-dim">
             No verified vault transfers detected on Robinhood Chain in
             the recent scan window.
-          </p>
+          </span>
         </section>
       ) : null}
 
@@ -154,7 +153,7 @@ export default function ActivityLive() {
             ))}
           </ul>
           {canLoadMore ? (
-            <div className="flex items-center justify-center px-4 py-3 border-t border-border bg-secondary/30">
+            <div className="flex items-center justify-center px-4 py-3 border-t border-border bg-card-soft gap-3">
               <button
                 type="button"
                 onClick={() =>
@@ -162,13 +161,13 @@ export default function ActivityLive() {
                     Math.min(events.length, n + PAGE_STEP),
                   )
                 }
-                className="font-mono text-[10px] tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                className="zeks-meta text-muted-foreground hover:text-foreground transition-colors"
                 data-testid="activity-load-more"
               >
                 Load more ↓
               </button>
               <span
-                className="font-mono text-[10px] tabular-nums text-muted-foreground/60 ml-3"
+                className="tabular-nums text-muted-foreground/60 text-[11px]"
                 aria-hidden="true"
               >
                 {events.length - visible.length} more
@@ -180,14 +179,14 @@ export default function ActivityLive() {
 
       {partial && events.length > 0 ? (
         <p
-          className="mt-3 text-[10px] font-mono tracking-wider text-amber-700 dark:text-amber-300"
+          className="mt-3 zeks-meta text-amber-700 dark:text-amber-300"
           data-testid="activity-partial"
         >
           RPC unavailable · partial data · retrying
         </p>
       ) : null}
 
-      <p className="mt-3 text-[10px] font-mono tracking-wider text-muted-foreground/60">
+      <p className="mt-3 zeks-meta text-muted-foreground/70">
         {loading && events.length === 0
           ? "Connecting…"
           : "Robinhood Chain · verified Loopr vaults"}
@@ -228,46 +227,47 @@ function ActivityRow({
         href={explorerTxUrl(event.txHash)}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-between gap-3 px-4 h-11 hover:bg-secondary/30 transition-colors"
+        className="flex items-center justify-between gap-3 px-4 h-12 hover:bg-secondary/30 transition-colors"
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           <span
             className={
-              "inline-flex items-center px-2 h-6 rounded-md bg-secondary text-[10px] font-mono tracking-wider shrink-0 " +
+              "inline-flex items-center px-1.5 h-5 rounded-[4px] zeks-eyebrow shrink-0 " +
               (tone === "up"
                 ? "text-up"
                 : tone === "down"
                   ? "text-down"
-                  : "text-foreground/80")
+                  : "text-muted-foreground")
             }
+            data-feed-tone={tone}
           >
             {label}
           </span>
           <span
-            className="font-mono text-[12px] text-foreground truncate"
+            className="zeks-symbol-sm truncate"
             data-feed-vault
           >
             {event.label}
           </span>
           <span
-            className="font-mono text-[10px] tabular-nums text-muted-foreground shrink-0"
+            className="tabular-nums font-sans text-[13px] text-muted-foreground shrink-0"
             data-feed-amount
           >
             {formatTokenAmount(event.amountUsdg)} USDG
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[12px] font-mono tabular-nums shrink-0">
+        <div className="flex items-center gap-4 text-[12px] font-sans shrink-0">
           <span className="text-muted-foreground tabular-nums">
             #{safeFormatBlock(event.blockNumber)}
           </span>
           <span
-            className="font-mono text-[12px] text-muted-foreground truncate"
+            className="zeks-tech-sm text-muted-foreground truncate"
             data-feed-hash
           >
             {shortenHash(event.txHash)}
           </span>
           <span
-            className="text-muted-foreground tabular-nums"
+            className="text-muted-foreground tabular-nums shrink-0"
             data-feed-time
           >
             {event.timestamp != null

@@ -8,12 +8,10 @@ export const dynamic = "force-dynamic"
 /**
  * /terminal/markets/[symbol]
  *
- * Loopr-style lending market detail page. Read-only; no Supply /
- * Borrow / wallet / health factor logic yet.
- *
- * Phase 2: the per-symbol market is resolved by the lending
- * service, which tries live Morpho first and falls back to mock
- * when no Morpho market exists for that symbol.
+ * Per-symbol Morpho lending market detail page. Wires the full
+ * 5-tab MarketsActionPanel (SUPPLY / WITHDRAW / BORROW / REPAY /
+ * WITHDRAW_COLLATERAL) via the locked F2/F3/F5/F6/F7 primitives.
+ * F12 lifecycle + transaction-eligibility gate every CTA.
  */
 export default async function LendingMarketDetailPage({
   params,

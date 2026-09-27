@@ -66,10 +66,10 @@ export default function PortfolioActivity({
           className="bg-card border border-border rounded-xl p-5 md:p-6"
         >
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+            <h2 className="zeks-eyebrow text-muted-foreground/70">
               RECENT ACTIVITY
             </h2>
-            <span className="text-[10px] font-mono text-muted-foreground/60">
+            <span className="zeks-eyebrow text-muted-foreground/60">
               No explorer feed on this chain
             </span>
           </div>
@@ -90,10 +90,10 @@ export default function PortfolioActivity({
           className="bg-card border border-border rounded-xl p-5 md:p-6"
         >
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+            <h2 className="zeks-eyebrow text-muted-foreground/70">
               RECENT ACTIVITY
             </h2>
-            <span className="text-[10px] font-mono text-muted-foreground/60">
+            <span className="zeks-eyebrow text-muted-foreground/60">
               Blockscout
             </span>
           </div>
@@ -114,10 +114,10 @@ export default function PortfolioActivity({
           className="bg-card border border-border rounded-xl p-5 md:p-6"
         >
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+            <h2 className="zeks-eyebrow text-muted-foreground/70">
               RECENT ACTIVITY
             </h2>
-            <span className="text-[10px] font-mono text-muted-foreground/60">
+            <span className="zeks-eyebrow text-muted-foreground/60">
               Last transactions
             </span>
           </div>
@@ -145,16 +145,16 @@ export default function PortfolioActivity({
         className="bg-card border border-border rounded-xl p-5 md:p-6"
       >
         <div className="flex items-baseline justify-between mb-4">
-          <h2 className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+          <h2 className="zeks-eyebrow text-muted-foreground/70">
             RECENT ACTIVITY
           </h2>
-          <span className="text-[10px] font-mono text-muted-foreground/60">
+          <span className="zeks-eyebrow text-muted-foreground/60">
             Blockscout · Robinhood Chain
           </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs font-mono tabular-nums">
+          <table className="w-full text-xs tabular-nums font-sans">
             <thead>
               <tr className="text-[10px] tracking-wider text-muted-foreground/70">
                 <th className="text-left font-normal py-2 pr-3">Hash</th>
@@ -205,7 +205,7 @@ export default function PortfolioActivity({
           </table>
         </div>
         {loading ? (
-          <p className="text-[10px] font-mono tracking-wider text-muted-foreground/70 mt-3">
+          <p className="zeks-eyebrow text-muted-foreground/70 mt-3">
             Refreshing…
           </p>
         ) : null}
@@ -222,16 +222,16 @@ export default function PortfolioActivity({
       className="bg-card border border-border rounded-xl p-5 md:p-6"
     >
       <div className="flex items-baseline justify-between mb-4">
-        <h2 className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+        <h2 className="zeks-eyebrow text-muted-foreground/70">
           RECENT ACTIVITY
         </h2>
-        <span className="text-[10px] font-mono text-muted-foreground/60">
+        <span className="zeks-eyebrow text-muted-foreground/60">
           Last transactions
         </span>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-xs font-mono tabular-nums">
+        <table className="w-full text-xs tabular-nums font-sans">
           <thead>
             <tr className="text-[10px] tracking-wider text-muted-foreground/70">
               <th className="text-left font-normal py-2 pr-3">Type</th>

@@ -106,6 +106,10 @@ function buildReferenceStub(
     referenceIsHalt: quote.isTradingHalt,
     chainId: 4663,
     fetchedAt: quote.generatedAt ?? new Date().toISOString(),
+    // F12 — curated reference rows have no on-chain MarketParams to verify.
+    lifecycle: null,
+    onchainLltvWad: null,
+    transactionEligible: false,
   }
 }
 
@@ -150,6 +154,10 @@ function buildMissingStub(symbol: string): LendingMarket {
     referenceIsHalt: false,
     chainId: 4663,
     fetchedAt: new Date().toISOString(),
+    // F12 — missing rows have no on-chain MarketParams to verify.
+    lifecycle: null,
+    onchainLltvWad: null,
+    transactionEligible: false,
   }
 }
 
@@ -234,60 +242,104 @@ export function StockOpportunities({
       className="flex flex-col"
       style={{ gap: "var(--dash-heading-gap)" }}
     >
-      {/* Toolbar */}
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <label className="relative flex-1 min-w-[220px]">
+      {/* Composed search + filter row (40px) */}
+      <div
+        className="flex items-center gap-3 flex-wrap"
+        style={{
+          padding: "6px",
+          borderRadius: "14px",
+          backgroundColor: "var(--card-soft)",
+          border: "1px solid var(--border)",
+          height: "48px",
+        }}
+      >
+        <label
+          className="relative flex-1 min-w-[220px]"
+          style={{ display: "flex", alignItems: "center", height: "100%" }}
+        >
           <span className="sr-only">Search stocks</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search AAPL, TSLA, …"
-            className="w-full rounded-md border outline-none"
-            style={{
-              padding: "10px 12px 10px 32px",
-              fontSize: "var(--font-body)",
-              borderColor: "var(--border)",
-              color: "var(--foreground)",
-              background: "var(--background)",
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-          />
           <span
             aria-hidden="true"
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
             style={{
-              fontSize: "13px",
+              fontSize: "14px",
               color: "var(--muted-foreground)",
             }}
           >
             ⌕
           </span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search AAPL, TSLA, …"
+            className="w-full rounded-lg outline-none"
+            style={{
+              padding: "8px 12px 8px 32px",
+              fontSize: "13px",
+              fontFamily: "var(--font-sans)",
+              fontWeight: 500,
+              border: "none",
+              color: "var(--foreground)",
+              background: "transparent",
+              letterSpacing: "-0.005em",
+              height: "100%",
+            }}
+          />
         </label>
 
-        <select
-          value={filter}
-          onChange={(e) =>
-            setFilter(e.currentTarget.value as StatusFilter)
-          }
-          aria-label="Filter by status"
-          className="rounded-md border outline-none cursor-pointer font-mono uppercase"
+        <div
+          aria-hidden="true"
           style={{
-            padding: "8px 12px",
-            fontSize: "12px",
-            letterSpacing: "0.04em",
-            borderColor: "var(--border)",
-            color: "var(--foreground)",
-            background: "var(--background)",
+            width: "1px",
+            alignSelf: "stretch",
+            margin: "8px 0",
+            backgroundColor: "var(--border)",
           }}
-          onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
-          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+        />
+
+        <div
+          className="inline-flex items-center gap-1 shrink-0"
+          role="radiogroup"
+          aria-label="Filter by status"
+          style={{
+            padding: "2px",
+            borderRadius: "8px",
+          }}
         >
-          <option value="all">All</option>
-          <option value="live">Live</option>
-          <option value="borrowable">Borrowable</option>
-        </select>
+          {(["all", "live", "borrowable"] as const).map((f) => {
+            const active = filter === f
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                aria-pressed={active}
+                style={{
+                  appearance: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  height: "30px",
+                  padding: "0 12px",
+                  borderRadius: "6px",
+                  background: active ? "var(--card)" : "transparent",
+                  borderColor: active ? "var(--border)" : "transparent",
+                  borderStyle: "solid",
+                  borderWidth: "1px",
+                  color: active ? "var(--foreground)" : "var(--muted-foreground)",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  letterSpacing: 0,
+                  transition:
+                    "background-color 130ms ease-out, color 130ms ease-out, border-color 130ms ease-out",
+                }}
+              >
+                {f === "all" ? "All" : f === "live" ? "Live" : "Borrowable"}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Grid */}
@@ -315,11 +367,13 @@ export function StockOpportunities({
 
       {/* Footnote */}
       <p
-        className="font-mono"
         style={{
-          fontSize: "11px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
           color: "var(--muted-foreground)",
+          fontWeight: 500,
           paddingTop: "4px",
+          letterSpacing: 0,
         }}
       >
         {filtered.length} / {priority.length} curated tickers
@@ -346,7 +400,7 @@ function resolvePriceBlock(m: LendingMarket): {
 } {
   if (m.oraclePrice != null && Number.isFinite(m.oraclePrice)) {
     return {
-      label: "ORACLE PRICE",
+      label: "Oracle price",
       value: formatPrice(m.oraclePrice),
       source:
         m.oracleSource === "chainlink"
@@ -360,13 +414,13 @@ function resolvePriceBlock(m: LendingMarket): {
   }
   if (m.referencePrice != null && Number.isFinite(m.referencePrice)) {
     return {
-      label: "REFERENCE PRICE",
+      label: "Reference price",
       value: formatPrice(m.referencePrice),
-      source: "Robinhood quote · No Chainlink oracle",
+      source: "Robinhood quote · no on-chain oracle",
     }
   }
   return {
-    label: "PRICE",
+    label: "Price",
     value: "—",
     source: "No verified price source",
   }
@@ -387,22 +441,21 @@ function OpportunityCard({
 
   return (
     <article
-      className="flex flex-col h-full transition-all duration-200"
+      className="flex flex-col h-full transition-colors duration-200"
       style={{
-        padding: "var(--dash-card-pad)",
-        borderRadius: "var(--dash-card-radius)",
+        padding: "22px",
+        borderRadius: "18px",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
         minHeight: "var(--dash-card-min-h)",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-2px)"
-        e.currentTarget.style.boxShadow =
-          "0 4px 20px rgba(26,24,20,0.06)"
+        e.currentTarget.style.backgroundColor = "var(--card-soft-hi)"
+        e.currentTarget.style.borderColor = "var(--border-strong)"
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = ""
-        e.currentTarget.style.boxShadow = ""
+        e.currentTarget.style.backgroundColor = "var(--card-soft)"
+        e.currentTarget.style.borderColor = "var(--border)"
       }}
       data-testid="opportunity-card"
     >
@@ -420,11 +473,12 @@ function OpportunityCard({
           <div className="flex items-center gap-2">
             <div
               style={{
-                fontFamily: "var(--font-serif)",
+                fontFamily: "var(--font-sans)",
                 fontSize: "var(--font-card-symbol)",
                 color: "var(--foreground)",
-                lineHeight: 1.1,
+                lineHeight: 1.15,
                 letterSpacing: "-0.01em",
+                fontWeight: 600,
               }}
             >
               {m.symbol}
@@ -432,12 +486,14 @@ function OpportunityCard({
             <StatusChip m={m} />
           </div>
           <div
-            className="font-mono truncate"
+            className="truncate"
             style={{
+              fontFamily: "var(--font-sans)",
               fontSize: "var(--font-card-company)",
               color: "var(--muted-foreground)",
               marginTop: "4px",
-              letterSpacing: "0.02em",
+              letterSpacing: "-0.005em",
+              fontWeight: 500,
             }}
           >
             {m.name ?? m.symbol}
@@ -448,32 +504,46 @@ function OpportunityCard({
       {/* 2 · Price block — always rendered so card geometry is identical */}
       <div
         style={{
-          paddingTop: "14px",
-          paddingBottom: "12px",
+          paddingTop: "20px",
+          paddingBottom: "18px",
           borderBottom: "1px solid var(--border)",
-          minHeight: "var(--dash-price-block-h, 64px)",
+          minHeight: "var(--dash-price-block-h, 72px)",
         }}
       >
-        <div className="zeks-label" style={{ marginBottom: "2px" }}>
+        <div
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            letterSpacing: 0,
+            color: "var(--muted-foreground)",
+            fontWeight: 500,
+            marginBottom: "6px",
+          }}
+        >
           {price.label}
         </div>
         <div
           className="zeks-num-lg"
           style={{
             color: "var(--foreground)",
+            fontSize: "26px",
+            letterSpacing: "-0.018em",
+            fontWeight: 500,
+            lineHeight: 1.1,
           }}
         >
           {price.value}
         </div>
         <div
-          className="font-mono"
           style={{
-            fontSize: "10.5px",
+            fontFamily: "var(--font-sans)",
+            fontSize: "12px",
             color: "var(--muted-foreground)",
-            marginTop: "2px",
-            letterSpacing: "0.02em",
-            minHeight: "14px",
-            lineHeight: 1.2,
+            marginTop: "6px",
+            letterSpacing: 0,
+            minHeight: "16px",
+            lineHeight: 1.3,
+            fontWeight: 500,
           }}
         >
           {price.source}
@@ -485,10 +555,10 @@ function OpportunityCard({
         className="grid grid-cols-3"
         style={{
           columnGap: "8px",
-          paddingTop: "12px",
-          paddingBottom: spread != null || isCuratedOnly ? "12px" : "12px",
+          paddingTop: "16px",
+          paddingBottom: "16px",
           borderBottom: "1px solid var(--border)",
-          minHeight: "var(--dash-stats-block-h, 56px)",
+          minHeight: "var(--dash-stats-block-h, 60px)",
         }}
       >
         <StatField
@@ -511,18 +581,20 @@ function OpportunityCard({
         className="flex items-center justify-between"
         style={{
           marginTop: "auto",
-          paddingTop: "14px",
-          minHeight: "28px",
+          paddingTop: "16px",
+          minHeight: "32px",
         }}
       >
         {spread != null ? (
           <span
-            className="font-mono uppercase inline-flex items-baseline gap-1.5"
+            className="inline-flex items-baseline gap-1.5"
             style={{
-              fontSize: "var(--font-micro)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
               color: "var(--muted-foreground)",
-              letterSpacing: "0.06em",
-              lineHeight: 1,
+              fontWeight: 500,
+              letterSpacing: 0,
+              lineHeight: 1.2,
             }}
           >
             Spread
@@ -530,8 +602,9 @@ function OpportunityCard({
               className="tabular-nums"
               style={{
                 color: spread >= 0 ? "var(--up)" : "var(--down)",
-                fontSize: "12px",
-                letterSpacing: "0",
+                fontSize: "13px",
+                fontWeight: 600,
+                letterSpacing: "-0.005em",
               }}
             >
               {spread >= 0 ? "+" : ""}
@@ -540,21 +613,23 @@ function OpportunityCard({
           </span>
         ) : (
           <span
-            className="font-mono uppercase inline-flex items-baseline gap-1.5"
+            className="inline-flex items-baseline gap-1.5"
             style={{
-              fontSize: "var(--font-micro)",
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
               color: "var(--muted-foreground)",
-              letterSpacing: "0.06em",
-              lineHeight: 1,
+              fontWeight: 500,
+              letterSpacing: 0,
+              lineHeight: 1.2,
             }}
           >
             <span>Spread</span>
             <span
               style={{
                 color: "var(--muted-foreground)",
-                fontSize: "12px",
-                letterSpacing: "0",
-                opacity: 0.6,
+                fontSize: "13px",
+                fontWeight: 600,
+                opacity: 0.5,
               }}
             >
               —
@@ -563,25 +638,28 @@ function OpportunityCard({
         )}
         <Link
           href={`/terminal/markets/${encodeURIComponent(m.symbol)}`}
-          className="font-medium transition-colors inline-flex items-center justify-center"
+          className="font-medium transition-colors inline-flex items-center justify-center gap-1.5"
           style={{
-            fontSize: "12px",
-            height: "24px",
-            padding: "0 10px",
-            borderRadius: "5px",
+            fontSize: "12.5px",
+            fontFamily: "var(--font-sans)",
+            height: "32px",
+            padding: "0 14px",
+            borderRadius: "10px",
             backgroundColor: "var(--primary)",
             color: "var(--primary-foreground)",
             textDecoration: "none",
             lineHeight: 1,
+            letterSpacing: "-0.005em",
+            fontWeight: 600,
           }}
           onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "rgba(183,243,74,0.85)")
+            (e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--primary) 88%, white)")
           }
           onMouseLeave={(e) =>
             (e.currentTarget.style.backgroundColor = "var(--primary)")
           }
         >
-          Explore →
+          Explore
         </Link>
       </div>
     </article>
@@ -594,7 +672,7 @@ function StatusChip({ m }: { m: LendingMarket }) {
   const isLive = m.sourceMode === "real-morpho" || m.sourceMode === "live"
   const isUnlisted = m.sourceMode === "real-morpho-unlisted"
   const isCuratedOnly = m.sourceMode === "curated-reference"
-  const label = isLive ? "LIVE" : isUnlisted ? "UNLISTED" : isCuratedOnly ? "QUOTE" : "MOCK"
+  const label = isLive ? "Live" : isUnlisted ? "Unlisted" : isCuratedOnly ? "Quote" : "Mock"
   const color = isLive
     ? "var(--up)"
     : isUnlisted
@@ -604,22 +682,28 @@ function StatusChip({ m }: { m: LendingMarket }) {
         : "var(--down)"
   return (
     <span
-      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      className="inline-flex items-center gap-1.5 shrink-0"
       style={{
-        fontSize: "9px",
+        fontFamily: "var(--font-sans)",
+        fontSize: "11px",
         color,
-        letterSpacing: "0.08em",
-        opacity: 0.85,
-        padding: "2px 5px",
-        border: `1px solid ${color}`,
-        borderRadius: "4px",
+        letterSpacing: 0,
+        fontWeight: 600,
+        padding: "2px 8px",
+        background: isLive
+          ? "color-mix(in srgb, var(--up) 12%, transparent)"
+          : "var(--secondary)",
+        borderRadius: "999px",
+        lineHeight: 1.2,
       }}
     >
-      <span
-        aria-hidden="true"
-        className="rounded-full shrink-0"
-        style={{ width: "4px", height: "4px", backgroundColor: color }}
-      />
+      {isLive && (
+        <span
+          aria-hidden="true"
+          className="rounded-full shrink-0"
+          style={{ width: "5px", height: "5px", backgroundColor: color }}
+        />
+      )}
       {label}
     </span>
   )
@@ -646,8 +730,15 @@ function StatField({
     <div>
       <dt className="zeks-label-inline">{label}</dt>
       <dd
-        className="zeks-num-md"
-        style={{ color, marginTop: "3px" }}
+        style={{
+          color,
+          marginTop: "6px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "14px",
+          fontWeight: 600,
+          letterSpacing: "-0.01em",
+          fontVariantNumeric: "tabular-nums",
+        }}
       >
         {value}
       </dd>
@@ -658,10 +749,11 @@ function StatField({
 function EmptyState({ hasAny }: { hasAny: boolean }) {
   return (
     <p
-      className="font-mono"
       style={{
-        fontSize: "12px",
+        fontFamily: "var(--font-sans)",
+        fontSize: "12.5px",
         color: "var(--muted-foreground)",
+        fontWeight: 500,
       }}
     >
       {hasAny

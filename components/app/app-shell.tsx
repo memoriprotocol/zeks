@@ -1,4 +1,4 @@
-﻿import AppSidebar from "@/components/app/app-sidebar"
+import AppSidebar from "@/components/app/app-sidebar"
 import AppHeader from "@/components/app/app-header"
 import { WalletProvider } from "@/components/app/wallet/use-wallet"
 import {
@@ -60,7 +60,7 @@ export default async function AppShell({
           <div className="zeks-shell-chrome">
             <AppHeader tickerAssets={tickerAssets} tickerQuotes={tickerQuotes} />
           </div>
-          <main className="zeks-shell-main paper">
+          <main className="zeks-shell-main">
             {children}
           </main>
         </div>

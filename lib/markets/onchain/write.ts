@@ -27,14 +27,14 @@ import {
   encodeErc20Approve,
   encodeErc4626Deposit,
   encodeMorphoBorrow,
+  encodeMorphoRepay,
   encodeMorphoSupply,
   encodeMorphoSupplyCollateral,
+  encodeMorphoWithdraw,
+  encodeMorphoWithdrawCollateral,
   marketParamsFromLendingMarket,
-  MAX_UINT256,
   type MorphoMarketParams,
 } from "./abi"
-
-export { MAX_UINT256 }
 
 export type TxStage =
   | "idle"
@@ -438,8 +438,9 @@ export interface ApproveArgs {
   token: Address
   spender: Address
   /**
-   * Approval amount. Use `MAX_UINT256` for unlimited approval;
-   * `approve(0n)` to revoke.
+   * Approval amount in raw token units. Pass the EXACT required
+   * amount; do NOT use `MAX_UINT256` (the project policy forbids
+   * unlimited approvals). `approve(0n)` revokes the allowance.
    */
   amount: bigint
 }
@@ -677,7 +678,8 @@ export interface EnsureAllowanceArgs {
    * If the onchain allowance is already >= this value, the
    * function returns `{ ok: true, stage: "confirmed", txHash:
    * null }` and does NOT send any transaction. Otherwise it
-   * sends an `approve(MAX_UINT256)` and waits for the receipt.
+   * sends an `approve(amount)` with the EXACT required amount
+   * and waits for the receipt.
    */
   existingAllowance?: bigint
 }
@@ -686,7 +688,13 @@ export interface EnsureAllowanceArgs {
  * Read the current allowance (`existingAllowance`) from the
  * caller-provided read path. If the allowance covers `amount`,
  * no transaction is sent. Otherwise, send a single
- * `approve(MAX_UINT256)` and wait for the receipt.
+ * `approve(amount)` for the EXACT required amount and wait for
+ * the receipt.
+ *
+ * NOTE: This helper is not used by F2B (which uses
+ * `useApprovalTransaction` with an exact amount directly).
+ * Retained for completeness; the `amount` passed in IS the
+ * exact required supply amount — never `MAX_UINT256`.
  */
 export async function ensureAllowance(
   args: EnsureAllowanceArgs,
@@ -715,7 +723,7 @@ export async function ensureAllowance(
     from: args.from,
     token: args.token,
     spender: args.spender,
-    amount: MAX_UINT256,
+    amount: args.amount, // EXACT required amount — never MAX_UINT256.
   })
   if (!approveRes.ok) return approveRes
   const receipt = await waitForReceipt(args.provider, approveRes.txHash)
@@ -870,6 +878,186 @@ export async function sendBorrow(args: BorrowArgs): Promise<TxSendResult> {
           err instanceof Error
             ? err.message
             : "Borrow calldata construction refused.",
+      },
+    }
+  }
+  if (!args.contracts.morphoBlueAddress) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message: "Morpho Blue core address missing.",
+      },
+    }
+  }
+  return sendViaWallet(args.provider, {
+    from: args.from,
+    to: args.contracts.morphoBlueAddress,
+    data,
+  })
+}
+
+/* ------------------------------------------------------ */
+/* Morpho Blue repay — registry-gated                      */
+/* ------------------------------------------------------ */
+
+export interface RepayArgs {
+  provider: EIP1193Provider
+  from: Address
+  marketParams: MorphoMarketParams | null
+  /**
+   * Repay asset amount in loan-token smallest units.
+   * Pass `BigInt(0)` to let Morpho compute the exact amount
+   * needed to close the position (includes accrued interest).
+   */
+  assets: bigint
+  /**
+   * Repay shares. Pass `BigInt(0)` to use the assets-based path
+   * (assets is the canonical "close position" amount).
+   * Pass the user's `borrowShares` to repay by position shares.
+   */
+  shares: bigint
+  /** Address whose position is being repaid. */
+  onBehalf: Address
+  contracts: ProtocolContracts
+  chainId: number
+}
+
+export async function sendRepay(args: RepayArgs): Promise<TxSendResult> {
+  if (args.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message:
+          `Repay must run on chain ${ROBINHOOD_CHAIN_ID_DEC}.`,
+      },
+    }
+  }
+  if (!args.marketParams) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Market params missing for repay.",
+      },
+    }
+  }
+  if (args.assets < BigInt(0)) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Repay amount cannot be negative.",
+      },
+    }
+  }
+  let data: `0x${string}`
+  try {
+    data = encodeMorphoRepay({
+      contracts: args.contracts,
+      chainId: args.chainId,
+      params: args.marketParams as MorphoMarketParams,
+      assets: args.assets,
+      shares: args.shares,
+      onBehalf: args.onBehalf,
+    })
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Repay calldata construction refused.",
+      },
+    }
+  }
+  if (!args.contracts.morphoBlueAddress) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message: "Morpho Blue core address missing.",
+      },
+    }
+  }
+  return sendViaWallet(args.provider, {
+    from: args.from,
+    to: args.contracts.morphoBlueAddress,
+    data,
+  })
+}
+
+/* ------------------------------------------------------ */
+/* Morpho Blue withdrawCollateral — registry-gated            */
+/* ------------------------------------------------------ */
+
+export interface WithdrawCollateralArgs {
+  provider: EIP1193Provider
+  from: Address
+  marketParams: MorphoMarketParams | null
+  /** Collateral asset amount in collateral-token smallest units. */
+  assets: bigint
+  /** Address whose collateral position to withdraw from. */
+  onBehalf: Address
+  /** Address to receive the withdrawn collateral tokens. */
+  receiver: Address
+  contracts: ProtocolContracts
+  chainId: number
+}
+
+export async function sendWithdrawCollateral(
+  args: WithdrawCollateralArgs,
+): Promise<TxSendResult> {
+  if (args.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message:
+          `withdrawCollateral must run on chain ${ROBINHOOD_CHAIN_ID_DEC}.`,
+      },
+    }
+  }
+  if (!args.marketParams) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Market params missing for withdrawCollateral.",
+      },
+    }
+  }
+  if (args.assets <= BigInt(0)) {
+    return {
+      ok: false,
+      error: {
+        stage: "validation-failed",
+        message: "Withdraw amount must be > 0.",
+      },
+    }
+  }
+  let data: `0x${string}`
+  try {
+    data = encodeMorphoWithdrawCollateral({
+      contracts: args.contracts,
+      chainId: args.chainId,
+      params: args.marketParams as MorphoMarketParams,
+      assets: args.assets,
+      onBehalf: args.onBehalf,
+      receiver: args.receiver,
+    })
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        stage: "protocol-not-configured",
+        message:
+          err instanceof Error
+            ? err.message
+            : "withdrawCollateral calldata construction refused.",
       },
     }
   }

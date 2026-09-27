@@ -14,6 +14,11 @@
  *  └─ Live          → 5 transaction rows (each labelled simply
  *                     "Transaction" — we never invent supply/borrow
  *                     action types from calldata we cannot verify).
+ *
+ * P2B polish: header rhythm matches P1B mono-caps (9.5px, 0.12em).
+ * Transaction pill upgraded to P1B terminal chip rhythm
+ * (10.5px, 0.04em tracking, weight 400). No data-shape change.
+ * No fetch / polling / decoding change.
  */
 
 import * as React from "react"
@@ -44,25 +49,54 @@ export default function MarketActivitySection({
       data-market-activity
       className="zeks-card p-0 overflow-hidden"
     >
-      <header className="px-4 py-3 border-b border-border flex items-baseline justify-between gap-2">
-        <div className="flex items-baseline gap-3">
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
+      <header
+        className="flex items-baseline justify-between gap-2 border-b border-border"
+        style={{ padding: "8px 14px", minHeight: "32px" }}
+        data-market-activity-header
+      >
+        <div className="flex items-baseline gap-3 min-w-0">
+          <span
+            className="zeks-eyebrow uppercase"
+            style={{
+              fontSize: "10px",
+              letterSpacing: "0.1em",
+              color: "var(--foreground)",
+              fontWeight: 500,
+            }}
+          >
             ACTIVITY
           </span>
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+          <span aria-hidden="true" style={{ color: "var(--border-strong)" }}>
+            ·
+          </span>
+          <span
+            className="font-sans"
+            style={{
+              fontSize: "10.5px",
+              letterSpacing: "0.04em",
+              color: "var(--muted-foreground)",
+              fontWeight: 400,
+            }}
+          >
             Recent onchain transactions
           </span>
         </div>
         <Link
           href="/terminal/activity"
-          className="group inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          className="group inline-flex items-center gap-1 zeks-eyebrow uppercase shrink-0"
+          style={{
+            fontSize: "10.5px",
+            letterSpacing: "0.04em",
+            color: "var(--muted-foreground)",
+            fontWeight: 500,
+          }}
         >
           Open activity
           <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </header>
 
-      <div className="p-5 md:p-6 min-w-0">
+      <div style={{ padding: "12px 14px" }}>
         {kind === "idle" ? (
           <State line="Connect your wallet to see activity." />
         ) : kind === "wrong-network" ? (
@@ -81,20 +115,60 @@ export default function MarketActivitySection({
                   href={explorerTxUrl(a.hash)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-md hover:bg-secondary/30 transition-colors"
+                  className="flex items-center justify-between gap-3 rounded-[6px] hover:bg-secondary/30 transition-colors"
+                  style={{ padding: "8px 10px" }}
+                  data-market-activity-row
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="inline-flex items-center px-2 h-6 rounded-md bg-secondary text-[10px] font-mono tracking-wider text-foreground/80 shrink-0">
+                    <span
+                      className="inline-flex items-center zeks-eyebrow uppercase shrink-0"
+                      style={{
+                        fontSize: "9.5px",
+                        letterSpacing: "0.1em",
+                        padding: "2px 6px",
+                        borderRadius: "3px",
+                        border: "1px solid var(--border)",
+                        backgroundColor: "var(--secondary)",
+                        color: "var(--foreground)",
+                        fontWeight: 500,
+                      }}
+                    >
                       Transaction
                     </span>
-                    <span className="font-mono text-[12px] text-muted-foreground truncate">
+                    <span
+                      className="font-sans truncate"
+                      style={{
+                        fontSize: "11.5px",
+                        color: "var(--muted-foreground)",
+                      }}
+                    >
                       {shortenHash(a.hash)}
                     </span>
                     {a.reverted ? (
-                      <span className="text-[10px] text-down shrink-0">reverted</span>
+                      <span
+                        className="zeks-eyebrow uppercase shrink-0"
+                        style={{
+                          fontSize: "9.5px",
+                          letterSpacing: "0.08em",
+                          color: "var(--down)",
+                          padding: "2px 6px",
+                          borderRadius: "3px",
+                          border: "1px solid var(--down)",
+                          backgroundColor: "transparent",
+                          fontWeight: 500,
+                        }}
+                      >
+                        REVERTED
+                      </span>
                     ) : null}
                   </div>
-                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums shrink-0">
+                  <span
+                    className="tabular-nums font-sans shrink-0"
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--muted-foreground)",
+                    }}
+                  >
                     {fmtTime(a.timestamp)}
                   </span>
                 </Link>
@@ -109,7 +183,14 @@ export default function MarketActivitySection({
 
 function State({ line }: { line: string }) {
   return (
-    <p className="font-mono text-[11px] tracking-wider text-muted-foreground/70">
+    <p
+      className="font-sans"
+      style={{
+        fontSize: "11.5px",
+        color: "var(--muted-foreground)",
+        letterSpacing: "0.02em",
+      }}
+    >
       {line}
     </p>
   )

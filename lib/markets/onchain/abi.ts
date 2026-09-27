@@ -468,6 +468,81 @@ export function encodeMorphoSupplyCollateral(input: {
 }
 
 /**
+ * Build Morpho Blue `withdraw(MarketParams, assets, shares,
+ * onBehalf, receiver)` calldata for asset-based withdrawal.
+ *
+ * Signature (verbatim from `IMorpho.sol`):
+ *   function withdraw(MarketParams marketParams,
+ *                    uint256 assets,
+ *                    uint256 shares,
+ *                    address onBehalf,
+ *                    address receiver)
+ *
+ * For asset-based withdrawal (F3B):
+ *   assets = exact token amount to withdraw
+ *   shares = 0  (Morpho computes shares internally via toAssetsUp)
+ *   onBehalf = wallet address (user withdraws their own position)
+ *   receiver = wallet address (funds go back to user)
+ *
+ * Head layout — withdraw has NO dynamic args (5 static + 5 static
+ * → fully inline, no tail region):
+ *   [MP.0 loanToken][MP.1 collateralToken][MP.2 oracle]
+ *   [MP.3 irm][MP.4 lltv][assets][shares][onBehalf][receiver]
+ *
+ * For direct wallet execution where msg.sender == onBehalf,
+ * Morpho's authorization check is satisfied (sender can always withdraw
+ * their own position).
+ *
+ * Throws on:
+ *   - wrong chain
+ *   - missing morphoBlueAddress
+ *   - missing or invalid marketParams
+ *   - assets == 0
+ *
+ * The caller is responsible for validating that
+ * assets <= userSuppliedAssets and assets <= maxWithdrawable.
+ */
+export function encodeMorphoWithdraw(input: {
+  contracts: ProtocolContracts
+  chainId: number
+  params: MorphoMarketParams
+  /** Asset amount in loan-token smallest units (must be > 0). */
+  assets: bigint
+  /** Must be 0n for asset-based withdrawal. */
+  shares: bigint
+  /** Address whose position to withdraw from. */
+  onBehalf: Address
+  /** Address to receive the withdrawn tokens. */
+  receiver: Address
+}): `0x${string}` {
+  if (input.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    throw new Error(
+      `protocol-not-configured: Morpho writes are pinned to chain ` +
+        `${ROBINHOOD_CHAIN_ID_DEC}; got ${input.chainId}.`,
+    )
+  }
+  if (!input.contracts.morphoBlueAddress) {
+    throw new Error(
+      "protocol-not-configured: Morpho Blue core address is not " +
+        "verified for Robinhood Chain.",
+    )
+  }
+  if (!input.params) {
+    throw new Error(
+      "protocol-not-configured: market params are missing.",
+    )
+  }
+  return (
+    MORPHO_BLUE_SELECTORS.withdraw +
+    encodeMorphoMarketParams(input.params) +
+    padUint256(input.assets) +
+    padUint256(input.shares) +
+    padAddress(input.onBehalf) +
+    padAddress(input.receiver)
+  ) as `0x${string}`
+}
+
+/**
  * Build Morpho Blue `borrow(MarketParams, assets, shares,
  * onBehalf, receiver)` calldata.
  *
@@ -513,6 +588,134 @@ export function encodeMorphoBorrow(input: {
     encodeMorphoMarketParams(input.params) +
     padUint256(input.assets) +
     padUint256(input.shares) +
+    padAddress(input.onBehalf) +
+    padAddress(input.receiver)
+  ) as `0x${string}`
+}
+
+/**
+ * Build Morpho Blue `repay(MarketParams, assets, shares,
+ * onBehalf, data)` calldata.
+ *
+ * Signature (verbatim from `IMorpho.sol`):
+ *   function repay(MarketParams marketParams,
+ *                 uint256 assets,
+ *                 uint256 shares,
+ *                 address onBehalf,
+ *                 bytes data)
+ *
+ * Head layout — same as `supply` (7 head slots before the dynamic
+ * `bytes data` offset):
+ *   [MP.0 loanToken][MP.1 collateralToken][MP.2 oracle]
+ *   [MP.3 irm][MP.4 lltv][assets][shares][onBehalf][dataOffset]
+ *
+ * For direct wallet execution where msg.sender == onBehalf,
+ * authorization is implicit (user repays their own debt).
+ *
+ * To repay the full debt:
+ *   assets = 0  →  Morpho computes the exact assets needed to
+ *                   close the position (includes accrued interest).
+ *                   This is the canonical "max repay" for the protocol.
+ *   shares = user_borrowShares → repay exactly the user's position.
+ *   OR
+ *   assets = borrowedAssets (from F5B) → repay the rounded-up debt.
+ *
+ * Using assets=0 is the safer "close position" pattern; Morpho handles
+ * the rounding internally. The caller must set shares=0 to activate
+ * the automatic debt-compute mode.
+ *
+ * Throws on:
+ *   - wrong chain
+ *   - missing morphoBlueAddress
+ *   - missing or invalid marketParams
+ */
+export function encodeMorphoRepay(input: {
+  contracts: ProtocolContracts
+  chainId: number
+  params: MorphoMarketParams
+  assets: bigint
+  shares: bigint
+  onBehalf: Address
+}): `0x${string}` {
+  if (input.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    throw new Error(
+      `protocol-not-configured: Repay is pinned to chain ` +
+        `${ROBINHOOD_CHAIN_ID_DEC}; got ${input.chainId}.`,
+    )
+  }
+  if (!input.contracts.morphoBlueAddress) {
+    throw new Error(
+      "protocol-not-configured: Morpho Blue core address is not " +
+        "verified for Robinhood Chain.",
+    )
+  }
+  // 7 head slots before the dynamic `bytes data` offset.
+  const dataOffset = padUint256(BigInt(7 * 32))
+  const tail = encodeEmptyBytes()
+  return (
+    MORPHO_BLUE_SELECTORS.repay +
+    encodeMorphoMarketParams(input.params) +
+    padUint256(input.assets) +
+    padUint256(input.shares) +
+    padAddress(input.onBehalf) +
+    dataOffset +
+    tail
+  ) as `0x${string}`
+}
+
+/**
+ * Build Morpho Blue `withdrawCollateral(MarketParams, assets,
+ * onBehalf, receiver)` calldata.
+ *
+ * Signature (verbatim from `IMorpho.sol`):
+ *   function withdrawCollateral(MarketParams marketParams,
+ *                             uint256 assets,
+ *                             address onBehalf,
+ *                             address receiver)
+ *
+ * Head layout — 8 slots, no tail:
+ *   [MP.0 loanToken][MP.1 collateralToken][MP.2 oracle]
+ *   [MP.3 irm][MP.4 lltv][assets][onBehalf][receiver]
+ *
+ * `assets = 0` is NOT valid for withdrawCollateral (unlike
+ * borrow/repay where assets=0 triggers auto-compute). For
+ * collateral withdrawal the user must specify the exact amount.
+ *
+ * For direct wallet execution where msg.sender == onBehalf,
+ * authorization is implicit (user withdraws their own collateral).
+ *
+ * Throws on:
+ *   - wrong chain
+ *   - missing morphoBlueAddress
+ *   - missing or invalid marketParams
+ */
+export function encodeMorphoWithdrawCollateral(input: {
+  contracts: ProtocolContracts
+  chainId: number
+  params: MorphoMarketParams
+  /** Collateral amount in collateral-token smallest units (must be > 0). */
+  assets: bigint
+  /** Address whose collateral position to withdraw from. */
+  onBehalf: Address
+  /** Address to receive the withdrawn collateral tokens. */
+  receiver: Address
+}): `0x${string}` {
+  if (input.chainId !== ROBINHOOD_CHAIN_ID_DEC) {
+    throw new Error(
+      `protocol-not-configured: withdrawCollateral is pinned to chain ` +
+        `${ROBINHOOD_CHAIN_ID_DEC}; got ${input.chainId}.`,
+    )
+  }
+  if (!input.contracts.morphoBlueAddress) {
+    throw new Error(
+      "protocol-not-configured: Morpho Blue core address is not " +
+        "verified for Robinhood Chain.",
+    )
+  }
+  return (
+    MORPHO_BLUE_SELECTORS.withdrawCollateral +
+    encodeMorphoMarketParams(input.params) +
+    padUint256(input.assets) +
     padAddress(input.onBehalf) +
     padAddress(input.receiver)
   ) as `0x${string}`

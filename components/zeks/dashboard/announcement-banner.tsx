@@ -3,8 +3,8 @@
 /**
  * AnnouncementBanner — compact single-row strip.
  *
- *   warm off-white surface · rounded-2xl · p-5 (vertical 4) · mb-4
- *   mono metadata · thin border
+ *   sage-cream surface · rounded-2xl · soft border · p-3
+ *   sans labels and meta
  */
 
 import * as React from "react"
@@ -16,48 +16,53 @@ export function AnnouncementBanner() {
       aria-label="Announcement"
       className="flex items-center justify-between gap-3 border"
       style={{
-        padding: "10px 20px",
-        borderRadius: "var(--dash-card-radius)",
+        padding: "10px 16px",
+        borderRadius: "10px",
         backgroundColor: "var(--card-soft)",
         borderColor: "var(--border)",
-        marginBottom: "20px",
+        marginBottom: "16px",
       }}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <span
-          className="font-mono uppercase shrink-0"
+          className="shrink-0"
           style={{
-            fontSize: "10px",
-            letterSpacing: "0.08em",
-            padding: "3px 8px",
-            borderRadius: "4px",
-            background: "var(--secondary)",
-            border: "1px solid var(--border)",
-            color: "var(--foreground)",
+            fontFamily: "var(--font-sans)",
+            fontSize: "11px",
+            letterSpacing: "0.04em",
+            padding: "3px 9px",
+            borderRadius: "6px",
+            background: "var(--primary)",
+            color: "var(--primary-foreground)",
+            fontWeight: 600,
           }}
         >
-          ZEKS
+          Robinhood Chain
         </span>
         <p
           className="truncate"
           style={{
-            fontSize: "var(--font-body)",
+            fontFamily: "var(--font-sans)",
+            fontSize: "13px",
             color: "var(--foreground)",
-            opacity: 0.78,
+            fontWeight: 500,
+            letterSpacing: "-0.005em",
           }}
         >
-          Live data from Morpho &amp; Chainlink on Robinhood Chain
+          Live data from Morpho & Chainlink on Robinhood Chain
         </p>
       </div>
 
       <span
-        className="font-mono shrink-0 hidden md:inline"
+        className="shrink-0 hidden md:inline"
         style={{
-          fontSize: "11px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
           color: "var(--muted-foreground)",
+          fontWeight: 500,
         }}
       >
-        Robinhood Chain · 4663
+        Chain ID 4663
       </span>
     </div>
   )

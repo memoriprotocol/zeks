@@ -6,17 +6,19 @@
 
 export type {
   LendingMarket,
+  LendingMarketWire,
   LendingMarketSet,
   LendingServiceResult,
   LendingDiagnostics,
   OracleSource,
   ProtocolSource,
   MarketLifecycleStatus,
+  F12MarketLifecycle,
   MarketSourceMode,
   LendingSourceDescriptor,
 } from "./types"
 
-export { LENDING_SOURCE } from "./types"
+export { LENDING_SOURCE, toWireLendingMarket } from "./types"
 
 export {
   fetchLendingMarkets,

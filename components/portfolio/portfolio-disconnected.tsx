@@ -41,13 +41,13 @@ export default function PortfolioDisconnected({
           <Wallet className="w-5 h-5 text-foreground" />
         </div>
         <div className="min-w-0">
-          <div className="text-[10px] font-mono tracking-wider text-muted-foreground">
-            PORTFOLIO · ROBINHOOD CHAIN
+          <div className="zeks-eyebrow">
+            Portfolio · Robinhood Chain
           </div>
-          <h2 className="font-serif text-2xl text-foreground mt-1">
+          <h2 className="zeks-display text-[22px] mt-1 text-foreground">
             Connect a wallet to view your portfolio.
           </h2>
-          <p className="text-sm font-mono text-muted-foreground mt-2 leading-relaxed">
+          <p className="zeks-secondary mt-2 leading-relaxed">
             Account summary, Stock Token positions, onchain earn positions,
             borrow positions, and recent activity will appear here once your
             wallet is connected to Robinhood Chain.
@@ -57,14 +57,14 @@ export default function PortfolioDisconnected({
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="inline-flex items-center gap-2 h-11 px-5 rounded-md bg-primary text-primary-foreground text-xs font-mono font-semibold tracking-wider hover:bg-primary/90 transition-colors"
+              className="zeks-btn-primary h-11 px-5 rounded-md gap-2 text-[13px] font-semibold"
               data-testid="portfolio-connect-wallet"
               aria-haspopup="dialog"
             >
               <Wallet className="w-4 h-4" />
               <span>Connect Wallet</span>
             </button>
-            <span className="text-[10px] font-mono text-muted-foreground/70">
+            <span className="zeks-eyebrow text-muted-foreground/70">
               {hint ?? "EIP-1193 · No data leaves your browser."}
             </span>
           </div>

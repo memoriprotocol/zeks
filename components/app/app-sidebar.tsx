@@ -16,7 +16,13 @@ interface NavItem {
   key: string
   label: string
   href: string
-  icon: React.ComponentType<{ size?: number; className?: string }>
+  icon: React.ComponentType<LucideIconProps>
+}
+
+type LucideIconProps = {
+  size?: number
+  strokeWidth?: number | string
+  className?: string
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -30,27 +36,14 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 /**
- * AppSidebar — fixed left rail: brand logo + icon + label navigation.
+ * AppSidebar — narrow Loopr-style icon rail (76px).
  *
- * Layout (top→bottom):
- *   ┌──────────┐
- *   │  ZEKS    │  ← 76px brand block, centered logo, divider below
- *   │  logo    │
- *   ├──────────┤
- *   │ Dashboard│  ← nav items: icon + label, 62px each
- *   │ Markets  │
- *   │ Loop     │
- *   │ Earn     │
- *   │ Borrow   │
- *   │ Portfolio│
- *   │ Activity │
- *   ├──────────┤
- *   │  ● Live  │  ← 44px bottom status
- *   └──────────┘
+ *   Width: 76px
+ *   Top:    ZEKS logo only
+ *   Middle: icon + tiny label nav (active = soft sage + small lime dot)
+ *   Bottom: live status dot
  *
- * Active: soft cream background, 3px lime left indicator, bold label.
- * Width: 92px — compact enough for a nav rail; all labels render fully.
- * Fixed positioning; does not scroll with page content.
+ *   Secondary to the product content. Quiet, not a brand panel.
  */
 export default function AppSidebar() {
   const pathname = usePathname()
@@ -65,15 +58,13 @@ export default function AppSidebar() {
         borderRight: "1px solid var(--border)",
       }}
     >
-      {/* ── Brand block ─────────────────────────────── */}
+      {/* ── Brand block (logo only — no frame) ─────────────────────────── */}
       <div
         style={{
-          minHeight: "76px",
-          padding: "12px 0 10px 0",
+          padding: "18px 0 14px 0",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderBottom: "1px solid var(--border)",
           flexShrink: 0,
         }}
       >
@@ -84,19 +75,15 @@ export default function AppSidebar() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "60px",
-            height: "60px",
-            borderRadius: "14px",
-            backgroundColor: "var(--sidebar-accent)",
-            boxShadow: "0 1px 0 rgba(0,0,0,0.04) inset",
+            width: "44px",
+            height: "44px",
           }}
         >
-          {/* ZEKS wordmark — sourced from /assets/brand/zeks-logo.png */}
           <img
             src="/assets/brand/zeks-logo.png"
             alt="ZEKS"
-            width={52}
-            height={52}
+            width={36}
+            height={36}
             style={{
               display: "block",
               objectFit: "contain",
@@ -106,16 +93,16 @@ export default function AppSidebar() {
         </Link>
       </div>
 
-      {/* ── Navigation ───────────────────────────────── */}
+      {/* ── Navigation ───────────────────────────────────────── */}
       <nav
         aria-label="Page navigation"
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "stretch",
-          paddingTop: "8px",
-          paddingBottom: "8px",
+          padding: "6px 12px",
           flex: 1,
+          gap: "2px",
           overflowY: "auto",
           overflowX: "hidden",
         }}
@@ -134,28 +121,27 @@ export default function AppSidebar() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "5px",
-                minHeight: "62px",
+                height: "54px",
                 paddingLeft: "3px",
                 paddingRight: "3px",
-                paddingTop: "7px",
-                paddingBottom: "7px",
-                marginLeft: "6px",
-                marginRight: "6px",
                 marginTop: "1px",
                 marginBottom: "1px",
                 textDecoration: "none",
                 color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
-                backgroundColor: isActive ? "var(--sidebar-accent)" : "transparent",
+                backgroundColor: isActive ? "var(--card-soft)" : "transparent",
                 borderRadius: "10px",
                 transition: "background-color 130ms ease-out, color 130ms ease-out",
                 position: "relative",
                 outline: "none",
                 whiteSpace: "nowrap",
-                overflow: "visible",
+                fontSize: "10px",
+                fontWeight: isActive ? 600 : 500,
+                fontFamily: "var(--font-sans)",
+                letterSpacing: "0.005em",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.backgroundColor = "var(--sidebar-accent)"
+                  e.currentTarget.style.backgroundColor = "var(--card-soft)"
                   e.currentTarget.style.color = "var(--foreground)"
                 }
               }}
@@ -166,78 +152,57 @@ export default function AppSidebar() {
                 }
               }}
             >
-              {/* Lime left indicator */}
-              {isActive && (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    left: "-6px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: "3px",
-                    height: "32px",
-                    borderRadius: "0 3px 3px 0",
-                    backgroundColor: "var(--primary)",
-                  }}
-                />
-              )}
-              <Icon size={20} />
+              <Icon size={18} strokeWidth={1.7} />
               <span
                 style={{
-                  fontSize: "10.5px",
-                  fontFamily: "var(--font-mono, 'Courier New', monospace)",
-                  fontWeight: isActive ? 600 : 500,
                   lineHeight: 1.1,
                   textAlign: "center",
                   whiteSpace: "nowrap",
                   overflow: "visible",
                   color: "inherit",
-                  letterSpacing: "0.01em",
                 }}
               >
                 {item.label}
               </span>
+              {isActive && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    right: "8px",
+                    top: "12px",
+                    width: "5px",
+                    height: "5px",
+                    borderRadius: "50%",
+                    backgroundColor: "var(--primary)",
+                  }}
+                />
+              )}
             </Link>
           )
         })}
       </nav>
 
-      {/* ── Bottom status ───────────────────────────── */}
+      {/* ── Bottom status ───────────────────────────────────── */}
       <div
         style={{
-          minHeight: "44px",
-          padding: "6px 0",
+          padding: "10px 0 12px 0",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderTop: "1px solid var(--border)",
           flexShrink: 0,
-          gap: "5px",
         }}
       >
         <span
           aria-hidden="true"
+          className="zeks-anim-pulse"
           style={{
-            width: "6px",
-            height: "6px",
+            width: "7px",
+            height: "7px",
             borderRadius: "50%",
-            backgroundColor: "var(--up, #22c55e)",
-            display: "inline-block",
-            flexShrink: 0,
+            backgroundColor: "var(--up)",
           }}
         />
-        <span
-          style={{
-            fontSize: "10px",
-            fontFamily: "var(--font-mono, 'Courier New', monospace)",
-            color: "var(--muted-foreground)",
-            letterSpacing: "0.04em",
-            fontWeight: 400,
-          }}
-        >
-          Live
-        </span>
       </div>
     </aside>
   )

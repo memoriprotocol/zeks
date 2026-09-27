@@ -41,6 +41,10 @@ const REQ_TIMEOUT_MS = 6_000
 interface LegJson {
   source: "morpho" | "wallet"
   symbol: string
+  /** Optional P2C — collateral asset symbol (the stable market
+   *  identity used by the Markets Detail route). Older snapshots
+   *  may omit it; consumers must treat absence as "no link". */
+  collateralSymbol?: string | null
   contractAddress: string | null
   balance: { raw: string; decimals: number | null }
   balanceUsd: number | null
@@ -120,6 +124,7 @@ function convertLeg(input: LegJson): CanonicalLeg {
   return {
     source: input.source,
     symbol: input.symbol,
+    collateralSymbol: input.collateralSymbol ?? null,
     contractAddress: isAddressLike(input.contractAddress ?? "")
       ? (input.contractAddress as Address)
       : null,

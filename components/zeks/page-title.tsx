@@ -6,9 +6,9 @@
  *   <PageTitle>Dashboard</PageTitle>
  *   <SectionTitle>Live Liquidity</SectionTitle>
  *
- * Typography system:
- *   · PageTitle  → 26px serif, weight 400, -0.035em (editorial display)
- *   · SectionTitle → 13px mono uppercase (true section label)
+ * UI-1 typography:
+ *   · PageTitle  → 24px sans, weight 500, -0.02em (clean fintech display)
+ *   · SectionTitle → 12px sans semibold (subtle, readable)
  */
 
 import * as React from "react"
@@ -53,9 +53,8 @@ export function SectionTitle({
       <span
         className="zeks-label"
         style={{
-          /* section labels use 10px, 0.08em tracking */
           fontSize: "var(--font-section-head)",
-          letterSpacing: "0.04em",
+          letterSpacing: 0,
           color: "var(--foreground)",
         }}
       >
@@ -63,9 +62,11 @@ export function SectionTitle({
       </span>
       {trailing ? (
         <span
-          className="zeks-num-sm"
           style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
             color: "var(--muted-foreground)",
+            fontWeight: 500,
           }}
         >
           {trailing}

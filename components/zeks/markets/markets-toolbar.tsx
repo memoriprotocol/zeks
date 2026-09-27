@@ -1,17 +1,29 @@
 "use client"
 
 /**
- * MarketsToolbar — search + status filter.
+ * MarketsToolbar — search + status filter (UI-2 visual pass).
  *
- *   · Search input (flex-1, 240px min)
- *   · Status filter (All · Live · Borrowable)
+ * Reads/writes controlled state. Filtering and search semantics are
+ * unchanged.
  *
- * Reads/writes controlled state. Uses locked design tokens.
+ * Visual (UI-2):
+ *   · Left: segmented filter (All / Live / Borrowable)
+ *   · Right: search input fills the remaining width
+ *   · Single composed control row, height 40px
+ *   · Soft `--card-soft` surface, no aggressive borders
+ *   · Sans typography — no mono caps, no excessive letter spacing
+ *   · Selected filter uses ZEKS ink/foreground soft pill (no zebra)
  */
 
 import * as React from "react"
 
 export type StatusFilter = "all" | "live" | "borrowable"
+
+const FILTER_LABELS: Record<StatusFilter, string> = {
+  all: "All",
+  live: "Live",
+  borrowable: "Borrowable",
+}
 
 interface MarketsToolbarProps {
   query: string
@@ -27,67 +39,91 @@ export function MarketsToolbar({
   onQueryChange,
   status,
   onStatusChange,
-  placeholder = "Search markets…",
+  placeholder = "Search AAPL, TSLA, NVDA…",
   testId,
 }: MarketsToolbarProps) {
   return (
     <div
-      className="flex items-center flex-wrap"
+      className="zeks-toolbar"
       data-testid={testId ?? "markets-toolbar"}
-      style={{ gap: "10px" }}
+      data-markets-toolbar
+      style={{
+        gap: "10px",
+        alignItems: "stretch",
+        backgroundColor: "var(--card-soft)",
+        borderRadius: "14px",
+        border: "1px solid var(--border)",
+        padding: "6px",
+      }}
     >
-      <label className="relative flex-1 min-w-[240px]">
-        <span className="sr-only">Search markets</span>
+      <div
+        className="zeks-segment"
+        role="group"
+        aria-label="Filter markets"
+        style={{
+          height: "40px",
+          borderRadius: "10px",
+          backgroundColor: "var(--background)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        {(Object.keys(FILTER_LABELS) as StatusFilter[]).map((key) => {
+          const active = key === status
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onStatusChange(key)}
+              aria-pressed={active}
+              data-markets-filter={key}
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "13px",
+                fontWeight: 500,
+                letterSpacing: 0,
+                padding: "0 16px",
+                height: "100%",
+              }}
+            >
+              {FILTER_LABELS[key]}
+            </button>
+          )
+        })}
+      </div>
+
+      <label
+        className="zeks-search zeks-toolbar-search"
+        style={{
+          height: "40px",
+          borderRadius: "10px",
+          backgroundColor: "var(--background)",
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="w-3.5 h-3.5 shrink-0"
+          aria-hidden="true"
+        >
+          <circle cx={11} cy={11} r={7} />
+          <line x1={20} y1={20} x2={16.65} y2={16.65} />
+        </svg>
         <input
-          type="search"
+          type="text"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-md border outline-none transition-colors"
-          style={{
-            padding: "10px 12px 10px 32px",
-            fontSize: "var(--font-body)",
-            borderColor: "var(--border)",
-            color: "var(--foreground)",
-            background: "var(--background)",
-            borderRadius: "8px",
-          }}
-          onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
-          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-        />
-        <span
-          aria-hidden="true"
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+          aria-label="Search markets"
           style={{
             fontSize: "13px",
-            color: "var(--muted-foreground)",
+            fontFamily: "var(--font-sans)",
           }}
-        >
-          ⌕
-        </span>
+        />
       </label>
-
-      <select
-        value={status}
-        onChange={(e) => onStatusChange(e.currentTarget.value as StatusFilter)}
-        aria-label="Filter by status"
-        className="rounded-md border outline-none cursor-pointer font-mono uppercase transition-colors"
-        style={{
-          padding: "8px 12px",
-          fontSize: "12px",
-          letterSpacing: "0.04em",
-          borderColor: "var(--border)",
-          color: "var(--foreground)",
-          background: "var(--background)",
-          borderRadius: "8px",
-        }}
-        onFocus={(e) => (e.currentTarget.style.borderColor = "var(--foreground)")}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-      >
-        <option value="all">All</option>
-        <option value="live">Live</option>
-        <option value="borrowable">Borrowable</option>
-      </select>
     </div>
   )
 }

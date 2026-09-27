@@ -43,6 +43,16 @@ export interface PortfolioLeg {
   balanceUsd: number | null
   /** For Morpho legs: the market id (32-byte hex). */
   marketId: string | null
+  /** For Morpho legs: market identity = the COLLATERAL asset symbol
+   *  (e.g. "AAPL"). This is the same symbol used by the Markets
+   *  Detail route (/terminal/markets/[symbol]) and the Earn route
+   *  (/terminal/earn/[symbol]). For supply / borrow legs the leg's
+   *  `symbol` field is the LOAN asset symbol (e.g. "USDG"); that is
+   *  NOT a valid Markets Detail route key. Use `collateralSymbol`
+   *  for cross-page navigation. `null` for wallet-only legs and for
+   *  any Morpho leg whose upstream GraphQL response did not carry a
+   *  collateral symbol. */
+  collateralSymbol: string | null
   /** For Morpho legs: the protocol's supply APY (%). */
   supplyApy: number | null
   /** For Morpho legs: the protocol's borrow APY (%). */
@@ -148,6 +158,7 @@ export async function buildPortfolioSnapshot(
       supplied.push({
         source: "morpho",
         symbol: p.loanAssetSymbol,
+        collateralSymbol: p.collateralAssetSymbol ?? null,
         contractAddress: (p.loanAssetAddress || null) as Address | null,
         balanceRaw: p.supplyAssetsRaw,
         balanceDecimals: null,
@@ -163,6 +174,7 @@ export async function buildPortfolioSnapshot(
       borrowed.push({
         source: "morpho",
         symbol: p.loanAssetSymbol,
+        collateralSymbol: p.collateralAssetSymbol ?? null,
         contractAddress: (p.loanAssetAddress || null) as Address | null,
         balanceRaw: p.borrowAssetsRaw,
         balanceDecimals: null,
@@ -177,6 +189,7 @@ export async function buildPortfolioSnapshot(
       collateral.push({
         source: "morpho",
         symbol: p.collateralAssetSymbol ?? "?",
+        collateralSymbol: p.collateralAssetSymbol ?? null,
         contractAddress: (p.collateralAssetAddress || null) as Address | null,
         balanceRaw: p.collateralRaw,
         balanceDecimals: null,
@@ -220,6 +233,7 @@ export async function buildPortfolioSnapshot(
     walletBalances.push({
       source: "wallet",
       symbol: info.value.symbol,
+      collateralSymbol: null,
       contractAddress: addr as Address,
       balanceRaw: r.value,
       balanceDecimals: info.value.decimals,

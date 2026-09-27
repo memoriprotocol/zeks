@@ -5,18 +5,16 @@
  *
  * The timeframe chip group rendered above the chart.
  *
- * Behavior:
- *   - Always renders exactly the four supported ranges
- *     (1H / 1D / 1W / 1M). 1Y is intentionally absent for Phase 2B.
- *   - Buttons update local state only — they never fabricate data
- *     and never trigger an upstream call from the control itself.
- *     The parent chart owns the fetch lifecycle.
- *   - Selected range gets a lime accent and a subtle border;
- *     unselected ranges stay neutral.
- *   - Buttons are always clickable even when the provider is not
- *     configured: switching ranges must remain a safe local-only
- *     operation, and the chart will render the same provider-
- *     pending state for the new selection.
+ * UI-3 visual pass: soft sage / segmented design, 32px height,
+ * rounded pill style matching the Markets toolbar.
+ *
+ * Always renders exactly the four supported ranges
+ * (1H / 1D / 1W / 1M). Switching ranges is a safe local-only
+ * operation; the parent chart owns the fetch lifecycle and will
+ * surface honest empty / loading / error states for any range,
+ * including the provider-not-configured case.
+ *
+ * No fabricated data. No new fetches.
  */
 
 import * as React from "react"
@@ -35,7 +33,16 @@ export default function HistoryRangeControls({
     <div
       role="group"
       aria-label="Chart timeframe"
-      className="inline-flex items-center rounded-md border border-border overflow-hidden bg-card"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "2px",
+        padding: "3px",
+        borderRadius: "999px",
+        backgroundColor: "var(--card)",
+        border: "1px solid var(--border)",
+        height: "32px",
+      }}
       data-testid="history-range-controls"
     >
       {HISTORY_RANGES.map((range) => {
@@ -46,12 +53,21 @@ export default function HistoryRangeControls({
             type="button"
             onClick={() => onChange(range)}
             aria-pressed={selected}
-            className={
-              "h-8 px-3 text-[11px] font-mono tracking-wider border-r border-border last:border-r-0 transition-colors " +
-              (selected
-                ? "bg-primary/10 text-foreground"
-                : "bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/60")
-            }
+            style={{
+              appearance: "none",
+              border: "none",
+              height: "100%",
+              padding: "0 13px",
+              borderRadius: "999px",
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
+              fontWeight: 500,
+              letterSpacing: 0,
+              color: selected ? "var(--ink-foreground)" : "var(--muted-foreground)",
+              backgroundColor: selected ? "var(--ink)" : "transparent",
+              cursor: "pointer",
+              transition: "background-color 140ms ease-out, color 140ms ease-out",
+            }}
             data-testid={"history-range-" + range.toLowerCase()}
           >
             {range}

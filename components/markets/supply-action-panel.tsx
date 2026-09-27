@@ -719,14 +719,14 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
     >
       <div className="flex items-baseline justify-between gap-3 mb-4">
         <div>
-          <p className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-            SUPPLY
+          <p className="zeks-eyebrow text-muted-foreground/80">
+            Supply
           </p>
-          <h2 className="font-serif text-[18px] mt-1 text-foreground">
+          <h2 className="zeks-symbol mt-1 text-foreground">
             {market.loanAssetSymbol ?? "USDG"}
           </h2>
         </div>
-        <span className="text-[10px] font-mono tracking-wider text-muted-foreground">
+        <span className="zeks-tech-sm text-muted-foreground">
           {tokenMeta
             ? `${tokenMeta.address.slice(0, 6)}…${tokenMeta.address.slice(-4)}`
             : "Token —"}
@@ -748,7 +748,7 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
       <div className="mb-4">
         <label
           htmlFor="supply-amount"
-          className="text-[10px] font-mono tracking-wider text-muted-foreground/70"
+          className="zeks-eyebrow text-muted-foreground/70"
         >
           AMOUNT
         </label>
@@ -769,20 +769,20 @@ export default function SupplyActionPanel({ market }: SupplyActionPanelProps) {
             }}
             disabled={!readiness.canEditAmount}
             placeholder="0.00"
-            className="flex-1 bg-secondary/40 border border-border rounded-md px-3 py-2 font-mono tabular-nums text-foreground placeholder:text-muted-foreground/50"
+            className="flex-1 bg-secondary/40 border border-border rounded-md px-3 py-2 tabular-nums font-sans text-foreground placeholder:text-muted-foreground/50"
             data-supply-amount
           />
           <button
             type="button"
             onClick={onMax}
             disabled={!readiness.canEditAmount}
-            className="text-[10px] font-mono tracking-wider px-2 py-1.5 rounded border border-border bg-secondary/30 text-foreground hover:bg-secondary/50 disabled:opacity-50"
+            className="zeks-eyebrow px-2 py-1.5 rounded border border-border bg-secondary/30 text-foreground hover:bg-secondary/50 disabled:opacity-50"
             data-supply-max
           >
             MAX
           </button>
         </div>
-        <div className="mt-1 text-[10px] font-mono tracking-wider text-muted-foreground">
+        <div className="mt-1 zeks-eyebrow">
           {tokenMeta && parsedAmount
             ? `${parsedAmount.bigint.toString()} (raw)`
             : ""}
@@ -858,11 +858,11 @@ function Stat({
     tone === "positive" ? "text-emerald-500" : "text-foreground"
   return (
     <div className="bg-secondary/40 border border-border rounded-lg p-3">
-      <div className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+      <div className="zeks-eyebrow text-muted-foreground/70">
         {label}
       </div>
       <div
-        className={`text-base font-mono tabular-nums mt-0.5 ${color}`}
+        className={`text-base tabular-nums font-sans mt-0.5 ${color}`}
         data-stat={label}
       >
         {value}
@@ -891,7 +891,7 @@ function Banner({
       } rounded-xl p-5`}
       aria-label={title.toLowerCase()}
     >
-      <p className="text-[10px] font-mono text-muted-foreground tracking-wider">
+      <p className="zeks-eyebrow">
         {title}
       </p>
       <p className="text-sm text-foreground mt-2 leading-relaxed">{body}</p>
@@ -899,7 +899,7 @@ function Banner({
         <button
           type="button"
           onClick={onPrimary}
-          className="mt-3 text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-border bg-secondary/40 text-foreground hover:bg-secondary/60"
+          className="mt-3 zeks-eyebrow px-3 py-2 rounded-md border border-border bg-secondary/40 text-foreground hover:bg-secondary/60"
         >
           {primary}
         </button>
@@ -984,19 +984,19 @@ function ActionArea({
       ) : null}
       {errorMessage ? (
         <p
-          className="mt-2 text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+          className="mt-2 zeks-eyebrow px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
           data-supply-error
         >
           {errorMessage}
         </p>
       ) : null}
       {simulationMessage && stage !== "simulation-failed" ? (
-        <p className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground">
+        <p className="mt-2 zeks-eyebrow">
           {simulationMessage}
         </p>
       ) : null}
       {!errorMessage && readiness.reason ? (
-        <p className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground">
+        <p className="mt-2 zeks-eyebrow">
           {readiness.reason}
         </p>
       ) : null}
@@ -1022,10 +1022,10 @@ function Button({
       disabled={disabled}
       onClick={onClick}
       data-action={dataAttr}
-      className={`w-full mt-1 py-2.5 rounded-md font-mono text-[12px] tracking-wider border ${
+      className={`zeks-action-btn w-full mt-1 py-2.5 text-[13px] ${
         disabled
           ? "border-border bg-secondary/30 text-muted-foreground cursor-not-allowed"
-          : "border-foreground/30 bg-foreground text-background hover:opacity-90"
+          : "border-foreground bg-foreground text-background hover:opacity-90"
       }`}
     >
       {label}
@@ -1041,12 +1041,12 @@ function SuccessLine({
   onReset: () => void
 }) {
   return (
-    <div className="mt-2 flex items-center justify-between gap-2 text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300">
+    <div className="mt-2 flex items-center justify-between gap-2 zeks-eyebrow px-3 py-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300">
       <span>{message}</span>
       <button
         type="button"
         onClick={onReset}
-        className="text-[10px] font-mono tracking-wider px-2 py-1 rounded border border-emerald-500/40 hover:bg-emerald-500/10"
+        className="zeks-eyebrow px-2 py-1 rounded border border-emerald-500/40 hover:bg-emerald-500/10"
       >
         Reset
       </button>
@@ -1065,13 +1065,13 @@ function TxReceiptLink({
   const short = `${hash.slice(0, 6)}…${hash.slice(-4)}`
   const url = `${ROBINHOOD_BLOCKSCOUT_BASE}/tx/${hash}`
   return (
-    <div className="mt-2 text-[10px] font-mono tracking-wider text-foreground/70">
+    <div className="mt-2 zeks-eyebrow text-foreground/70">
       <span>{label}: </span>
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="underline"
+        className="underline zeks-tech-sm"
         data-tx-link={label}
       >
         {short} ↗
@@ -1085,7 +1085,7 @@ function ResetButton({ onReset }: { onReset: () => void }) {
     <button
       type="button"
       onClick={onReset}
-      className="mt-2 text-[10px] font-mono tracking-wider text-muted-foreground hover:text-foreground"
+      className="mt-2 zeks-eyebrow text-muted-foreground hover:text-foreground"
     >
       Reset
     </button>
@@ -1187,20 +1187,20 @@ function PreFlightContext({
 
   return (
     <details className="mb-4 border border-border rounded-lg overflow-hidden">
-      <summary className="px-3 py-2 text-[10px] font-mono tracking-wider text-muted-foreground hover:bg-secondary/20 cursor-pointer select-none">
-        VERIFIED EXECUTION CONTEXT — click to inspect
+      <summary className="px-3 py-2 zeks-eyebrow hover:bg-secondary/20 cursor-pointer select-none">
+        Verified execution context — click to inspect
       </summary>
       <div className="bg-secondary/20 px-3 py-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
         {fields.map((f) => (
           <div key={f.label} className="contents">
             <span
-              className="text-[9px] font-mono tracking-wider text-muted-foreground"
+              className="zeks-eyebrow text-muted-foreground"
               data-pf-label={f.label}
             >
               {f.label}
             </span>
             <span
-              className={`text-[9px] font-mono tracking-wider ${
+              className={`zeks-eyebrow ${
                 f.label === "approvalRequired"
                   ? f.value === "YES"
                     ? "text-amber-500"
@@ -1228,7 +1228,7 @@ function PreflightHints({ issues }: { issues: PreflightIssue[] }) {
       {safeIssues.map((issue, i) => (
         <p
           key={i}
-          className="text-[10px] font-mono tracking-wider text-muted-foreground"
+          className="zeks-eyebrow"
           data-preflight={issue.kind}
         >
           · {preflightLabel(issue)}
@@ -1382,7 +1382,7 @@ function resolveAction(args: {
   }
   if (!spender) {
     return {
-      label: "Supply coming soon",
+      label: "Supply unavailable",
       enabled: false,
       reason: "Morpho Blue core address not configured.",
       canEditAmount: true,
@@ -1390,7 +1390,7 @@ function resolveAction(args: {
   }
   if (!market.marketId) {
     return {
-      label: "Supply coming soon",
+      label: "Supply unavailable",
       enabled: false,
       reason: "Market is being prepared for supply.",
       canEditAmount: true,
@@ -1402,7 +1402,7 @@ function resolveAction(args: {
     market.lltv == null
   ) {
     return {
-      label: "Supply coming soon",
+      label: "Supply unavailable",
       enabled: false,
       reason:
         "Live Morpho market params (oracle / IRM / LLTV) unavailable.",

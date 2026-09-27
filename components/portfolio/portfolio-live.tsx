@@ -94,27 +94,30 @@ export default function PortfolioLive() {
       </div>
 
       {/* Footer nav */}
-      <div className="flex items-center gap-3 flex-wrap text-[10px] font-mono tracking-wider text-muted-foreground/70 pt-1">
-        <span>Live data</span>
+      <div
+        className="zeks-footer-nav"
+        data-portfolio-page-footer
+        style={{ paddingTop: "4px" }}
+      >
+        <span>
+          {loading ? "Refreshing…" : "Live data"}
+        </span>
         <span aria-hidden="true">·</span>
         <button
           type="button"
           onClick={() => void refresh()}
-          className="hover:text-foreground"
         >
-          Refresh
+          ↻ Refresh
         </button>
         <span aria-hidden="true">·</span>
         <Link
           href="/terminal/earn"
-          className="hover:text-foreground"
         >
           Discover yield
         </Link>
-        <span aria-hidden="true">·</span>
         <Link
           href="/terminal/markets"
-          className="hover:text-foreground inline-flex items-center gap-0.5"
+          className="ml-auto inline-flex items-center gap-0.5"
         >
           Browse markets
           <ArrowRight className="w-2.5 h-2.5" />

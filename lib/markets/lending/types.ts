@@ -50,6 +50,38 @@ export type ProtocolSource =
   | "unknown"
   | "none" // curated-only row with no Morpho metrics (e.g. SPCX)
 
+/**
+ * F12 — On-chain MarketParams lifecycle status.
+ *
+ * Derived by verifying the on-chain `idToMarketParams(marketId)`
+ * returned by the deployed Morpho Blue core on Robinhood Chain
+ * against the row's GraphQL-supplied fields. F12 does NOT modify
+ * the locked F1–F11 readiness / writer / preflight / receipt paths;
+ * the field is purely additive — old consumers continue to work
+ * because every existing call site ignores it.
+ *
+ *   - "active"      → on-chain MarketParams match the row
+ *                    (loanToken / collateralToken / oracle / irm /
+ *                    lltv). The market is transaction-eligible.
+ *   - "provisional" → on-chain MarketParams were read but some
+ *                    field disagrees (e.g. LLTV != 1% but also
+ *                    not equal to the row's `lltv`). Investigate
+ *                    but do NOT silently replace values.
+ *   - "inactive"    → on-chain LLTV equals the deployment default
+ *                    (1%) OR the row has no `marketId`. Not
+ *                    transaction-eligible — `simulateWrite` would
+ *                    revert.
+ *   - "unknown"     → the verifier could not run (RPC failure,
+ *                    missing marketId, etc.). The UI shows this as
+ *                    a soft "unverified" indicator. Conservative
+ *                    default for non-mock rows.
+ */
+export type F12MarketLifecycle =
+  | "active"
+  | "provisional"
+  | "inactive"
+  | "unknown"
+
 /** Lifecycle status of a lending market. */
 export type MarketLifecycleStatus =
   | "active"
@@ -144,6 +176,34 @@ export interface LendingMarket {
 
   // ── Lifecycle / status ─────────────────────────────────────────
   status: MarketLifecycleStatus
+
+  /**
+   * F12 — Verified on-chain MarketParams lifecycle. Additive only;
+   * F1–F11 writers ignore it. See `F12MarketLifecycle` for the
+   * classification rules. `null` when the verifier did not run
+   * (e.g. mock rows, no `marketId`).
+   */
+  lifecycle: F12MarketLifecycle | null
+
+  /**
+   * F12 — On-chain LLTV in WAD (1e18) form, read by
+   * `readMarketParamsOnchain(marketId)`. `null` when the verifier
+   * could not run. The locked F1–F11 writers never read this field;
+   * they use `LendingMarket.lltv` (the GraphQL row value). F12
+   * only USES this to compute the lifecycle classification; F12
+   * does NOT mutate `lltv`.
+   */
+  onchainLltvWad: bigint | null
+
+  /**
+   * F12 — Whether transaction writes are allowed for this row,
+   * derived from `lifecycle`. Computed once when the verifier
+   * runs. F1–F11 writers MUST continue to gate on
+   * `chainId + marketId + sourceMode` exactly as they did before;
+   * F12's eligibility flag is informational for the UI and the
+   * dedicated verification script (`scripts/verify-f12.ts`).
+   */
+  transactionEligible: boolean
 
   // ── Provenance ─────────────────────────────────────────────────
   /** Protocol that produced the lending metrics. */
@@ -310,4 +370,33 @@ export const LENDING_SOURCE: LendingSourceDescriptor = {
   asset: "robinhood-asset-registry",
   network: "robinhood-chain",
   chainId: ROBINHOOD_CHAIN_ID,
+}
+
+/**
+ * Earn BigInt bug — wire-safe representation of `LendingMarket` for
+ * JSON serialization. The internal `onchainLltvWad: bigint | null`
+ * becomes a decimal string at the API boundary. Internal computation
+ * stays `bigint`; no client component or transaction writer reads
+ * this field.
+ *
+ * Mirrors the portfolio route's `BigIntLike` pattern
+ * (`{ raw: string, decimals: number | null }`) — a single-field
+ * shape, decimal-string preservation, lossless round-trip via
+ * `BigInt(s)`.
+ */
+export type LendingMarketWire = Omit<LendingMarket, "onchainLltvWad"> & {
+  onchainLltvWad: string | null
+}
+
+/**
+ * Earn BigInt bug — map an internal `LendingMarket` to its
+ * JSON-safe wire shape. Pure function; does not mutate the input.
+ * Decimal conversion preserves precision (no `Number` coercion).
+ */
+export function toWireLendingMarket(m: LendingMarket): LendingMarketWire {
+  return {
+    ...m,
+    onchainLltvWad:
+      m.onchainLltvWad === null ? null : m.onchainLltvWad.toString(),
+  }
 }

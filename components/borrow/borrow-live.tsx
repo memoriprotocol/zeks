@@ -14,6 +14,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
+import { PageTitle, SectionTitle } from "@/components/zeks/page-title"
 import {
   formatPrice,
   formatApy,
@@ -120,18 +121,13 @@ export default function BorrowLive({
   return (
     <div className="zeks-page" data-borrow-live>
       <header className="zeks-page-title-row" style={{ alignItems: "flex-start" }}>
-        <div className="zeks-block" style={{ gap: "6px" }}>
-          <span className="zeks-label">Borrow</span>
-          <h1 className="zeks-display">
-            Borrow against tokenized collateral
-          </h1>
+        <div className="zeks-block" style={{ gap: "8px" }}>
+          <PageTitle>Borrow</PageTitle>
           <p
+            className="zeks-body"
             style={{
-              fontSize: "var(--font-body)",
               color: "var(--muted-foreground)",
-              maxWidth: "52ch",
-              marginTop: "2px",
-              lineHeight: 1.5,
+              maxWidth: "56ch",
             }}
           >
             Live Morpho borrow markets on Robinhood Chain. Borrow against
@@ -146,7 +142,7 @@ export default function BorrowLive({
             className="zeks-chip-dot"
             style={{ backgroundColor: protocolReady ? "var(--up)" : "var(--muted-foreground)" }}
           />
-          Borrow {protocolReady ? "available" : "coming soon"}
+          Borrow {protocolReady ? "available" : "unavailable"}
         </span>
       </header>
 
@@ -164,8 +160,12 @@ export default function BorrowLive({
           <div>
             <span className="zeks-kpi-label">Avg Borrow APY</span>
             <span
-              className="zeks-kpi-value"
-              style={{ color: avgApy != null ? "var(--down)" : undefined }}
+              className={
+                "zeks-kpi-value " +
+                (avgApy == null
+                  ? "text-muted-foreground"
+                  : "text-down")
+              }
             >
               {formatApy(avgApy)}
             </span>
@@ -228,17 +228,22 @@ export default function BorrowLive({
       </div>
 
       {errorMessage && rows.length === 0 ? (
-        <div className="mt-4 text-[12px] font-medium px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
-          Live data unavailable
+        <div className="zeks-status-line" role="alert">
+          <span className="zeks-status-line-body">
+            Live data unavailable.
+          </span>
         </div>
       ) : null}
       {errorMessage && rows.length > 0 ? (
-        <div className="mt-4 text-[12px] font-medium px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
-          Live data unavailable · showing last known state
+        <div className="zeks-status-line" role="status">
+          <span className="zeks-status-line-body">
+            Live data unavailable · showing last known state.
+          </span>
         </div>
       ) : null}
 
       {/* Borrow list */}
+      <SectionTitle>Borrow opportunities</SectionTitle>
       <section className="zeks-surface overflow-hidden" data-borrow-table>
         <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] px-4 py-2 zeks-meta border-b border-border">
           <span>Market</span>
@@ -248,11 +253,11 @@ export default function BorrowLive({
           <span className="text-right hidden md:inline">Status</span>
         </div>
         {loading && rows.length === 0 ? (
-          <p className="px-5 py-6 text-[12px] font-mono text-muted-foreground">
+          <p className="px-5 py-6 zeks-secondary text-muted-foreground">
             Loading…
           </p>
         ) : rows.length === 0 ? (
-          <p className="px-5 py-6 text-[12px] font-mono text-muted-foreground">
+          <p className="px-5 py-6 zeks-secondary text-muted-foreground">
             No borrow markets match.
           </p>
         ) : (
@@ -263,18 +268,18 @@ export default function BorrowLive({
               ))}
             </ul>
             {canLoadMore ? (
-              <div className="flex items-center justify-center px-4 py-3 border-t border-border bg-secondary/30">
+              <div className="zeks-footer-nav px-5 py-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() =>
                     setVisible((n) => Math.min(rows.length, n + PAGE_STEP))
                   }
-                  className="font-mono text-[10px] tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                  className="zeks-eyebrow text-muted-foreground hover:text-foreground transition-colors"
                   data-testid="borrow-load-more"
                 >
                   Load more ↓
                 </button>
-                <span className="font-mono text-[10px] tabular-nums text-muted-foreground/60 ml-3">
+                <span className="tabular-nums">
                   {rows.length - visible} more
                 </span>
               </div>
@@ -290,7 +295,9 @@ export default function BorrowLive({
         {fetchedAt ? (
           <>
             <span aria-hidden="true">·</span>
-            <span>{new Date(fetchedAt).toLocaleTimeString()}</span>
+            <span>
+              {new Date(fetchedAt).toISOString().slice(11, 19) + " UTC"}
+            </span>
           </>
         ) : null}
         <button
@@ -326,10 +333,10 @@ function BorrowRow({ market }: { market: LendingMarket }) {
         className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center px-5 h-11 hover:bg-secondary/30 transition-colors"
       >
         <div className="min-w-0">
-          <div className="font-mono text-[13px] font-semibold text-foreground truncate">
+          <div className="font-sans text-[14px] font-semibold text-foreground truncate">
             {market.symbol}
           </div>
-          <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 truncate">
+          <div className="zeks-eyebrow text-muted-foreground/70 truncate">
             {market.collateralAssetSymbol} → {market.loanAssetSymbol}
           </div>
         </div>
@@ -342,7 +349,7 @@ function BorrowRow({ market }: { market: LendingMarket }) {
         <span className="hidden md:inline zeks-num-cell text-foreground text-right">
           {lltvLabel(market)}
         </span>
-        <span className="hidden md:flex items-center justify-end gap-1.5 text-[11px] font-mono">
+        <span className="hidden md:flex items-center justify-end gap-1.5 zeks-eyebrow">
           <MarketStatusBadge status={statusLabel} tone={statusTone} />
           {!oracleLive && oracle !== "—" ? (
             <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300">

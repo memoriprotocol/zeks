@@ -16,8 +16,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*
+# env files (real secrets — keep git-ignored)
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
@@ -29,3 +31,9 @@ next-env.d.ts
 # build logs
 .next.err
 .next.log
+
+# Local QA / audit logs
+*.log
+
+# Local dev error output
+*.err

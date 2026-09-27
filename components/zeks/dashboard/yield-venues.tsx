@@ -53,10 +53,12 @@ export function YieldVenues({ venues, fetchedAt }: YieldVenuesProps) {
       )}
 
       <p
-        className="font-mono"
         style={{
-          fontSize: "11px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
           color: "var(--muted-foreground)",
+          fontWeight: 500,
+          letterSpacing: 0,
         }}
       >
         {venues.length} venue{venues.length === 1 ? "" : "s"}
@@ -71,10 +73,10 @@ export function YieldVenues({ venues, fetchedAt }: YieldVenuesProps) {
 function VenueCard({ venue: v }: { venue: YieldVenue }) {
   return (
     <article
-      className="flex flex-col h-full"
+      className="flex flex-col h-full transition-colors duration-200"
       style={{
-        padding: "var(--dash-card-pad)",
-        borderRadius: "var(--dash-card-radius)",
+        padding: "22px",
+        borderRadius: "18px",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
         minHeight: "var(--dash-card-min-h)",
@@ -84,28 +86,31 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
       {/* Header */}
       <header
         className="flex items-start justify-between gap-2"
-        style={{ paddingBottom: "12px" }}
+        style={{ paddingBottom: "14px" }}
       >
         <div className="min-w-0 flex-1">
           <div
             style={{
-              fontFamily: "var(--font-serif)",
+              fontFamily: "var(--font-sans)",
               fontSize: "var(--font-card-symbol)",
               color: "var(--foreground)",
-              lineHeight: 1.1,
+              lineHeight: 1.15,
               letterSpacing: "-0.01em",
+              fontWeight: 600,
             }}
           >
             {v.name}
           </div>
           {v.asset && (
             <div
-              className="font-mono truncate"
+              className="truncate"
               style={{
+                fontFamily: "var(--font-sans)",
                 fontSize: "var(--font-card-company)",
                 color: "var(--muted-foreground)",
                 marginTop: "4px",
-                letterSpacing: "0.02em",
+                letterSpacing: 0,
+                fontWeight: 500,
               }}
             >
               {v.asset} · {riskLabel(v.risk)}
@@ -118,13 +123,22 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
       {/* APY hero */}
       <div
         style={{
-          paddingTop: "12px",
-          paddingBottom: "12px",
+          paddingTop: "20px",
+          paddingBottom: "18px",
           borderTop: "1px solid var(--border)",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div className="zeks-label" style={{ marginBottom: "2px" }}>
+        <div
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            letterSpacing: 0,
+            color: "var(--muted-foreground)",
+            fontWeight: 500,
+            marginBottom: "6px",
+          }}
+        >
           APY
         </div>
         <div
@@ -132,6 +146,10 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
           style={{
             color: v.apy != null ? "var(--up)" : "var(--muted-foreground)",
             opacity: v.apy != null ? 1 : 0.5,
+            fontSize: "26px",
+            letterSpacing: "-0.018em",
+            fontWeight: 500,
+            lineHeight: 1.1,
           }}
         >
           {v.apy != null ? formatApy(v.apy) : "—"}
@@ -143,8 +161,8 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
         className="grid grid-cols-2"
         style={{
           columnGap: "12px",
-          paddingTop: "12px",
-          paddingBottom: "12px",
+          paddingTop: "16px",
+          paddingBottom: "16px",
           borderBottom: "1px solid var(--border)",
         }}
       >
@@ -163,16 +181,26 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
         className="flex items-center justify-between"
         style={{ marginTop: "auto", paddingTop: "12px" }}
       >
-        <span className="zeks-label">
+        <span
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            color: "var(--muted-foreground)",
+            fontWeight: 500,
+            letterSpacing: 0,
+          }}
+        >
           {sourceLabel(v.source)}
         </span>
         {v.marketId && (
           <span
-            className="font-mono font-variant-numeric: tabular-nums"
             style={{
+              fontFamily: "var(--font-jetbrains), 'JetBrains Mono', monospace",
               fontSize: "11px",
               color: "var(--muted-foreground)",
+              fontWeight: 500,
               opacity: 0.7,
+              fontVariantNumeric: "tabular-nums",
             }}
             title={v.marketId}
           >
@@ -189,24 +217,31 @@ function VenueCard({ venue: v }: { venue: YieldVenue }) {
 function StatusChip({ status }: { status: YieldVenue["status"] }) {
   const label = statusText(status)
   const color = statusTone(status)
+  const isLive = status === "live"
   return (
     <span
-      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      className="inline-flex items-center gap-1.5 shrink-0"
       style={{
-        fontSize: "9px",
+        fontFamily: "var(--font-sans)",
+        fontSize: "11px",
         color,
-        letterSpacing: "0.08em",
-        opacity: 0.85,
-        padding: "2px 5px",
-        border: `1px solid ${color}`,
-        borderRadius: "4px",
+        letterSpacing: 0,
+        fontWeight: 600,
+        padding: "2px 8px",
+        background: isLive
+          ? "color-mix(in srgb, var(--up) 12%, transparent)"
+          : "var(--secondary)",
+        borderRadius: "999px",
+        lineHeight: 1.2,
       }}
     >
-      <span
-        aria-hidden="true"
-        className="rounded-full shrink-0"
-        style={{ width: "4px", height: "4px", backgroundColor: color }}
-      />
+      {isLive && (
+        <span
+          aria-hidden="true"
+          className="rounded-full shrink-0"
+          style={{ width: "5px", height: "5px", backgroundColor: color }}
+        />
+      )}
       {label}
     </span>
   )
@@ -217,10 +252,14 @@ function StatField({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="zeks-label-inline">{label}</dt>
       <dd
-        className="zeks-num-md"
         style={{
           color: "var(--foreground)",
-          marginTop: "3px",
+          marginTop: "6px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "14px",
+          fontWeight: 600,
+          letterSpacing: "-0.01em",
+          fontVariantNumeric: "tabular-nums",
         }}
       >
         {value}
@@ -232,10 +271,11 @@ function StatField({ label, value }: { label: string; value: string }) {
 function EmptyState() {
   return (
     <p
-      className="font-mono"
       style={{
-        fontSize: "12px",
+        fontFamily: "var(--font-sans)",
+        fontSize: "12.5px",
         color: "var(--muted-foreground)",
+        fontWeight: 500,
       }}
     >
       Yield venues are unavailable right now.

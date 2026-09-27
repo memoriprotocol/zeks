@@ -1,14 +1,27 @@
 "use client"
 
 /**
- * PortfolioSummary (visual polish — shared ZEKS surface tokens)
+ * PortfolioSummary (UI-6 visual rebuild)
  *
- *   - Single hero card using shared `.zeks-surface-padded`.
- *   - Row 1: label + source pills.
- *   - Row 2: net value headline.
- *   - Row 3: 6-metric bar with dividers instead of nested cards.
+ * Single composed summary surface for the connected Portfolio page.
  *
- * Empty state: a single line, not a giant card.
+ * Structure:
+ *   · Compact row 1 — eyebrow · wallet/network status (right)
+ *   · Net equity headline
+ *   · 6-metric bar with dividers (Supplied · Borrowed · Collateral
+ *     · Est. yield · W. APY · Positions)
+ *   · Empty-state variant keeps the 6-cell grid but drops the
+ *     headline + Browse-yield CTA into a single subtle prompt.
+ *
+ * UI-6 scope: presentation only. No new calculations, no new
+ * metrics, no estimation. The values shown are read directly from
+ * the existing locked `PortfolioSnapshot`:
+ *   - totalSuppliedUsd / totalBorrowedUsd / totalCollateralUsd
+ *   - netValueUsd / positionCount / weightedSupplyApy
+ *
+ * Source pills collapsed into a single subtle meta line (was 3
+ * pills in v4 — repeated the global chain context). Live status
+ * uses the existing `.zeks-chip` system instead of bespoke styling.
  */
 
 import * as React from "react"
@@ -52,15 +65,17 @@ export default function PortfolioSummary({
           className="zeks-surface-padded"
           style={{ paddingTop: "14px", paddingBottom: "14px" }}
         >
-          <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <header
+            className="flex items-baseline justify-between gap-2 flex-wrap"
+            data-portfolio-summary-head
+          >
             <span className="zeks-label">Account Summary</span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <SourcePill label="Morpho" />
-              <SourcePill label="Chainlink" />
-              <SourcePill label="Robinhood Chain" />
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-3">
+            <span className="zeks-meta">Robinhood Chain · Morpho</span>
+          </header>
+          <div
+            className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-3"
+            data-portfolio-summary-metrics
+          >
             <Mini label="Supplied" value={totalSupplied != null ? formatPrice(totalSupplied) : "—"} tone="up" />
             <Mini label="Borrowed" value={totalBorrowed != null ? formatPrice(totalBorrowed) : "—"} tone="down" />
             <Mini label="Collateral" value={totalCollateral != null ? formatPrice(totalCollateral) : "—"} />
@@ -82,14 +97,15 @@ export default function PortfolioSummary({
         data-testid="portfolio-summary"
         className="zeks-surface-padded"
       >
-        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+        <header
+          className="flex items-baseline justify-between gap-2 flex-wrap"
+          data-portfolio-summary-head
+        >
           <span className="zeks-label">Account Summary</span>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <SourcePill label="Morpho" />
-            <SourcePill label="Chainlink" />
-            <SourcePill label="Robinhood Chain" />
-          </div>
-        </div>
+          <span className="zeks-meta">
+            Robinhood Chain · Morpho · Chainlink
+          </span>
+        </header>
 
         <div className="mt-3">
           <div
@@ -114,7 +130,10 @@ export default function PortfolioSummary({
           </p>
         </div>
 
-        <div className="mt-5 pt-4 border-t border-border grid grid-cols-3 md:grid-cols-6 gap-3">
+        <div
+          className="mt-5 pt-4 border-t border-border grid grid-cols-3 md:grid-cols-6 gap-3"
+          data-portfolio-summary-metrics
+        >
           <Mini
             label="Supplied"
             value={totalSupplied != null ? formatPrice(totalSupplied) : "—"}
@@ -146,13 +165,6 @@ export default function PortfolioSummary({
             value={positionCount > 0 ? String(positionCount) : "—"}
           />
         </div>
-
-        {!hasPositions ? (
-          <Link href="/terminal/earn" className="zeks-btn-primary mt-5">
-            Browse yield
-            <ArrowRight className="w-3 h-3" />
-          </Link>
-        ) : null}
       </section>
     )
   }
@@ -163,14 +175,13 @@ export default function PortfolioSummary({
       data-testid="portfolio-summary"
       className="zeks-surface-padded"
     >
-      <div className="flex items-baseline justify-between gap-2 flex-wrap">
+      <header
+        className="flex items-baseline justify-between gap-2 flex-wrap"
+        data-portfolio-summary-head
+      >
         <span className="zeks-label">Account Summary</span>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <SourcePill label="Morpho" />
-          <SourcePill label="Chainlink" />
-          <SourcePill label="Robinhood Chain" />
-        </div>
-      </div>
+        <span className="zeks-meta">Robinhood Chain · Morpho · Chainlink</span>
+      </header>
 
       <div className="mt-3 zeks-num-xl text-foreground/40">—</div>
       <p className="mt-2 zeks-meta">
@@ -198,19 +209,11 @@ function Mini({
         ? "text-down"
         : "text-foreground"
   return (
-    <div className="border-l border-border pl-3">
+    <div className="border-l border-border pl-3" data-portfolio-summary-cell>
       <div className="zeks-metric-label">{label}</div>
-      <div
-        className={`font-mono tabular-nums text-[14px] md:text-[16px] mt-1 ${color}`}
-      >
+      <div className={`tabular-nums font-sans font-semibold text-[14px] md:text-[16px] mt-1 ${color}`}>
         {value}
       </div>
     </div>
-  )
-}
-
-function SourcePill({ label }: { label: string }) {
-  return (
-    <span className="zeks-pill">{label}</span>
   )
 }

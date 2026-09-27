@@ -8,65 +8,71 @@
    ─ palette ─ typography ─ layout ─ semantic surfaces
    ──────────────────────────────────────────────────────────────── */
 :root {
-  /* ── Palette · warm paper ──────────────────────────────── */
-  --background: #F7F4EC;          /* page (paper) */
-  --background-deep: #EFEBE0;     /* chrome (sidebar/strip) */
-  --foreground: #1A1814;         /* warm near-black ink */
+  /* ── Palette · warm paper + sage-cream cards ────────── */
+  --background: #F7F4EC;          /* warm cream page */
+  --background-deep: #EEEAE0;     /* slightly deeper cream for chrome/footer */
+  --foreground: #15130F;         /* near-black ink (warmer) */
+  --foreground-soft: #3A352C;    /* for body / secondary headings */
 
-  --card: #FFFFFF;                /* surface (kept for primitive compat) */
-  --card-foreground: #1A1814;
-  --card-soft: #FBF6EA;            /* subtle beige — primary dashboard surface */
+  --card: #FFFFFF;                /* primitive (rare) */
+  --card-foreground: #15130F;
+  --card-soft: #ECEEDF;            /* soft sage/gray-green — primary dashboard surface */
+  --card-soft-hi: #F2F1E5;        /* hover lift inside cards */
   --popover: #FFFFFF;
-  --popover-foreground: #1A1814;
+  --popover-foreground: #15130F;
 
-  /* ZEKS lime accent — preserved */
+  /* ZEKS green accent — preserved */
   --primary: #B7F34A;
-  --primary-foreground: #1A1814;
+  --primary-foreground: #15130F;
 
   /* Secondary surface */
-  --secondary: #F1EDE2;
-  --secondary-foreground: #1A1814;
+  --secondary: #EAE6D7;
+  --secondary-foreground: #15130F;
 
-  --muted: #F1EDE2;
-  --muted-foreground: #6B6555;
+  --muted: #ECE6D5;
+  --muted-foreground: #6E6857;
 
-  --accent: #EDF4D0;
-  --accent-foreground: #1A1814;
+  --accent: #DDE6CC;
+  --accent-foreground: #15130F;
 
-  --ink: #1A1814;
+  --ink: #15130F;
   --ink-foreground: #F7F4EC;
 
   --destructive: #B33A2A;
   --destructive-foreground: #FFFFFF;
 
-  --border: #E6DFCF;
-  --border-strong: #D5CCB6;
+  --border: #E2DBC9;
+  --border-strong: #D2C9B0;
   --input: #D5CCB6;
-  --ring: #1A1814;
+  --ring: #15130F;
 
   --up: #2E7D4F;
+  --up-soft: #DCF3E3;          /* soft tint for up-change pills */
+  --up-strong: #15803D;        /* readable green for compact change chips */
   --down: #B33A2A;
+  --down-soft: #F7DDD8;        /* soft tint for down-change pills */
+  --down-strong: #B91C1C;      /* readable red for compact change chips */
 
   --chart-lime: #B7F34A;
   --chart-lime-soft: #EDF4D0;
 
   --radius: 0.625rem;
 
-  --sidebar: #FBF8F1;
-  --sidebar-foreground: #1A1814;
-  --sidebar-primary: #1A1814;
+  --sidebar: #F2EFE5;
+  --sidebar-foreground: #15130F;
+  --sidebar-primary: #15130F;
   --sidebar-primary-foreground: #F7F4EC;
-  --sidebar-accent: #F1EDE2;
-  --sidebar-accent-foreground: #1A1814;
-  --sidebar-border: #E6DFCF;
-  --sidebar-ring: #1A1814;
+  --sidebar-accent: #ECE7D6;
+  --sidebar-accent-foreground: #15130F;
+  --sidebar-border: #E3DCC9;
+  --sidebar-ring: #15130F;
 
   /* ── Layout chrome ─────────────────────────────────────── */
-  --shell-sidebar-w:  92px;        /* icon + label sidebar */
-  --shell-header-h:   48px;        /* single toolbar (replaces header + strip) */
-  --content-max:    1152px;        /* ~max-w-6xl */
-  --content-pad-x:    28px;        /* desktop gutter */
-  --content-pad-y:    24px;        /* desktop top/bottom */
+  --shell-sidebar-w:   76px;       /* Loopr-style narrow icon rail */
+  --shell-header-h:    56px;       /* single toolbar */
+  --content-max:    1200px;        /* composed canvas cap */
+  --content-pad-x:    32px;        /* desktop gutter */
+  --content-pad-y:    28px;        /* desktop top/bottom */
 
   /* ── Spacing scale (tokenized) ─────────────────────────── */
   --space-1:  4px;
@@ -79,52 +85,58 @@
   --space-8: 40px;
 
   /* Page rhythm tokens — shared across every read-only page. */
-  --page-title-gap:    20px;       /* page title → first block */
-  --page-section-gap:  28px;       /* major sections on a page */
-  --page-heading-gap:  12px;       /* section heading → content */
-  --page-card-gap:     14px;       /* between cards in a grid */
-  --page-card-pad:     18px;       /* card padding */
-  --page-card-radius:  14px;       /* card radius (slightly tighter) */
+  --page-title-gap:    12px;       /* page title → first block */
+  --page-section-gap:  40px;       /* major sections on a page */
+  --page-heading-gap:  16px;       /* section heading → content */
+  --page-card-gap:     16px;       /* between cards in a grid */
+  --page-card-pad:     20px;       /* card padding */
+  --page-card-radius:  18px;       /* card radius (soft, composed) */
 
-  /* Dashboard rhythm tokens (measured reference spec) */
-  --dash-section-gap:  28px;       /* major section separation */
-  --dash-card-gap:     14px;       /* between cards */
-  --dash-heading-gap:  12px;       /* section heading -> content */
-  --dash-card-pad:     18px;       /* p-5 / card padding */
-  --dash-card-radius:  14px;       /* rounded-2xl */
-  --dash-card-min-h:   220px;      /* equal visual height */
-  --dash-price-block-h: 64px;      /* price section reserved height */
-  --dash-stats-block-h: 56px;      /* LLTV / APY / Liquidity reserved height */
-  --dash-banner-mb:    12px;       /* mb-4 */
-  --dash-explainer-mb: 24px;       /* mb-8 */
+  /* Dashboard rhythm tokens (UI-1B · composed rhythm) */
+  --dash-section-gap:  40px;       /* major section separation */
+  --dash-card-gap:     16px;       /* between cards */
+  --dash-heading-gap:  16px;       /* section heading -> content */
+  --dash-card-pad:     20px;       /* p-5 / card padding */
+  --dash-card-radius:  18px;       /* rounded-2xl+1 */
+  --dash-card-min-h:   240px;      /* equal visual height */
+  --dash-price-block-h: 72px;      /* price section reserved height */
+  --dash-stats-block-h: 60px;      /* LLTV / APY / Liquidity reserved height */
+  --dash-banner-mb:    24px;       /* mb-6 */
+  --dash-explainer-mb: 0px;        /* collapsed into hero summary */
+
+  /* Hero summary card (UI-1B) — composed intro area */
+  --dash-hero-radius:  20px;
+  --dash-hero-pad:     22px;
 
   /* LIVE LIQUIDITY section — fixed compact sizes (height-only fix).
      116 + 22 + 116 = 254, so bottom edges align by grid row geometry. */
   --liquidity-small-card-h:  116px;
   --liquidity-gap:           22px;
 
-  /* ── Typography scale (measured reference spec) ─────────── */
-  --font-dash-title:   26px;       /* serif, -0.04em */
-  --font-section-head: 13px;       /* mono uppercase */
-  --font-body:         13px;       /* sans body */
-  --font-card-symbol:  15px;       /* serif symbol */
-  --font-card-company: 11px;       /* mono company */
-  --font-micro:        10px;       /* small mono labels */
-  --font-kpi:          28px;       /* large financial KPI (market summary, liquidity cards) */
+  /* ── Typography scale (UI-1 · fintech-product · sans-first) ── */
+  --font-dash-title:   24px;       /* page title · sans, weight 500, -0.02em */
+  --font-section-head: 12px;       /* section heading · sans, semibold */
+  --font-body:         13.5px;     /* body sans */
+  --font-card-symbol:  15px;       /* sans, weight 500 */
+  --font-card-company: 12px;       /* sans regular */
+  --font-micro:        11px;       /* small technical labels */
+  --font-kpi:          28px;       /* large financial KPI */
   --font-kpi-lg:       34px;       /* larger KPI (live liquidity cards) */
 }
 
 @theme inline {
-  --font-sans: "DM Sans", "Geist Fallback", sans-serif;
-  --font-sans: "DM Sans", "Geist Fallback", sans-serif;
-  --font-serif: "Fraunces", "Playfair Display", "Georgia", serif;
-  --font-mono: "JetBrains Mono", "Geist Mono", monospace;
+  --font-sans: var(--font-inter), "Inter", "DM Sans", "Geist Fallback", sans-serif;
+  --font-serif: var(--font-inter), "Inter", "DM Sans", "Geist Fallback", sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", "Geist Mono", monospace;
 
   --color-background: var(--background);
   --color-background-deep: var(--background-deep);
   --color-foreground: var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-card-soft: var(--card-soft);
+  --color-card-soft-hi: var(--card-soft-hi);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -144,7 +156,11 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-up: var(--up);
+  --color-up-soft: var(--up-soft);
+  --color-up-strong: var(--up-strong);
   --color-down: var(--down);
+  --color-down-soft: var(--down-soft);
+  --color-down-strong: var(--down-strong);
   --color-chart-lime: var(--chart-lime);
   --color-chart-lime-soft: var(--chart-lime-soft);
 
@@ -169,8 +185,8 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "ss02", "cv01", "cv11";
-    font-family: var(--font-sans), "DM Sans", sans-serif;
+    font-feature-settings: "ss01", "cv01", "cv11";
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
     line-height: 1.5;
     font-variant-numeric: lining-nums;
   }
@@ -183,6 +199,28 @@
     font-variant-numeric: lining-nums tabular-nums;
     font-weight: 400;
     letter-spacing: -0.015em;
+  }
+
+  /* ── Typography drift guard (UI-GLOBAL · /terminal only) ──────
+     Tailwind's `font-mono` / `font-serif` utilities are not used
+     in /terminal surfaces except for genuine technical identifiers
+     (wallet addresses, hashes, contract IDs). Anywhere else they
+     appear, they would render as the wrong font and re-introduce
+     the legacy "two products" feel. This guard forcibly re-points
+     any accidental drift inside the application shell to the
+     primary sans font so we never silently fall back to mono or
+     serif. */
+  .zeks-shell .font-serif,
+  .zeks-shell .font-mono {
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif !important;
+  }
+
+  /* Honour mono inside explicit technical-metadata shells. These
+     markers are set in the few places where mono is genuine
+     (contract address, tx hash, market ID, block number). */
+  .zeks-tech-monospace,
+  .zeks-tech-monospace * {
+    font-family: var(--font-mono), "JetBrains Mono", monospace !important;
   }
 
   /* ── Application shell ─────────────────────────────────── */
@@ -217,17 +255,18 @@
     flex-shrink: 0;
   }
 
-  /* ── Single toolbar ──────────────────────────────────────── */
-  /* 48px persistent toolbar replacing the old header+ticker stack.
-     Structure: [ scrolling ticker (flex:1) | right controls (fixed) ] */
-  .zeks-toolbar {
+/* ── Single toolbar ──────────────────────────────────────── */
+/* 48px persistent toolbar replacing the old header+ticker stack.
+   Structure: [ scrolling ticker (flex:1) | right controls (fixed) ] */
+.zeks-toolbar {
     display: flex;
     align-items: center;
-    height: 48px;
+    height: var(--shell-header-h);
     border-bottom: 1px solid var(--border);
     background: var(--background);
     overflow: hidden;
     width: 100%;
+    padding-left: 8px;
   }
 
   /* LEFT: ticker area — takes all available space, scrolls */
@@ -236,6 +275,7 @@
     min-width: 0;
     overflow: hidden;
     position: relative;
+    padding-left: 8px;
   }
 
   /* Fade mask at the right edge of the ticker so content disappears
@@ -256,20 +296,21 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding-right: 14px;
+    gap: 10px;
+    padding-right: 18px;
   }
 
   .zeks-toolbar-network {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    height: 30px;
-    padding: 0 10px;
-    border-radius: 6px;
-    background: var(--secondary);
-    font-size: 11px;
-    font-family: var(--font-mono);
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
     color: var(--foreground);
     font-weight: 500;
     white-space: nowrap;
@@ -278,14 +319,14 @@
   .zeks-toolbar-network-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    height: 30px;
-    padding: 0 10px;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--destructive) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--destructive) 30%, transparent);
-    font-size: 11px;
-    font-family: var(--font-mono);
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--destructive) 8%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--destructive) 30%, var(--border));
+    font-size: 12.5px;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
     color: var(--destructive);
     font-weight: 500;
     white-space: nowrap;
@@ -434,17 +475,17 @@
        CHANGE  semibold, color-coded
   */
   .zeks-ticker-symbol {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
     font-size: 13px;
     font-weight: 600;
     color: var(--foreground);
-    letter-spacing: 0.02em;
+    letter-spacing: -0.01em;
     line-height: 1;
   }
 
   .zeks-ticker-price {
-    font-family: var(--font-mono);
-    font-size: 12px;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    font-size: 12.5px;
     font-weight: 500;
     color: var(--muted-foreground);
     font-variant-numeric: lining-nums tabular-nums;
@@ -453,23 +494,23 @@
   }
 
   .zeks-ticker-change {
-    font-family: var(--font-mono);
-    font-size: 11.5px;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.005em;
+    letter-spacing: -0.005em;
     font-variant-numeric: lining-nums tabular-nums;
     line-height: 1;
-    padding: 2px 5px;
-    border-radius: 4px;
+    padding: 2px 6px;
+    border-radius: 6px;
   }
 
   .zeks-ticker-change-up {
-    color: #15803d; /* green-700 — readable on off-white */
-    background: rgba(34, 197, 94, 0.10);
+    color: var(--up-strong);
+    background: color-mix(in srgb, var(--up) 12%, transparent);
   }
   .zeks-ticker-change-down {
-    color: #b91c1c; /* red-700 */
-    background: rgba(239, 68, 68, 0.10);
+    color: var(--down-strong);
+    background: color-mix(in srgb, var(--down) 12%, transparent);
   }
   .zeks-ticker-change-flat {
     color: var(--muted-foreground);
@@ -484,6 +525,7 @@
     padding-right: var(--content-pad-x);
     padding-top: var(--content-pad-y);
     padding-bottom: var(--content-pad-y);
+    scrollbar-gutter: stable;
   }
   /* On viewports below the sidebar breakpoint (md = 768px) the
      sidebar collapses, so the shell becomes single-column. */
@@ -540,16 +582,14 @@
     border-radius: var(--page-card-radius);
     padding: var(--page-card-pad);
   }
-  /* Equal-height card grid */
-  .zeks-grid {
-    display: grid;
-    gap: var(--page-card-gap);
-  }
-  .zeks-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .zeks-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .zeks-grid-12 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
-  .zeks-grid-21 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 
+  @media (max-width: 1100px) {
+    /* Tablet / narrow laptop: keep 3-col grids but tighten the
+       horizontal padding so cards still breathe. */
+    :root {
+      --content-pad-x: 20px;
+    }
+  }
   @media (max-width: 900px) {
     .zeks-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .zeks-grid-12,
@@ -563,141 +603,281 @@
 
 /* ── Section primitive (used by all dashboard sections) ──────── */
 @layer components {
+  /* ── UI-3B Markets Detail workspace ─────────────────────── */
+  .zeks-market-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .zeks-market-secondary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  @media (min-width: 1100px) {
+    .zeks-market-workspace {
+      grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    }
+    .zeks-market-secondary {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 1100px) {
+    .zeks-market-secondary {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   .zeks-section {
-    @apply rounded-[14px] border border-border overflow-hidden;
     background-color: var(--card-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--page-card-radius);
+    overflow: hidden;
   }
   .zeks-section-header {
     @apply px-4 py-2.5 border-b border-border flex items-center justify-between gap-3 flex-wrap;
   }
   .zeks-section-footer {
     @apply flex items-center justify-between gap-2 flex-wrap;
-    font-family: var(--font-mono), "JetBrains Mono", monospace;
-    font-size: 10px;
-    letter-spacing: 0.04em;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
     color: var(--muted-foreground);
-    opacity: 0.6;
-    padding: 6px 16px;
+    opacity: 0.85;
+    padding: 8px 18px;
     border-top: 1px solid var(--border);
     border-radius: 0 0 14px 14px;
   }
 
   .zeks-meta {
-    @apply font-mono text-[10px] tracking-wider text-muted-foreground/70;
+    @apply text-[11px] text-muted-foreground;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    font-weight: 500;
   }
   .zeks-meta-strong {
-    @apply font-mono text-[10px] tracking-wider text-muted-foreground/80;
+    @apply text-[11px] text-muted-foreground;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    font-weight: 600;
   }
   .zeks-headline {
-    @apply font-serif text-foreground tracking-tight;
+    @apply text-foreground;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    letter-spacing: -0.015em;
+    font-weight: 600;
   }
 
-  /* ── Financial numbers ─────────────────────────────────── */
-  /* lining-nums: all digits same height (like financial print).
-     tabular-nums: all digits same width (for column alignment).    */
-  .zeks-num {
-    font-variant-numeric: lining-nums tabular-nums;
-    letter-spacing: -0.015em;
-    font-weight: 400;
-  }
-  /* Large KPI value: 28-32px, sans/Inter-style, weight 400 */
-  .zeks-num-lg {
-    font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
-    font-size: var(--font-kpi);
-    line-height: 1.05;
-    letter-spacing: -0.015em;
-    font-weight: 400;
-  }
-  /* Extra-large KPI: 34px (live liquidity cards) */
-  .zeks-num-xl {
-    font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
-    font-size: var(--font-kpi-lg);
-    line-height: 1;
-    letter-spacing: -0.015em;
-    font-weight: 400;
-  }
-  /* Summary metric: 23-26px */
-  .zeks-num-summary {
-    font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
-    font-size: 24px;
-    line-height: 1.1;
-    letter-spacing: -0.015em;
-    font-weight: 400;
-  }
-  /* Stock/card oracle price: 22-25px */
-  .zeks-num-price {
-    font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
-    font-size: 23px;
-    line-height: 1.1;
-    letter-spacing: -0.015em;
-    font-weight: 400;
-  }
-  /* Medium numeric values in tables/cards: 12-14px sans/Inter */
-  .zeks-num-md {
-    font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
-    font-size: 13px;
-    letter-spacing: -0.015em;
-    font-weight: 400;
-  }
-  /* Small numeric values: 11-12px mono */
-  .zeks-num-sm {
-    font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-mono), "JetBrains Mono", monospace;
-    font-size: 11.5px;
-    letter-spacing: 0;
-    font-weight: 400;
-  }
-  /* Table-cell numeric: 12.5px sans, tabular, weight 400 */
-  .zeks-num-cell {
-    font-variant-numeric: lining-nums tabular-nums;
-    font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
-    font-size: 12.5px;
-    letter-spacing: -0.015em;
-    font-weight: 400;
-  }
+/* ── Financial numbers ─────────────────────────────────── */
+/* lining-nums: all digits same height (like financial print).
+   tabular-nums: all digits same width (for column alignment).    */
+.zeks-num {
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+}
+/* Large KPI value: 28-32px, sans/Inter-style, weight 400 */
+.zeks-num-lg {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+  font-size: var(--font-kpi);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
+/* Extra-large KPI: 34px (live liquidity cards) */
+.zeks-num-xl {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+  font-size: var(--font-kpi-lg);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
+/* Summary metric: 23-26px */
+.zeks-num-summary {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
+/* Stock/card oracle price: 22-25px */
+.zeks-num-price {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+  font-size: 23px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
+/* Medium numeric values in tables/cards: 12-14px sans/Inter */
+.zeks-num-md {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+  font-size: 13px;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
+/* Small numeric values (UI-GLOBAL · sans, not mono): 11.5px sans,
+   tabular numerals, weight 400. Monospace is reserved for genuinely
+   technical identifiers (wallet addresses, hashes, contract IDs). */
+.zeks-num-sm {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 11.5px;
+  letter-spacing: -0.01em;
+  font-weight: 400;
+}
+/* Table-cell numeric: 12.5px sans, tabular, weight 400 */
+.zeks-num-cell {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-family: var(--font-sans), "DM Sans", "Inter", sans-serif;
+  font-size: 12.5px;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
 
-  /* ── Display / editorial headings ────────────────────── */
-  /* Page title: 26px serif, weight 400, tight tracking */
-  .zeks-display {
-    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
-    font-size: var(--font-dash-title);
-    font-weight: 400;
-    line-height: 1.05;
-    letter-spacing: -0.035em;
-    color: var(--foreground);
-  }
-  /* Small display: 17–18px for asset/venue names */
-  .zeks-display-sm {
-    font-family: var(--font-serif), "Fraunces", "Playfair Display", serif;
-    font-size: 17px;
-    font-weight: 400;
-    line-height: 1.1;
-    letter-spacing: -0.01em;
-    color: var(--foreground);
-  }
+/* ── Mono reserved for genuinely technical identifiers ───── */
+/* wallet addresses, transaction hashes, contract addresses,
+   market IDs, block numbers, chain IDs. Anything mono outside
+   these contexts should use a sans utility instead. */
+.zeks-tech {
+  font-family: var(--font-mono), "JetBrains Mono", monospace;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+.zeks-tech-sm {
+  font-family: var(--font-mono), "JetBrains Mono", monospace;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-size: 11px;
+}
 
-  /* ── Section labels ──────────────────────────────────── */
-  /* Mono uppercase labels — only for true section labels */
+/* ── Display / editorial headings ────────────────────── */
+/* Page title: 24px sans, weight 500, tight tracking */
+.zeks-display {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: var(--font-dash-title);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+/* Small display: 17px sans for asset/venue names */
+.zeks-display-sm {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+/* ── Section titles (UI-GLOBAL) ────────────────────────── */
+/* Cross-page canonical section heading. 14-15px sans, weight
+   600, normal case, slight negative tracking. Replaces ad-hoc
+   uppercase mono mini-titles that previously infested tables. */
+.zeks-section-title {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+
+/* ── Eyebrow micro-labels (UI-GLOBAL) ───────────────────── */
+/* Single canonical uppercase "micro" label. Replaces the dozens
+   of `text-[10px] font-mono tracking-wider text-muted-foreground`
+   classes that produced inconsistent technical-looking microcopy. */
+.zeks-eyebrow {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  line-height: 1.2;
+  font-variant-numeric: lining-nums;
+}
+.zeks-eyebrow-strong {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+/* ── Body / description copy (UI-GLOBAL) ──────────────────────── */
+.zeks-body {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--foreground);
+  font-weight: 400;
+}
+.zeks-secondary {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+/* ── Stock / asset typography tokens (UI-GLOBAL) ────────── */
+.zeks-symbol {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+  color: var(--foreground);
+  font-variant-numeric: lining-nums;
+}
+.zeks-symbol-sm {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+  color: var(--foreground);
+  font-variant-numeric: lining-nums;
+}
+.zeks-company {
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.3;
+  color: var(--muted-foreground);
+}
+
+/* ── Section labels ──────────────────────────────────── */
+  /* Section heading: sans semibold · UI-1 default */
   .zeks-label {
-    font-family: var(--font-mono), "JetBrains Mono", monospace;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted-foreground);
-    font-weight: 400;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    font-size: var(--font-section-head);
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--foreground);
   }
-  /* Inline label (not full-width, not uppercase) */
+  /* Inline label (small, subtle) — used for compact metric tags */
   .zeks-label-inline {
-    font-family: var(--font-mono), "JetBrains Mono", monospace;
-    font-size: 10px;
-    letter-spacing: 0.04em;
+    font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0;
     color: var(--muted-foreground);
-    font-weight: 400;
+    font-weight: 500;
   }
   /* Body text */
   .zeks-body {
@@ -711,8 +891,8 @@
 /* Subtle paper noise — extremely subtle, used only where appropriate. */
 .paper {
   background-image:
-    radial-gradient(1200px 600px at 0% 0%, rgba(0, 0, 0, 0.015), transparent 60%),
-    radial-gradient(1000px 500px at 100% 100%, rgba(183, 243, 74, 0.04), transparent 70%);
+    radial-gradient(1200px 600px at 0% 0%, rgba(0, 0, 0, 0.012), transparent 60%),
+    radial-gradient(1000px 500px at 100% 100%, rgba(20, 50, 30, 0.02), transparent 70%);
 }
 
 /* ── Dashboard motion — subtle, premium, non-distracting ────────── */
@@ -781,13 +961,10 @@
 
 /* ── Shared visual primitives (FINAL POLISH) ──────────────── */
 
-/* Row hover — restrained. Used by table rows, list rows, etc. */
-.zeks-row-hover {
-  transition: background-color 150ms ease-out, border-color 150ms ease-out;
-}
-.zeks-row-hover:hover {
-  background-color: color-mix(in srgb, var(--foreground) 4%, transparent);
-}
+/* Row hover — restrained. Used by table rows, list rows, etc.
+   The canonical definition lives at the bottom of this file (P0
+   shared-visual-primitive block); keep this comment as the
+   visible anchor for anyone scanning the file top-down. */
 
 /* Subtle pressed / selected state */
 .zeks-selected {
@@ -814,20 +991,21 @@
   align-items: center;
   gap: 6px;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 9px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background-color: var(--card-soft);
-  font-family: var(--font-mono), "JetBrains Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  background-color: var(--card);
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--muted-foreground);
+  font-weight: 500;
   white-space: nowrap;
 }
 .zeks-chip strong {
   color: var(--foreground);
-  font-weight: 500;
+  font-weight: 600;
 }
 .zeks-chip-dot {
   display: inline-block;
@@ -841,25 +1019,27 @@
 .zeks-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 20px;
-  padding: 0 7px;
-  border-radius: 6px;
-  background-color: var(--secondary);
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background-color: var(--card);
   color: var(--muted-foreground);
-  font-family: var(--font-mono), "JetBrains Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
+  font-weight: 500;
 }
 
 /* Inline metric label (used in dense grids) */
 .zeks-metric-label {
-  font-family: var(--font-mono), "JetBrains Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--muted-foreground);
-  font-weight: 400;
+  font-weight: 500;
 }
 
 /* Section header — page-title row within a card. */
@@ -1050,18 +1230,20 @@
 }
 .zeks-kpi-strip .zeks-kpi-label {
   display: block;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--muted-foreground);
+  font-weight: 500;
 }
 .zeks-kpi-strip .zeks-kpi-value {
   display: block;
   margin-top: 4px;
   font-variant-numeric: tabular-nums;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--foreground);
 }
 
@@ -1119,7 +1301,7 @@
 /* Squeezed padding for very dense cards */
 .zeks-card-tight {
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   background-color: var(--card-soft);
   border: 1px solid var(--border);
 }
@@ -1132,7 +1314,7 @@
   justify-content: center;
   padding: 32px 20px;
   border: 1px dashed var(--border-strong);
-  border-radius: 14px;
+  border-radius: 18px;
   background-color: color-mix(in srgb, var(--card-soft) 60%, transparent);
   text-align: left;
   gap: 4px;
@@ -1144,11 +1326,12 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--muted-foreground);
+  font-weight: 500;
   padding-top: 4px;
 }
 .zeks-footer-nav a,
@@ -1182,9 +1365,10 @@
 /* Quiet dim label (e.g. "USDG · onchain") */
 .zeks-dim {
   color: var(--muted-foreground);
-  font-size: 11px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  font-family: var(--font-sans), "Inter", "DM Sans", sans-serif;
+  letter-spacing: 0;
+  font-weight: 500;
 }
 
 /* Responsive guard: ensure tables can scroll horizontally without
@@ -1235,3 +1419,166 @@
   display: none;
 }
 
+/* ──────────────────────────────────────────────────────────────────
+   ZEKS P0 — Shared visual primitives (visual only)
+   ──────────────────────────────────────────────────────────────────
+   These classes provide a single source of truth for the four
+   most-repeated visual patterns across the F1–F16 transaction
+   surfaces. They are CSS-only — no React logic, no state, no
+   transaction wiring. Pages can adopt them progressively. */
+
+/* Numeric input field (amount entry). 22px tabular input area with
+   bold vertical divider between numeric value, suffix symbol, and
+   the trailing "Max" pill. Visually consistent across Earn Detail,
+   Markets Detail, and Loop transaction panels. */
+.zeks-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background-color: var(--card);
+}
+.zeks-input input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans), "DM Sans", sans-serif;
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  color: var(--foreground);
+  background: transparent;
+  border: none;
+  outline: none;
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.zeks-input input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.55;
+}
+.zeks-input-suffix {
+  font-family: var(--font-sans), "DM Sans", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--foreground);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.zeks-input-max {
+  font-family: var(--font-sans), "DM Sans", sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Transaction CTA button (40px · 8px radius · near-black fill).
+   Inverted palette conveys terminal-grade authority. Used by Earn
+   Detail, Markets Detail. Loop page uses the lime variant
+   `.zeks-action-btn--lime` for the promotional primary. */
+.zeks-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background-color: var(--foreground);
+  color: var(--background);
+  border: 1px solid var(--foreground);
+  font-family: var(--font-sans), "DM Sans", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.005em;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 150ms ease-out, opacity 150ms ease-out;
+}
+.zeks-action-btn:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--foreground) 88%, white);
+}
+.zeks-action-btn:disabled {
+  background-color: var(--card);
+  color: var(--muted-foreground);
+  border-color: var(--border);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+/* Lime-fill variant: Loop page primary, surface-accent CTAs. */
+.zeks-action-btn--lime {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.zeks-action-btn--lime:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--primary) 90%, white);
+}
+.zeks-action-btn--lime:disabled {
+  background-color: transparent;
+  color: var(--muted-foreground);
+  border-color: var(--border);
+}
+
+/* Transaction status row (F10). Shared by Supply/Borrow/Repay/
+   Withdraw-Collateral status lines. Padding/border/typography
+   canonicalized so tone-color lines render identically. */
+.zeks-status-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--background);
+  font-family: var(--font-sans), "DM Sans", sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0.005em;
+  line-height: 1.5;
+}
+.zeks-status-line-body {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+.zeks-status-line-hash {
+  font-family: var(--font-mono), "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  word-break: break-all;
+}
+.zeks-status-line-dismiss {
+  font-family: var(--font-sans), "DM Sans", sans-serif;
+  font-size: 11px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* Row hover — already used by 30+ row surfaces across the app.
+   Keep this baseline. Pages opt-in by adding `zeks-row-hover`
+   alongside their own grid/border classes. */
+.zeks-row-hover {
+  transition: background-color 150ms ease-out, border-color 150ms ease-out;
+}
+.zeks-row-hover:hover {
+  background-color: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+.zeks-row-hover:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}

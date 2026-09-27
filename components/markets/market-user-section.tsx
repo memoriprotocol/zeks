@@ -13,6 +13,10 @@
  * Sourced from the per-market Morpho position query (per-wallet),
  * NEUTRAL of the user's interaction with this page beyond the
  * explicit wallet connect.
+ *
+ * P2B polish: header rhythm aligned to P1B mono-caps (10px caps,
+ * 0.1em tracking). Position card density tightened. No fetch /
+ * polling / shape change. Existing data-* attributes preserved.
  */
 
 import * as React from "react"
@@ -71,7 +75,13 @@ export default function MarketUserSection({ market }: MarketUserSectionProps) {
   }
 
   if (state.kind === "empty") {
-    return <Empty title="No position in this market" body="This wallet does not supply, borrow or post collateral in this Morpho market." />
+    return (
+      <Empty
+        title="No position"
+        body="This wallet has no active position in this market."
+        compact
+      />
+    )
   }
 
   // kind === "live"
@@ -112,25 +122,170 @@ function PositionCard({
       className="zeks-card min-w-0"
       data-market-user-section
     >
-      <header className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          POSITION
-        </span>
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
-          Live · Morpho
+      <header
+        className="flex items-baseline justify-between gap-2 border-b border-border"
+        style={{ padding: "8px 14px", minHeight: "32px", marginBottom: "12px" }}
+        data-market-user-section-header
+      >
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span
+            className="font-sans uppercase"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "10px",
+              letterSpacing: "0.1em",
+              color: "var(--muted-foreground)",
+              fontWeight: 500,
+            }}
+          >
+            Position
+          </span>
+          <span aria-hidden="true" style={{ color: "var(--border-strong)" }}>
+            ·
+          </span>
+          <span
+            className="font-sans"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "11.5px",
+              color: "var(--muted-foreground)",
+              fontWeight: 400,
+              letterSpacing: 0,
+            }}
+          >
+            Live · Morpho
+          </span>
+        </div>
+        <span
+          className="font-sans tabular-nums"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            color: "var(--muted-foreground)",
+            fontWeight: 400,
+            letterSpacing: 0,
+          }}
+        >
+          {market.symbol} · {market.collateralAssetSymbol}
         </span>
       </header>
 
-      <div className="mt-2">
-        <span className="zeks-num-xl text-foreground">
+      <div style={{ padding: "0 14px" }}>
+        <span
+          className="tabular-nums"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "26px",
+            lineHeight: 1.1,
+            letterSpacing: "-0.02em",
+            fontWeight: 500,
+            color: "var(--foreground)",
+          }}
+        >
           {positionValueUsd != null ? formatPrice(positionValueUsd) : "—"}
         </span>
-        <span className="ml-2 font-mono text-[10px] tracking-wider text-muted-foreground/70">
-          {market.symbol} · {market.collateralAssetSymbol}
-        </span>
+        <div
+          className="mt-1 font-sans"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            color: "var(--muted-foreground)",
+            fontWeight: 400,
+            letterSpacing: 0,
+          }}
+        >
+          Total position value
+        </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-4">
+      {/* LTV / LIQ. LTV risk bar — derived from real borrowed + collateral */}
+      {collateralUsd != null &&
+      collateralUsd > 0 &&
+      borrowedUsd != null &&
+      position.lltv != null ? (
+        <div
+          style={{ padding: "14px 14px 0" }}
+          data-position-risk-bar
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: "8px",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "11.5px",
+                fontWeight: 500,
+                color: "var(--muted-foreground)",
+                letterSpacing: 0,
+              }}
+            >
+              Current LTV
+            </span>
+            <span
+              className="tabular-nums"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "13px",
+                fontWeight: 500,
+                color: "var(--foreground)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {((borrowedUsd / collateralUsd) * 100).toFixed(2)}%
+              <span style={{ color: "var(--muted-foreground)" }}>
+                {" · "}
+                <span
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "11.5px",
+                  }}
+                >
+                  LLTV
+                </span>{" "}
+                {(position.lltv * 100).toFixed(2)}%
+              </span>
+            </span>
+          </div>
+          <div
+            style={{
+              position: "relative",
+              height: "6px",
+              borderRadius: "999px",
+              backgroundColor: "var(--background)",
+              overflow: "hidden",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: "0",
+                width: `${Math.min(
+                  100,
+                  (borrowedUsd / collateralUsd / position.lltv) * 100,
+                )}%`,
+                backgroundColor:
+                  borrowedUsd / collateralUsd / position.lltv > 0.8
+                    ? "var(--down-strong)"
+                    : borrowedUsd / collateralUsd / position.lltv > 0.5
+                      ? "var(--up-strong)"
+                      : "var(--up-strong)",
+                transition: "width 200ms ease-out",
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-4"
+        style={{ padding: "0 14px" }}
+      >
         <Leg
           label="Supplied"
           amount={formatUnits(position.supplyAssetsRaw, 18)}
@@ -155,7 +310,10 @@ function PositionCard({
         />
       </div>
 
-      <footer className="mt-4 pt-3 border-t border-border grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono tracking-wider text-muted-foreground/70">
+      <footer
+        className="mt-4 pt-3 border-t border-border grid grid-cols-2 gap-x-4 gap-y-2"
+        style={{ padding: "0 14px 12px" }}
+      >
         {marginUsd != null ? (
           <Row label="Margin" value={formatPrice(marginUsd)} />
         ) : null}
@@ -204,18 +362,46 @@ function Leg({
         ? "text-up"
         : "text-foreground/40"
   return (
-    <div className="border-l border-border pl-3">
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70">
+    <div
+      className="border-l border-border pl-3"
+    >
+      <div
+        className="font-sans uppercase"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "10px",
+          letterSpacing: "0.1em",
+          color: "var(--muted-foreground)",
+          fontWeight: 500,
+        }}
+      >
         {label}
       </div>
       <div
         className={
-          "font-mono tabular-nums text-[18px] md:text-[20px] mt-1 " + toneClass
+          "tabular-nums mt-1 " + toneClass
         }
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "18px",
+          lineHeight: 1.1,
+          fontWeight: 500,
+          letterSpacing: "-0.015em",
+        }}
       >
         {usd != null ? formatPrice(usd) : "—"}
       </div>
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 mt-1">
+      <div
+        className="font-sans tabular-nums"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
+          color: "var(--muted-foreground)",
+          marginTop: "4px",
+          fontWeight: 400,
+          letterSpacing: 0,
+        }}
+      >
         {amount ?? "0"}{apy != null ? ` · ${formatApy(apy)}` : ""}
       </div>
     </div>
@@ -231,16 +417,37 @@ function Row({
   value: string
   tone?: "up" | "down"
 }) {
-  const toneClass =
+  const toneColor =
     tone === "down"
-      ? "text-down"
+      ? "var(--down)"
       : tone === "up"
-        ? "text-up"
-        : "text-foreground"
+        ? "var(--up)"
+        : "var(--foreground)"
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span>{label}</span>
-      <span className={"tabular-nums " + toneClass}>{value}</span>
+      <span
+        className="font-sans"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
+          color: "var(--muted-foreground)",
+          fontWeight: 400,
+          letterSpacing: 0,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        className="tabular-nums font-sans"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "12px",
+          color: toneColor,
+          fontWeight: 500,
+        }}
+      >
+        {value}
+      </span>
     </div>
   )
 }
@@ -249,24 +456,62 @@ function Empty({
   title,
   body,
   children,
+  compact,
 }: {
   title: string
   body: string
   children?: React.ReactNode
+  compact?: boolean
 }) {
   return (
     <section
       aria-label={title}
-      className="rounded-2xl border border-dashed border-border bg-secondary/30 p-5 min-w-0"
+      className="rounded-2xl border border-dashed border-border bg-secondary/30 min-w-0"
+      style={{ padding: compact ? "12px 14px" : "20px" }}
       data-position-empty
+      data-empty-compact={compact ? "true" : "false"}
     >
-      <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-        POSITION
-      </span>
-      <p className="font-serif text-[18px] mt-1.5 text-foreground leading-snug">
-        {title}
-      </p>
-      <p className="text-[12px] text-muted-foreground leading-relaxed mt-1">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: "8px",
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          className="zeks-eyebrow uppercase"
+          style={{
+            fontSize: "10px",
+            letterSpacing: "0.1em",
+            color: "var(--muted-foreground)",
+            fontWeight: 500,
+          }}
+        >
+          Position
+        </span>
+        <span
+          className="tabular-nums font-sans"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "13.5px",
+            fontWeight: 500,
+            color: "var(--foreground)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {title}
+        </span>
+      </div>
+      <p
+        className="mt-1"
+        style={{
+          fontSize: "12px",
+          color: "var(--muted-foreground)",
+          lineHeight: 1.5,
+          fontFamily: "var(--font-sans)",
+        }}
+      >
         {body}
       </p>
       {children ? <div className="mt-3">{children}</div> : null}
@@ -277,11 +522,32 @@ function Empty({
 function LoadingCard() {
   return (
     <section className="zeks-card min-w-0">
-      <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
+      <span
+        className="zeks-eyebrow uppercase"
+        style={{
+          fontSize: "10px",
+          letterSpacing: "0.1em",
+          color: "var(--muted-foreground)",
+          fontWeight: 500,
+        }}
+      >
         POSITION
       </span>
-      <div className="zeks-num-xl mt-2 text-foreground/40">—</div>
-      <div className="mt-3 font-mono text-[10px] tracking-wider text-muted-foreground/70">
+      <div
+        className="zeks-num-xl mt-2"
+        style={{ color: "var(--foreground)", opacity: 0.4 }}
+      >
+        —
+      </div>
+      <div
+        className="mt-3 zeks-eyebrow"
+        style={{
+          fontSize: "10.5px",
+          letterSpacing: "0.04em",
+          color: "var(--muted-foreground)",
+          fontWeight: 400,
+        }}
+      >
         Reading onchain state…
       </div>
     </section>

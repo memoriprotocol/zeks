@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * SourceChips
+ * SourceChips (P2A polish)
  *
  * Compact, user-friendly source chips used at the top of pages
  * that aggregate live data.
@@ -16,6 +16,10 @@
  *
  * Intentionally no "MOCK DATA" badge — mock/fallback data must not
  * appear in this build.
+ *
+ * P2A polish: chip typography matches the P1A Earn mono-caps
+ * rhythm (10.5px, 0.04em tracking, weight 400). No new labels,
+ * no new states, no new logic.
  */
 
 import * as React from "react"
@@ -48,9 +52,19 @@ function Chip({
   value: string
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md border border-border bg-secondary/60 text-[10px] font-mono tracking-wider text-foreground/80">
+    <span
+      className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md border border-border bg-secondary/60 font-sans"
+      style={{
+        fontSize: "10.5px",
+        letterSpacing: "0.04em",
+        color: "var(--muted-foreground)",
+        fontWeight: 400,
+      }}
+    >
       <span className="text-muted-foreground/70">{label}</span>
-      <span className="font-semibold text-foreground">{value}</span>
+      <span style={{ color: "var(--foreground)", fontWeight: 500 }}>
+        {value}
+      </span>
     </span>
   )
 }
@@ -86,7 +100,10 @@ export default function SourceChips({
   sourceMode,
 }: SourceChipsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      className="flex flex-wrap items-center gap-2"
+      data-markets-source-chips
+    >
       <Chip label="Oracle" value={ORACLE_LABEL[oracle]} />
       <Chip label="Protocol" value={PROTOCOL_LABEL[protocol]} />
       <Chip label="Asset" value={ASSET_LABEL[asset]} />
@@ -95,7 +112,13 @@ export default function SourceChips({
       {sourceMode === "live" ? (
         <span
           data-source-mode="live"
-          className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-secondary border border-border text-[10px] font-mono tracking-wider text-emerald-500"
+          className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-secondary border border-border font-sans"
+          style={{
+            fontSize: "10.5px",
+            letterSpacing: "0.04em",
+            color: "var(--up)",
+            fontWeight: 400,
+          }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           Live
@@ -104,7 +127,13 @@ export default function SourceChips({
       {sourceMode === "stale" ? (
         <span
           data-source-mode="stale"
-          className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-amber-500/10 border border-amber-500/30 text-[10px] font-mono tracking-wider text-amber-700 dark:text-amber-300"
+          className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-amber-500/10 border border-amber-500/30 font-sans"
+          style={{
+            fontSize: "10.5px",
+            letterSpacing: "0.04em",
+            color: "var(--muted-foreground)",
+            fontWeight: 400,
+          }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
           Stale
@@ -113,7 +142,13 @@ export default function SourceChips({
       {sourceMode === "partial" ? (
         <span
           data-source-mode="partial"
-          className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-amber-500/10 border border-amber-500/30 text-[10px] font-mono tracking-wider text-amber-700 dark:text-amber-300"
+          className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-amber-500/10 border border-amber-500/30 font-sans"
+          style={{
+            fontSize: "10.5px",
+            letterSpacing: "0.04em",
+            color: "var(--muted-foreground)",
+            fontWeight: 400,
+          }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
           Partial

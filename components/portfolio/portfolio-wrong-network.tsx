@@ -45,13 +45,13 @@ export default function PortfolioWrongNetwork() {
           <AlertTriangle className="w-5 h-5 text-destructive" />
         </div>
         <div className="min-w-0">
-          <div className="text-[10px] font-mono tracking-wider text-muted-foreground">
-            PORTFOLIO · WRONG NETWORK
+          <div className="zeks-eyebrow">
+            Portfolio · Wrong network
           </div>
-          <h2 className="font-serif text-2xl text-foreground mt-1">
+          <h2 className="zeks-display text-[22px] mt-1 text-foreground">
             Switch to Robinhood Chain to view your portfolio.
           </h2>
-          <p className="text-sm font-mono text-muted-foreground mt-2 leading-relaxed">
+          <p className="zeks-secondary mt-2 leading-relaxed">
             Your wallet is connected to a different chain. ZEKS reads balances
             from Robinhood Chain only.
           </p>
@@ -61,7 +61,7 @@ export default function PortfolioWrongNetwork() {
               type="button"
               onClick={() => void onSwitch()}
               disabled={switching}
-              className="inline-flex items-center gap-2 h-11 px-5 rounded-md bg-primary text-primary-foreground text-xs font-mono font-semibold tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-progress"
+              className="zeks-btn-primary h-11 px-5 rounded-md gap-2 text-[13px] font-semibold disabled:opacity-70 disabled:cursor-progress"
               data-testid="portfolio-switch-chain"
             >
               {switching ? (
@@ -72,7 +72,7 @@ export default function PortfolioWrongNetwork() {
               </span>
             </button>
             {lastError ? (
-              <span className="text-[10px] font-mono text-muted-foreground/70">
+              <span className="zeks-eyebrow text-muted-foreground/70">
                 {lastError.message}
               </span>
             ) : null}

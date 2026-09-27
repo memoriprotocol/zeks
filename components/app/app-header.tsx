@@ -1,17 +1,12 @@
 "use client"
 
-import Link from "next/link"
 import * as React from "react"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
 import { useWallet } from "@/components/app/wallet/use-wallet"
 import WalletButton from "@/components/app/wallet/wallet-button"
 import MarketTicker from "@/components/app/market-ticker"
-import {
-  resolveTickerSymbols,
-  TICKER_MAX_VISIBLE,
-  type MarketQuote,
-} from "@/lib/markets/client"
+import type { MarketQuote } from "@/lib/markets/client"
 
 interface AppHeaderProps {
   /** Robinhood asset registry (symbols + logoUrls). */
@@ -21,19 +16,15 @@ interface AppHeaderProps {
 }
 
 /**
- * AppHeader (v4 — single toolbar)
+ * AppHeader (UI-1B · clean horizontal top bar)
  *
- * Replaces the old two-row header+ticker stack with a single 48px toolbar:
+ *   [ ticker stream · fills available width │ Robinhood Chain · wallet ]
  *
- *   [ continuously scrolling stock ticker                              ] [ Robinhood Chain ] [ wallet ]
+ *   · 56px toolbar
+ *   · No left context, no page-name repeated
+ *   · Right controls stay anchored
  *
- * Removed:
- *   - "LIVE" text + animated dot
- *   - "Updated just now" timestamp
- *   - page-name title text (titles live inside page content)
- *
- * Data: same server-side source as the old TickerStrip.
- * No new polling, no new endpoints.
+ *   Ticker + wallet logic preserved from v4.
  */
 export default function AppHeader(props: AppHeaderProps) {
   return (
@@ -44,8 +35,8 @@ export default function AppHeader(props: AppHeaderProps) {
         toastOptions={{
           classNames: {
             toast: "border border-border bg-card text-foreground rounded-xl",
-            title: "text-xs font-mono",
-            description: "text-[10px] font-mono text-muted-foreground",
+            title: "text-xs font-medium",
+            description: "text-[11px] text-muted-foreground",
           },
         }}
       />
@@ -72,10 +63,9 @@ function AppHeaderChrome({ tickerAssets = [], tickerQuotes = {} }: AppHeaderProp
 
   return (
     <header className="zeks-toolbar">
-      {/* LEFT — stock ticker (flex-grow, scrolls) */}
+      {/* CENTER — stock ticker (flex-grow, scrolls) */}
       <div className="zeks-toolbar-ticker">
         <MarketTicker assets={tickerAssets} quotes={tickerQuotes} />
-        {/* Fade mask at the right edge so ticker disappears before right controls */}
         <span className="zeks-toolbar-ticker-fade" aria-hidden="true" />
       </div>
 

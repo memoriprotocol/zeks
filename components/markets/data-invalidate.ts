@@ -21,7 +21,13 @@
 
 import * as React from "react"
 
-type Reason = "supply-success" | "borrow-success" | "manual"
+type Reason =
+  | "supply-success"
+  | "borrow-success"
+  | "withdraw-success"
+  | "repay-success"
+  | "withdraw-collateral-success"
+  | "manual"
 
 type Event = { reason: Reason; at: number }
 

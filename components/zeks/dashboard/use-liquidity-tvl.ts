@@ -69,7 +69,11 @@ export function useLiquidityTvl(opts: {
   }, [marketsFetchedAt])
 
   const syncedSecondsAgo = React.useMemo(() => {
-    if (lastSyncedAtMs == null) return null
+    // `useNow` returns `null` on the very first paint (hydration
+    // safety). Until the client-side clock initializes, the label
+    // cannot be computed honestly — return `null` instead of doing
+    // any math against a non-existent `now`.
+    if (now == null || lastSyncedAtMs == null) return null
     return Math.max(0, Math.floor((now - lastSyncedAtMs) / 1000))
   }, [lastSyncedAtMs, now])
 

@@ -38,7 +38,6 @@ export {
 export {
   getHistoricalSeries,
   hasUsableSeries,
-  PROVIDER_PLACEHOLDER_CODE,
   type ProviderContext,
 } from "./history/provider"
 

@@ -58,7 +58,7 @@ export function FeaturedMarkets({ markets }: FeaturedMarketsProps) {
   return (
     <div data-testid="featured-markets" className="flex flex-col gap-3">
       {priority.length === 0 ? (
-        <p className="font-mono text-[11px] tracking-wide text-muted-foreground/70 px-0.5">
+        <p className="zeks-eyebrow text-muted-foreground/70 px-0.5">
           None of the 8 curated tickers are currently live.
         </p>
       ) : (
@@ -74,7 +74,7 @@ export function FeaturedMarkets({ markets }: FeaturedMarketsProps) {
         </ul>
       )}
 
-      <p className="font-mono text-[10px] tracking-wide text-muted-foreground/60 px-0.5">
+      <p className="zeks-eyebrow text-muted-foreground/60 px-0.5">
         {priority.length} / {PRIORITY.length} curated live
       </p>
     </div>
@@ -109,13 +109,13 @@ function FeaturedCard({ market: m }: { market: LendingMarket }) {
         />
         <div className="min-w-0 flex-1">
           <div
-            className="font-serif text-foreground truncate"
+            className="zeks-symbol-sm text-foreground truncate"
             style={{ fontSize: "16px", lineHeight: 1.1 }}
           >
             {m.symbol}
           </div>
           <div
-            className="font-mono text-muted-foreground/70 truncate"
+            className="zeks-eyebrow text-muted-foreground/70 truncate"
             style={{ fontSize: "10.5px", marginTop: "3px" }}
           >
             {m.name ?? m.symbol}
@@ -127,7 +127,7 @@ function FeaturedCard({ market: m }: { market: LendingMarket }) {
       {hasPrice ? (
         <div className="mt-3">
           <div
-            className="font-mono tracking-wide text-muted-foreground/70 uppercase"
+            className="zeks-eyebrow text-muted-foreground/70 uppercase"
             style={{ fontSize: "9px" }}
           >
             Price
@@ -208,14 +208,14 @@ function Field({
   return (
     <div>
       <dt
-        className="font-mono tracking-wide text-muted-foreground/70 uppercase"
+        className="zeks-eyebrow text-muted-foreground/70 uppercase"
         style={{ fontSize: "9px" }}
       >
         {label}
       </dt>
       <dd
         className={[
-          "font-mono tabular-nums",
+          "tabular-nums font-sans",
           cls,
         ].join(" ")}
         style={{ fontSize: "12px", marginTop: "3px" }}

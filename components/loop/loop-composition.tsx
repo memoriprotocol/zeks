@@ -29,6 +29,30 @@ import AssetLogo from "@/components/asset-logo"
 import { PageTitle, SectionTitle } from "@/components/zeks/page-title"
 import { useLoopMarkets } from "@/components/loop/use-loop-markets"
 import { useNetworkStatus } from "@/components/zeks/use-network-status"
+// F13 — wallet wiring (H1/H2 unchanged). Used only to render the
+// wallet chip + switch-network CTA in the page chrome; F13 never
+// touches H1/H2 internals.
+import { useWallet } from "@/components/app/wallet/use-wallet"
+// F13 — read-only F12 hook that polls the locked
+// /api/markets/lending/earn endpoint. The Loop page reuses it
+// unchanged so the F12 lifecycle / transaction-eligibility fields
+// are available alongside the slim LoopMarket projection.
+import { useEarnLendingMarkets } from "@/components/earn/use-lending-markets"
+// F13 — display-only chip from the locked F12 chip registry.
+import { LifecycleChip, lifecycleOf } from "@/components/earn/lifecycle-chip"
+// F13 — minimal amount inputs (pure presentational).
+import {
+  LoopAmountInputs,
+  type LoopAmountInputsValues,
+} from "@/components/loop/loop-amount-inputs"
+// F13 — Loop transaction panel (composes the locked writers).
+import { LoopTransactionPanel } from "@/components/loop/loop-transaction-panel"
+// F13 — pure mapper from LoopMarket / YieldVenue to the full
+// LendingMarket shape the locked writers consume.
+import {
+  adaptLoopMarketToLendingMarket,
+  adaptYieldVenueToLendingMarket,
+} from "@/lib/markets/loop/adapter"
 import {
   CURATED_STOCKS,
   LOOP_ESTIMATED_FEES_PERCENT,
@@ -56,9 +80,24 @@ const STOCK_PRIORITY = new Map<string, number>(
 export default function LoopComposition() {
   const { markets, yieldVenues, loading, error, fetchedAt } = useLoopMarkets()
   const network = useNetworkStatus()
+  // F13 — wallet hook (H1/H2 unchanged). Read-only use here:
+  // surface wallet status in the page chrome and (in future)
+  // gate the panel. F13 does NOT mutate the wallet state.
+  const wallet = useWallet()
+  // F13 — locked F12 hook that fetches the full LendingMarket[]
+  // (with F12 lifecycle + transactionEligible fields). Polled in
+  // parallel with useLoopMarkets; both endpoints share no state.
+  const { markets: lendingMarkets } = useEarnLendingMarkets()
 
   const [selectedSymbol, setSelectedSymbol] = React.useState<string | null>(null)
   const [selectedVenueId, setSelectedVenueId] = React.useState<string | null>(null)
+  // F13 — typed amounts and panel-open state. The panel is closed
+  // by default; the StockCard's "Open Loop" CTA opens it.
+  const [amounts, setAmounts] = React.useState<LoopAmountInputsValues>({
+    collateralAmount: "",
+    loanAmount: "",
+  })
+  const [panelOpen, setPanelOpen] = React.useState(false)
 
   // Sort markets: curated priority first, then alphabetical
   const sortedMarkets = React.useMemo(() => {
@@ -155,6 +194,7 @@ export default function LoopComposition() {
                   active={selectedSymbol === m.symbol}
                   onSelect={setSelectedSymbol}
                   selectedVenue={selectedVenue}
+                  collateralMarketAdapter={adaptLoopMarketToLendingMarket(m, lendingMarkets)}
                 />
               </li>
             ))}
@@ -196,8 +236,52 @@ export default function LoopComposition() {
         <LoopEconomics
           market={selectedMarket}
           venue={selectedVenue}
+          collateralMarketAdapter={
+            selectedMarket
+              ? adaptLoopMarketToLendingMarket(selectedMarket, lendingMarkets)
+              : null
+          }
+          venueAdapter={
+            selectedVenue ? adaptYieldVenueToLendingMarket(selectedVenue) : null
+          }
+          amounts={amounts}
+          onAmountsChange={setAmounts}
+          panelOpen={panelOpen}
+          onOpenLoop={() => setPanelOpen(true)}
+          walletStatus={wallet.status}
+          walletChainId={wallet.chainId ?? null}
+          onSwitchNetwork={async () => {
+            try {
+              await wallet.switchToRobinhoodChain()
+            } catch {
+              /* user rejection — silently absorbed; the next
+                 render of the wallet hook will reflect the new
+                 chainId if the switch succeeded. */
+            }
+          }}
         />
       </section>
+
+      {/* F13 — Loop transaction panel (renders below the page
+          when open). Reads from the same `selectedMarket` /
+          `selectedVenue` state the rest of the page already
+          maintains. */}
+      {panelOpen && selectedMarket && selectedVenue ? (
+        <section className="flex flex-col">
+          <SectionTitle>Open Loop</SectionTitle>
+          <LoopTransactionPanel
+            collateralMarket={
+              adaptLoopMarketToLendingMarket(selectedMarket, lendingMarkets).row
+            }
+            venueMarket={adaptYieldVenueToLendingMarket(selectedVenue).row}
+            collateralAmount={amounts.collateralAmount}
+            loanAmount={amounts.loanAmount}
+            collateralSymbol={selectedMarket.symbol.toUpperCase()}
+            loanSymbol={selectedVenue.asset ?? selectedVenue.id.toUpperCase()}
+            onClose={() => setPanelOpen(false)}
+          />
+        </section>
+      ) : null}
     </div>
   )
 }
@@ -243,7 +327,7 @@ function LoopIntro({
           rate − costs.
         </p>
         <p
-          className="font-mono mt-2"
+          className="font-sans mt-2"
           style={{
             fontSize: "var(--font-micro)",
             color: "var(--muted-foreground)",
@@ -256,12 +340,9 @@ function LoopIntro({
 
       {/* Right — compact status */}
       <ul
-        className="flex items-center gap-5 flex-wrap"
+        className="zeks-surface-padded flex items-center gap-5 flex-wrap"
         style={{
           padding: "10px 14px",
-          border: "1px solid var(--border)",
-          borderRadius: "10px",
-          backgroundColor: "var(--card-soft)",
         }}
       >
         <IntroStat
@@ -309,7 +390,7 @@ function IntroStat({
   return (
     <li className="flex flex-col gap-1">
       <span
-        className="font-mono uppercase"
+        className="zeks-eyebrow uppercase"
         style={{
           fontSize: "var(--font-micro)",
           color: "var(--muted-foreground)",
@@ -321,7 +402,7 @@ function IntroStat({
       <span
         className="tabular-nums"
         style={{
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-sans)",
           fontSize: "13px",
           color:
             tone === "up" ? "var(--foreground)" : "var(--muted-foreground)",
@@ -371,7 +452,7 @@ function IntroStatus({
         }}
       />
       <span
-        className="font-mono"
+        className="font-sans"
         style={{
           fontSize: "11px",
           color: "var(--foreground)",
@@ -392,11 +473,15 @@ function StockCard({
   active,
   onSelect,
   selectedVenue,
+  collateralMarketAdapter,
 }: {
   market: LoopMarket
   active: boolean
   onSelect: (s: string) => void
   selectedVenue: YieldVenue | null
+  collateralMarketAdapter: ReturnType<
+    typeof adaptLoopMarketToLendingMarket
+  >
 }) {
   // Compute live carry if both sides have data.
   const liveCarry: NetCarry | null = React.useMemo(() => {
@@ -458,9 +543,10 @@ function StockCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span
               style={{
-                fontFamily: "var(--font-serif)",
+                fontFamily: "var(--font-sans)",
                 fontSize: "var(--font-card-symbol)",
                 color: "var(--foreground)",
+                fontWeight: 500,
                 lineHeight: 1.1,
                 letterSpacing: "-0.01em",
               }}
@@ -468,9 +554,17 @@ function StockCard({
               {m.symbol}
             </span>
             <SourceChip mode={m.sourceMode} />
+            {/* F13 — surface the F12 lifecycle / eligibility verdict
+                on every stock card. Pure display; no transactions.
+                Reads the `lifecycle` field from the same
+                LendingMarket row the adapter already produced. */}
+            <LifecycleChip
+              lifecycle={lifecycleOf(collateralMarketAdapter.row)}
+              compact
+            />
           </div>
           <div
-            className="font-mono truncate"
+            className="font-sans truncate"
             style={{
               fontSize: "var(--font-card-company)",
               color: "var(--muted-foreground)",
@@ -492,7 +586,7 @@ function StockCard({
         }}
       >
         <div
-          className="font-mono uppercase"
+          className="zeks-eyebrow uppercase"
           style={{
             fontSize: "var(--font-micro)",
             color: "var(--muted-foreground)",
@@ -513,7 +607,7 @@ function StockCard({
           {m.oraclePrice != null ? formatPrice(m.oraclePrice) : "—"}
         </div>
         <div
-          className="font-mono"
+          className="font-sans"
           style={{
             fontSize: "10px",
             color: "var(--muted-foreground)",
@@ -593,7 +687,7 @@ function StockCard({
         }}
       >
         <div
-          className="font-mono uppercase"
+          className="zeks-eyebrow uppercase"
           style={{
             fontSize: "var(--font-micro)",
             color: "var(--muted-foreground)",
@@ -604,7 +698,7 @@ function StockCard({
         </div>
         {isMock ? (
           <p
-            className="font-mono"
+            className="font-sans"
             style={{
               fontSize: "11.5px",
               color: "var(--muted-foreground)",
@@ -617,7 +711,7 @@ function StockCard({
           </p>
         ) : !selectedVenue ? (
           <p
-            className="font-mono"
+            className="font-sans"
             style={{
               fontSize: "11.5px",
               color: "var(--muted-foreground)",
@@ -633,7 +727,7 @@ function StockCard({
             style={{ marginTop: "4px" }}
           >
             <span
-              className="font-mono"
+              className="font-sans"
               style={{
                 fontSize: "11.5px",
                 color: "var(--foreground)",
@@ -644,7 +738,7 @@ function StockCard({
             <span
               className="tabular-nums"
               style={{
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
                 fontSize: "12.5px",
                 color:
                   liveCarry?.net != null
@@ -662,7 +756,7 @@ function StockCard({
         )}
         {liveCarry?.gross != null && !isMock ? (
           <div
-            className="font-mono"
+            className="font-sans"
             style={{
               fontSize: "10px",
               color: "var(--muted-foreground)",
@@ -676,7 +770,7 @@ function StockCard({
         ) : null}
         {isUnlisted ? (
           <div
-            className="font-mono"
+            className="font-sans"
             style={{
               fontSize: "10px",
               color: "var(--muted-foreground)",
@@ -698,7 +792,7 @@ function StockCard({
       >
         {isMock ? (
           <span
-            className="font-mono uppercase"
+            className="zeks-eyebrow uppercase"
             data-loop-configure-disabled
             title="No Morpho market for this collateral on Robinhood Chain"
             style={{
@@ -724,26 +818,8 @@ function StockCard({
               e.stopPropagation()
               onSelect(m.symbol)
             }}
-            className="inline-flex items-center justify-center gap-1.5 transition-colors"
-            style={{
-              height: "34px",
-              padding: "0 16px",
-              fontSize: "12px",
-              fontFamily: "var(--font-sans)",
-              fontWeight: 500,
-              borderRadius: "6px",
-              backgroundColor: "var(--primary)",
-              color: "var(--primary-foreground)",
-              border: "none",
-              cursor: "pointer",
-              lineHeight: 1,
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "rgba(183,243,74,0.85)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--primary)")
-            }
+            className="zeks-action-btn zeks-action-btn--lime"
+            style={{ height: "34px", padding: "0 14px", fontSize: "12px" }}
           >
             Configure →
           </button>
@@ -824,9 +900,10 @@ function VenueCard({
         <div className="min-w-0 flex-1">
           <div
             style={{
-              fontFamily: "var(--font-serif)",
+              fontFamily: "var(--font-sans)",
               fontSize: "var(--font-card-symbol)",
               color: "var(--foreground)",
+              fontWeight: 500,
               lineHeight: 1.1,
               letterSpacing: "-0.01em",
             }}
@@ -835,12 +912,12 @@ function VenueCard({
           </div>
           {v.asset ? (
             <div
-              className="font-mono truncate"
+              className="font-sans truncate"
               style={{
                 fontSize: "var(--font-card-company)",
                 color: "var(--muted-foreground)",
                 marginTop: "4px",
-                letterSpacing: "0.02em",
+                letterSpacing: 0,
               }}
             >
               {v.asset} · {riskLabel(v.risk)}
@@ -860,7 +937,7 @@ function VenueCard({
         }}
       >
         <div
-          className="font-mono uppercase"
+          className="zeks-eyebrow uppercase"
           style={{
             fontSize: "var(--font-micro)",
             color: "var(--muted-foreground)",
@@ -907,7 +984,7 @@ function VenueCard({
         style={{ marginTop: "auto", paddingTop: "12px" }}
       >
         <span
-          className="font-mono uppercase"
+          className="zeks-eyebrow uppercase"
           style={{
             fontSize: "var(--font-micro)",
             color: "var(--muted-foreground)",
@@ -918,7 +995,7 @@ function VenueCard({
         </span>
         {v.assetAddress ? (
           <span
-            className="font-mono truncate"
+            className="font-sans truncate"
             style={{
               fontSize: "11px",
               color: "var(--muted-foreground)",
@@ -949,9 +1026,29 @@ function VenueCard({
 function LoopEconomics({
   market,
   venue,
+  collateralMarketAdapter,
+  venueAdapter,
+  amounts,
+  onAmountsChange,
+  panelOpen,
+  onOpenLoop,
+  walletStatus,
+  walletChainId,
+  onSwitchNetwork,
 }: {
   market: LoopMarket | null
   venue: YieldVenue | null
+  collateralMarketAdapter: ReturnType<
+    typeof adaptLoopMarketToLendingMarket
+  > | null
+  venueAdapter: ReturnType<typeof adaptYieldVenueToLendingMarket> | null
+  amounts: LoopAmountInputsValues
+  onAmountsChange: (next: LoopAmountInputsValues) => void
+  panelOpen: boolean
+  onOpenLoop: () => void
+  walletStatus: ReturnType<typeof useWallet>["status"]
+  walletChainId: number | null
+  onSwitchNetwork: () => void | Promise<void>
 }) {
   if (!market || !venue) {
     return (
@@ -966,7 +1063,7 @@ function LoopEconomics({
         data-loop-economics-empty
       >
         <span
-          className="font-mono"
+          className="font-sans"
           style={{
             fontSize: "11px",
             color: "var(--muted-foreground)",
@@ -980,7 +1077,19 @@ function LoopEconomics({
     )
   }
 
-  const position = { market, venue, collateralAmount: null, loanAmount: null, estimatedLtv: null }
+  const collateralRaw =
+    amounts.collateralAmount.trim() === ""
+      ? null
+      : Number(amounts.collateralAmount)
+  const loanRaw =
+    amounts.loanAmount.trim() === "" ? null : Number(amounts.loanAmount)
+  const position = {
+    market,
+    venue,
+    collateralAmount: collateralRaw,
+    loanAmount: loanRaw,
+    estimatedLtv: null,
+  }
   const carry = computeNetCarry(position, LOOP_ESTIMATED_FEES_PERCENT)
   const estimatedLtvFrac = market.lltv != null ? market.lltv * 0.5 : null
   const risk: LoopRiskStatus =
@@ -1014,6 +1123,33 @@ function LoopEconomics({
           estimatedLtv={estimatedLtvFrac}
           risk={risk}
         />
+        {/* F13 — minimal amount inputs. Pure presentational. */}
+        <div style={{ marginTop: "16px" }}>
+          <LoopAmountInputs
+            values={amounts}
+            onChange={onAmountsChange}
+            collateralSymbol={market.symbol.toUpperCase()}
+            loanSymbol={venue.asset ?? venue.id.toUpperCase()}
+            disabled={false}
+          />
+        </div>
+        {/* F13 — Open Loop CTA. Disabled when the underlying
+            market is not F12 transaction-eligible, when no wallet
+            is connected, when the wallet is on the wrong chain, or
+            when a typed amount is invalid. Reuses the F12 verdict
+            the adapter already produced. */}
+        <OpenLoopCta
+          collateralMarketAdapter={collateralMarketAdapter}
+          venueAdapter={venueAdapter}
+          collateralAmount={amounts.collateralAmount}
+          loanAmount={amounts.loanAmount}
+          panelOpen={panelOpen}
+          onOpenLoop={onOpenLoop}
+          walletStatus={walletStatus}
+          walletChainId={walletChainId}
+          onSwitchNetwork={onSwitchNetwork}
+          venue={venue}
+        />
       </section>
 
       {/* RIGHT · Route visualization */}
@@ -1029,6 +1165,115 @@ function LoopEconomics({
         <RouteVisualization market={market} venue={venue} />
       </section>
     </div>
+  )
+}
+
+/* F13 — Open Loop CTA. Pure presentational; consumes the adapter
+   verdict (F12) and the wallet state to decide whether to enable
+   the button. Never submits a transaction itself — it just opens
+   the `LoopTransactionPanel` which composes the locked writers. */
+function OpenLoopCta({
+  collateralMarketAdapter,
+  venueAdapter,
+  collateralAmount,
+  loanAmount,
+  panelOpen,
+  onOpenLoop,
+  walletStatus,
+  walletChainId,
+  onSwitchNetwork,
+  venue,
+}: {
+  collateralMarketAdapter: ReturnType<
+    typeof adaptLoopMarketToLendingMarket
+  > | null
+  venueAdapter: ReturnType<typeof adaptYieldVenueToLendingMarket> | null
+  collateralAmount: string
+  loanAmount: string
+  panelOpen: boolean
+  onOpenLoop: () => void
+  walletStatus: ReturnType<typeof useWallet>["status"]
+  walletChainId: number | null
+  onSwitchNetwork: () => void | Promise<void>
+  venue: YieldVenue
+}) {
+  const ROBINHOOD_CHAIN_ID = 4663
+  const venueAsset = venue.asset ?? venue.id.toUpperCase()
+  const collateralInvalid =
+    collateralAmount.trim() === "" ||
+    isNaN(Number(collateralAmount)) ||
+    Number(collateralAmount) <= 0
+  const loanInvalid =
+    loanAmount.trim() === "" ||
+    isNaN(Number(loanAmount)) ||
+    Number(loanAmount) <= 0
+
+  let disabledReason: string | null = null
+  if (collateralMarketAdapter?.marketUnconfigured) {
+    disabledReason = collateralMarketAdapter.reason ?? "Market is unconfigured."
+  } else if (venueAdapter?.marketUnconfigured) {
+    disabledReason = venueAdapter.reason ?? "Venue is unconfigured."
+  } else if (walletStatus !== "connected") {
+    disabledReason = "Connect a wallet to open the loop."
+  } else if (walletChainId !== ROBINHOOD_CHAIN_ID) {
+    disabledReason = "Switch to Robinhood Chain to open the loop."
+  } else if (collateralInvalid) {
+    disabledReason = "Enter a positive collateral amount."
+  } else if (loanInvalid) {
+    disabledReason = `Enter a positive ${venueAsset} borrow amount.`
+  }
+
+  const disabled = disabledReason !== null
+
+  // The wallet is currently unfunded — the F5C-readiness will
+  // surface insufficient-balance as soon as the panel mounts and
+  // reads the wallet's collateral balance. That is the EXPECTED
+  // runtime behavior; F13 does not bypass it.
+  void collateralAmount
+  void loanAmount
+
+  if (walletStatus === "connected" && walletChainId !== ROBINHOOD_CHAIN_ID) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          void onSwitchNetwork()
+        }}
+        data-loop-cta-switch-network
+        className="zeks-action-btn zeks-action-btn--lime"
+        style={{ marginTop: "12px" }}
+      >
+        Switch to Robinhood Chain
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpenLoop}
+      disabled={disabled}
+      aria-disabled={disabled}
+      data-loop-cta-open-loop
+      className={
+        "zeks-action-btn " + (disabled ? "" : "zeks-action-btn--lime")
+      }
+      style={{ marginTop: "12px" }}
+    >
+      {panelOpen ? "Loop panel open ↓" : "Open Loop →"}
+      {disabled && disabledReason ? (
+        <span
+          style={{
+            marginLeft: "8px",
+            fontSize: "11px",
+            color: "var(--muted-foreground)",
+            fontWeight: 400,
+          }}
+        >
+          {disabledReason}
+        </span>
+      ) : null}
+    </button>
   )
 }
 
@@ -1056,7 +1301,7 @@ function CarryPanel({
       {/* Hero — estimated carry */}
       <div>
         <div
-          className="font-mono uppercase"
+          className="zeks-eyebrow uppercase"
           style={{
             fontSize: "var(--font-micro)",
             color: "var(--muted-foreground)",
@@ -1078,7 +1323,7 @@ function CarryPanel({
               {`${carry.profitable ? "+" : ""}${formatApy(net)}`}
             </div>
             <div
-              className="font-mono"
+              className="font-sans"
               style={{
                 fontSize: "11px",
                 color: "var(--muted-foreground)",
@@ -1103,7 +1348,7 @@ function CarryPanel({
               {`${gross >= 0 ? "+" : ""}${formatApy(gross)}`}
             </div>
             <div
-              className="font-mono"
+              className="font-sans"
               style={{
                 fontSize: "11px",
                 color: "var(--muted-foreground)",
@@ -1127,7 +1372,7 @@ function CarryPanel({
               —
             </div>
             <div
-              className="font-mono"
+              className="font-sans"
               style={{
                 fontSize: "11px",
                 color: "var(--muted-foreground)",
@@ -1180,7 +1425,7 @@ function CarryPanel({
       >
         <div>
           <div
-            className="font-mono uppercase"
+            className="zeks-eyebrow uppercase"
             style={{
               fontSize: "var(--font-micro)",
               color: "var(--muted-foreground)",
@@ -1192,7 +1437,7 @@ function CarryPanel({
           <div
             className="tabular-nums"
             style={{
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
               fontSize: "14px",
               color: "var(--foreground)",
               marginTop: "4px",
@@ -1203,7 +1448,7 @@ function CarryPanel({
         </div>
         <div className="text-right">
           <div
-            className="font-mono uppercase"
+            className="zeks-eyebrow uppercase"
             style={{
               fontSize: "var(--font-micro)",
               color: "var(--muted-foreground)",
@@ -1215,7 +1460,7 @@ function CarryPanel({
           <div
             className="tabular-nums"
             style={{
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
               fontSize: "14px",
               color: "var(--foreground)",
               marginTop: "4px",
@@ -1228,7 +1473,7 @@ function CarryPanel({
 
       {/* Footer — read-only note */}
       <div
-        className="font-mono"
+        className="font-sans"
         style={{
           marginTop: "auto",
           paddingTop: "16px",
@@ -1237,7 +1482,7 @@ function CarryPanel({
           letterSpacing: "0.04em",
         }}
       >
-        Supply · Borrow · Loop transactions — coming soon
+        Supply · Borrow · Loop transactions
       </div>
     </>
   )
@@ -1253,7 +1498,7 @@ function RouteVisualization({
   return (
     <>
       <div
-        className="font-mono uppercase"
+        className="zeks-eyebrow uppercase"
         style={{
           fontSize: "var(--font-micro)",
           color: "var(--muted-foreground)",
@@ -1314,7 +1559,7 @@ function RouteVisualization({
 
       {/* Footer note */}
       <div
-        className="font-mono"
+        className="font-sans"
         style={{
           marginTop: "auto",
           paddingTop: "16px",
@@ -1349,7 +1594,7 @@ function RouteStep({
     >
       <div className="min-w-0">
         <div
-          className="font-mono uppercase"
+          className="zeks-eyebrow uppercase"
           style={{
             fontSize: "var(--font-micro)",
             color: "var(--muted-foreground)",
@@ -1369,7 +1614,7 @@ function RouteStep({
         </div>
       </div>
       <div
-        className="font-mono truncate"
+        className="font-sans truncate"
         style={{
           fontSize: "11px",
           color: "var(--muted-foreground)",
@@ -1403,7 +1648,7 @@ function RouteArrow({ caption }: { caption: string }) {
         }}
       />
       <span
-        className="font-mono"
+        className="font-sans"
         style={{
           fontSize: "10px",
           color: "var(--muted-foreground)",
@@ -1431,7 +1676,7 @@ function SourceChip({ mode }: { mode: LoopMarket["sourceMode"] }) {
       : "var(--down)"
   return (
     <span
-      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      className="zeks-eyebrow uppercase inline-flex items-center gap-1 shrink-0"
       style={{
         fontSize: "9px",
         color,
@@ -1457,7 +1702,7 @@ function StatusChip({ status }: { status: YieldVenue["status"] }) {
   const color = statusTone(status)
   return (
     <span
-      className="font-mono uppercase inline-flex items-center gap-1 shrink-0"
+      className="zeks-eyebrow uppercase inline-flex items-center gap-1 shrink-0"
       style={{
         fontSize: "9px",
         color,
@@ -1499,7 +1744,7 @@ function StatField({
   return (
     <div>
       <dt
-        className="font-mono uppercase"
+        className="zeks-eyebrow uppercase"
         style={{
           fontSize: "var(--font-micro)",
           color: "var(--muted-foreground)",
@@ -1511,7 +1756,7 @@ function StatField({
       <dd
         className="tabular-nums"
         style={{
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-sans)",
           fontSize: "12.5px",
           color,
           marginTop: "3px",
@@ -1533,7 +1778,7 @@ function DetailRow({
   return (
     <div>
       <div
-        className="font-mono uppercase"
+        className="zeks-eyebrow uppercase"
         style={{
           fontSize: "var(--font-micro)",
           color: "var(--muted-foreground)",
@@ -1545,7 +1790,7 @@ function DetailRow({
       <div
         className="tabular-nums"
         style={{
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-sans)",
           fontSize: "14px",
           color: "var(--foreground)",
           marginTop: "3px",
@@ -1560,7 +1805,7 @@ function DetailRow({
 function PanelEmpty({ text }: { text: string }) {
   return (
     <div
-      className="font-mono"
+      className="font-sans"
       style={{
         padding: "20px",
         fontSize: "12px",

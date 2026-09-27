@@ -58,6 +58,10 @@ interface BigIntLike {
 interface LegJson {
   source: "morpho" | "wallet"
   symbol: string
+  /** Optional P2C — collateral asset symbol (the stable market
+   *  identity used by the Markets Detail route). Older snapshots
+   *  may omit it; consumers must treat absence as "no link". */
+  collateralSymbol?: string | null
   contractAddress: string | null
   balance: BigIntLike
   balanceUsd: number | null
@@ -187,6 +191,7 @@ async function buildSnapshot(address: Address): Promise<BuildOutcome> {
       supplied.push({
         source: "morpho",
         symbol: p.loanAssetSymbol,
+        collateralSymbol: p.collateralAssetSymbol ?? null,
         contractAddress: p.loanAssetAddress || null,
         balance: {
           raw: p.supplyAssetsRaw.toString(),
@@ -206,6 +211,7 @@ async function buildSnapshot(address: Address): Promise<BuildOutcome> {
       borrowed.push({
         source: "morpho",
         symbol: p.loanAssetSymbol,
+        collateralSymbol: p.collateralAssetSymbol ?? null,
         contractAddress: p.loanAssetAddress || null,
         balance: {
           raw: p.borrowAssetsRaw.toString(),
@@ -222,6 +228,7 @@ async function buildSnapshot(address: Address): Promise<BuildOutcome> {
       collateral.push({
         source: "morpho",
         symbol: p.collateralAssetSymbol ?? "?",
+        collateralSymbol: p.collateralAssetSymbol ?? null,
         contractAddress: p.collateralAssetAddress || null,
         balance: {
           raw: p.collateralRaw.toString(),
@@ -287,6 +294,7 @@ async function buildSnapshot(address: Address): Promise<BuildOutcome> {
       walletBalances.push({
         source: "wallet",
         symbol: sym,
+        collateralSymbol: null,
         contractAddress: token,
         balance: { raw: balRes.value.toString(), decimals: dec },
         balanceUsd: null,

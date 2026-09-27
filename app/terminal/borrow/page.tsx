@@ -18,13 +18,11 @@ export default async function TerminalBorrowPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl">
-        <BorrowLive
-          initialMarkets={initialMarkets}
-          initialFetchedAt={initialFetchedAt}
-          initialError={initialError}
-        />
-      </div>
+      <BorrowLive
+        initialMarkets={initialMarkets}
+        initialFetchedAt={initialFetchedAt}
+        initialError={initialError}
+      />
     </AppShell>
   )
 }

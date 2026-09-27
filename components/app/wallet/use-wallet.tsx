@@ -233,6 +233,24 @@ function parseChainId(raw: unknown): number | null {
 interface WalletContextValue extends WalletState {
   shortAddress: string | null
 
+  /**
+   * The EIP-1193 provider that is currently bound for this session.
+   *
+   * This is the SAME provider object identity that the wallet's
+   * `accountsChanged` / `chainChanged` / `disconnect` listeners are
+   * attached to. Transaction writers MUST use this provider — not
+   * `window.ethereum` — so that a multi-injected environment
+   * (MetaMask + Rabby + Coinbase, etc.) where the user picked a
+   * wallet that does NOT own `window.ethereum` still routes every
+   * `eth_sendTransaction` to the wallet the user actually authorized.
+   *
+   * `null` when no wallet is currently bound (disconnected / wrong
+   * network during restore / no provider detected).
+   *
+   * H1 — wallet / provider plumbing consistency.
+   */
+  provider: EIP1193Provider | null
+
   /** Detected wallets shown in the selection modal. */
   availableWallets: WalletDescriptor[]
 
@@ -298,6 +316,16 @@ export function WalletProvider({ children }: WalletProviderProps) {
   // currently listening to. It is the SAME object identity we pass to
   // add/removeListener, so cleanup is exact.
   const providerRef = React.useRef<EIP1193Provider | null>(null)
+  // H1 — React-state mirror of `providerRef.current`. Components that
+  // consume `useWallet()` (transaction writer hooks, in particular)
+  // need to know which provider they must use; mirrors are required
+  // because `providerRef.current` mutations inside callbacks do not
+  // trigger re-renders. The setter helper `bindProvider(...)` below
+  // updates both the ref and this state together so the two never
+  // drift apart.
+  const [providerState, setProviderState] = React.useState<EIP1193Provider | null>(
+    null,
+  )
   /** EIP-6963 rdns of the provider we are bound to. Used during
    * silent restore to re-select the SAME wallet the user originally
    * connected to (critical for multi-injected environments). */
@@ -368,6 +396,32 @@ export function WalletProvider({ children }: WalletProviderProps) {
       }
       // We have an authorized address. Status depends on the chain.
       return cid === ROBINHOOD_CHAIN_ID_DEC ? "connected" : "wrong-network"
+    },
+    [],
+  )
+
+  /* -------- bindProvider (H1) ------------------------------------- */
+
+  /**
+   * H1 — provider / state setters always go through here so that
+   * `providerRef.current` and the React-state mirror stay in lockstep.
+   *
+   * Use this whenever the bound provider changes:
+   *   - silent restore success → call `bindProvider(provider)`
+   *   - `selectAndConnect`     → call `bindProvider(provider)`
+   *   - tear-down (accountsChanged → [], disconnect event, manual
+   *     `disconnect()`) → call `bindProvider(null)`
+   *
+   * Identity check guards against redundant React state churn.
+   * This helper does NOT rebind event listeners; callers that want
+   * the listeners attached must additionally call `bindListeners(p)`
+   * exactly as the pre-H1 code did.
+   */
+  const bindProvider = React.useCallback(
+    (next: EIP1193Provider | null) => {
+      if (providerRef.current === next) return
+      providerRef.current = next
+      setProviderState(next)
     },
     [],
   )
@@ -538,7 +592,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
         } else {
           setStatus("idle")
         }
-        providerRef.current = null
+        // H1 — drop both ref and state mirror together.
+        bindProvider(null)
         restoringRef.current = false
         return
       }
@@ -546,7 +601,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
       // Step 5: bind listeners on the EXACT provider we picked.
       // This is critical — events must come from the provider the
       // user authorized.
-      providerRef.current = provider
+      // H1 — update ref + state mirror atomically.
+      bindProvider(provider)
       bindListeners(provider)
       activeRdnsRef.current = selectedRdns
       activeKindRef.current = pick.kind
@@ -754,7 +810,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
         // at once.
         if (providerRef.current !== provider) {
           if (providerRef.current) unbindListeners(providerRef.current)
-          providerRef.current = provider
+          // H1 — update ref + state mirror atomically before
+          // binding listeners so the React-state view never points
+          // at a stale reference between call sites.
+          bindProvider(provider)
           bindListeners(provider)
         }
 
@@ -942,6 +1001,15 @@ export function WalletProvider({ children }: WalletProviderProps) {
     address,
     chainId,
     hasProvider,
+    // H1 — the bound EIP-1193 provider. This is the SAME provider
+    // that `accountsChanged` / `chainChanged` / `disconnect` listeners
+    // are attached to, and the SAME provider `selectAndConnect` and
+    // `switchToRobinhoodChain` route their EIP-1193 requests through.
+    // Transaction writer hooks MUST consume this — not
+    // `window.ethereum` — so multi-injected environments
+    // (MetaMask + Rabby + Coinbase, etc.) cannot misroute reads /
+    // approvals / writes to an unrelated injected wallet.
+    provider: providerState,
     shortAddress: address ? shorten(address) : null,
     availableWallets,
     activeWalletKind,

@@ -29,11 +29,11 @@ export default function PortfolioWalletSnapshot() {
       className="rounded-2xl border border-border bg-card p-5 md:p-6 min-w-0"
     >
       <div className="flex items-baseline justify-between gap-2 mb-3">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80">
-          WALLET
+        <span className="zeks-eyebrow text-muted-foreground/80">
+          Wallet
         </span>
         <span
-          className={`inline-flex items-center gap-1 text-[10px] font-mono tracking-wider ${
+          className={`inline-flex items-center gap-1 zeks-eyebrow ${
             network.robinhoodRpc === "live"
               ? "text-up"
               : "text-amber-700 dark:text-amber-300"
@@ -52,7 +52,7 @@ export default function PortfolioWalletSnapshot() {
 
       {wallet.status !== "connected" ? (
         <div>
-          <p className="text-[12px] text-muted-foreground leading-relaxed">
+          <p className="zeks-secondary leading-relaxed">
             {wallet.status === "wrong-network"
               ? "Switch to Robinhood Chain."
               : "Connect your wallet."}
@@ -63,10 +63,10 @@ export default function PortfolioWalletSnapshot() {
         </div>
       ) : (
         <div>
-          <div className="font-mono text-[12px] text-foreground/90 truncate">
+          <div className="text-[12px] text-foreground/90 truncate zeks-tech-sm">
             {wallet.shortAddress ?? wallet.address}
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-[11px] font-mono tracking-wider text-muted-foreground/80">
+          <div className="mt-1 flex items-center gap-1.5 zeks-eyebrow text-muted-foreground/80">
             <span
               aria-hidden="true"
               className="w-1.5 h-1.5 rounded-full bg-primary"
@@ -75,11 +75,11 @@ export default function PortfolioWalletSnapshot() {
           </div>
 
           <div className="mt-4 pt-3 border-t border-border">
-            <div className="font-mono text-[10px] tracking-wider text-muted-foreground/70 mb-2">
-              TOKEN BALANCES
+            <div className="zeks-eyebrow text-muted-foreground/70 mb-2">
+              Token balances
             </div>
             {balances.length === 0 ? (
-              <p className="text-[11px] font-mono text-muted-foreground/70">
+              <p className="zeks-secondary text-[11.5px]">
                 No balances found
               </p>
             ) : (
@@ -89,7 +89,7 @@ export default function PortfolioWalletSnapshot() {
                   return (
                     <li
                       key={b.contractAddress ?? b.symbol}
-                      className="flex items-center justify-between text-[11px] font-mono"
+                      className="flex items-center justify-between text-[11.5px] font-sans"
                     >
                       <span className="text-foreground">{b.symbol}</span>
                       <span className="text-muted-foreground tabular-nums">

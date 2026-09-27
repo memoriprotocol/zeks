@@ -30,7 +30,7 @@ export default function PortfolioIssues({
       {shown.map((issue, i) => (
         <div
           key={i}
-          className="text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+          className="zeks-eyebrow px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
           data-portfolio-issue={issue.kind}
         >
           {labelFor(issue)}
@@ -38,7 +38,7 @@ export default function PortfolioIssues({
       ))}
       {overflow > 0 ? (
         <div
-          className="text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+          className="zeks-eyebrow px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
           data-portfolio-issue="more"
         >
           +{overflow} more

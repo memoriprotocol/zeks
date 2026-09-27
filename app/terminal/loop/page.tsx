@@ -7,10 +7,10 @@ export const dynamic = "force-dynamic"
  * /terminal/loop
  *
  * Loopr-style stock-collateral → borrow → yield composition view.
- * Read-only. No transactions.
- *
- * Phase 1: selector-driven carry calculator using existing Morpho
- * market data. Supply / Borrow flows are gated behind future phases.
+ * Surfaces a carry calculator AND a `LoopTransactionPanel` (F13)
+ * that wires the locked supply / borrow writers for the selected
+ * stock + venue pair. Per-tab F12 lifecycle + readiness gates
+ * control every CTA.
  */
 export default function LoopPage() {
   return (

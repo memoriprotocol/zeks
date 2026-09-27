@@ -17,6 +17,9 @@
  *
  * Polls every 15 seconds while connected. Re-runs on
  * accountsChanged / chainChanged from the wallet.
+ *
+ * P2B polish: cosmetic typography only — every fetch / hook / poll
+ * / BigInt path / state machine is unchanged.
  */
 
 import * as React from "react"
@@ -128,21 +131,60 @@ export default function UserPositionPanel({ market }: UserPositionPanelProps) {
       aria-label="Your position"
       data-position-panel
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-mono text-muted-foreground tracking-wider">
-            YOUR WALLET
-          </p>
-          <h2 className="font-serif text-[18px] mt-1 text-foreground">
-            {wallet.shortAddress ?? "Connected"}
-          </h2>
+      <div
+        className="flex items-baseline justify-between gap-3 border-b border-border"
+        style={{ padding: "8px 14px", minHeight: "32px", marginBottom: "12px" }}
+        data-user-position-header
+      >
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span
+              className="font-sans uppercase"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "10px",
+                letterSpacing: "0.1em",
+                color: "var(--muted-foreground)",
+                fontWeight: 500,
+              }}
+            >
+              Wallet
+            </span>
+            <span aria-hidden="true" style={{ color: "var(--border-strong)" }}>
+              ·
+            </span>
+            <span
+              className="font-sans truncate"
+              style={{
+                fontSize: "11.5px",
+                color: "var(--foreground)",
+                fontWeight: 500,
+                letterSpacing: "0.02em",
+                lineHeight: 1.2,
+              }}
+            >
+              {wallet.shortAddress ?? "Connected"}
+            </span>
+          </div>
         </div>
-        <span className="text-[10px] font-mono tracking-wider text-muted-foreground">
-          Robinhood Chain (4663)
+        <span
+          className="font-sans shrink-0"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11px",
+            color: "var(--muted-foreground)",
+            fontWeight: 400,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Robinhood Chain · 4663
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div
+        className="grid grid-cols-1 md:grid-cols-2"
+        style={{ gap: "10px", padding: "0 14px 14px" }}
+      >
         <BalanceCard
           label="BALANCE"
           symbol={position.walletCollateralToken?.symbol ?? market.symbol}
@@ -162,7 +204,9 @@ export default function UserPositionPanel({ market }: UserPositionPanelProps) {
         />
       </div>
 
-      <PositionIssues issues={position.issues} />
+      <div style={{ padding: "0 14px 14px" }}>
+        <PositionIssues issues={position.issues} />
+      </div>
     </section>
   )
 }
@@ -183,13 +227,36 @@ function StateCard({
       className="zeks-card"
       aria-label={label.toLowerCase()}
     >
-      <p className="text-[10px] font-mono text-muted-foreground tracking-wider">
+      <span
+        className="zeks-eyebrow uppercase"
+        style={{
+          fontSize: "10px",
+          letterSpacing: "0.1em",
+          color: "var(--muted-foreground)",
+          fontWeight: 500,
+        }}
+      >
         {label}
-      </p>
+      </span>
       {title ? (
-        <h2 className="font-serif text-[18px] mt-1 text-foreground">{title}</h2>
+        <h2
+          className="zeks-section-title mt-1"
+          style={{
+            fontSize: "16px",
+            color: "var(--foreground)",
+          }}
+        >
+          {title}
+        </h2>
       ) : null}
-      <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+      <p
+        className="mt-2"
+        style={{
+          fontSize: "12px",
+          color: "var(--muted-foreground)",
+          lineHeight: 1.5,
+        }}
+      >
         {body}
       </p>
     </section>
@@ -219,18 +286,62 @@ function BalanceCard({
     (balanceRaw === BigInt(0) && balanceUsd === null)
   if (isEmpty) {
     return (
-      <div className="bg-secondary/40 border border-border rounded-lg p-4">
-        <div className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+      <div
+        className="rounded-lg border border-border"
+        style={{
+          backgroundColor: "var(--secondary)",
+          padding: "12px 14px",
+        }}
+        data-balance-card="empty"
+      >
+        <div
+          className="font-sans uppercase"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "10px",
+            letterSpacing: "0.1em",
+            color: "var(--muted-foreground)",
+            fontWeight: 500,
+          }}
+        >
           {label}
         </div>
-        <div className="text-lg font-mono tabular-nums text-foreground mt-1">
-          —
+        <div
+          className="tabular-nums mt-1"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "18px",
+            color: "var(--foreground)",
+            fontWeight: 500,
+            letterSpacing: "-0.015em",
+            lineHeight: 1.1,
+          }}
+        >
+          0 {symbol}
         </div>
-        <div className="mt-1 text-[10px] font-mono tracking-wider text-muted-foreground">
+        <div
+          className="font-sans"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            color: "var(--muted-foreground)",
+            marginTop: "4px",
+            fontWeight: 400,
+          }}
+        >
           {empty ?? `0 ${symbol}`}
         </div>
-        <div className="mt-1 text-[10px] font-mono tracking-wider text-muted-foreground">
-          source · {source}
+        <div
+          className="font-sans"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11px",
+            color: "var(--muted-foreground)",
+            marginTop: "4px",
+            fontWeight: 400,
+          }}
+        >
+          {source}
         </div>
       </div>
     )
@@ -242,20 +353,64 @@ function BalanceCard({
       : "—"
 
   return (
-    <div className="bg-secondary/40 border border-border rounded-lg p-4">
-      <div className="text-[10px] font-mono tracking-wider text-muted-foreground/70">
+    <div
+      className="rounded-lg border border-border"
+      style={{
+        backgroundColor: "var(--secondary)",
+        padding: "12px 14px",
+      }}
+      data-balance-card="live"
+    >
+      <div
+        className="font-sans uppercase"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "10px",
+          letterSpacing: "0.1em",
+          color: "var(--muted-foreground)",
+          fontWeight: 500,
+        }}
+      >
         {label}
       </div>
-      <div className="text-xl font-mono tabular-nums text-foreground mt-1">
+      <div
+        className="tabular-nums mt-1"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "18px",
+          color: "var(--foreground)",
+          fontWeight: 500,
+          lineHeight: 1.1,
+          letterSpacing: "-0.015em",
+        }}
+      >
         {readable} {symbol}
       </div>
-      <div className="text-[10px] font-mono tracking-wider text-muted-foreground mt-1">
+      <div
+        className="font-sans"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
+          color: "var(--muted-foreground)",
+          marginTop: "4px",
+          fontWeight: 400,
+        }}
+      >
         {balanceUsd !== null
           ? `≈ ${formatPrice(balanceUsd)}`
           : ""}
       </div>
-      <div className="mt-1 text-[10px] font-mono tracking-wider text-muted-foreground">
-        source · {source}
+      <div
+        className="font-sans"
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "11px",
+          color: "var(--muted-foreground)",
+          marginTop: "4px",
+          fontWeight: 400,
+        }}
+      >
+        {source}
       </div>
     </div>
   )
@@ -269,11 +424,21 @@ function PositionIssues({ issues }: { issues: PositionIssue[] }) {
   if (visible.length === 0) return null
 
   return (
-    <div className="mt-3 grid grid-cols-1 gap-2">
+    <div className="grid grid-cols-1" style={{ gap: "6px" }}>
       {visible.map((issue, i) => (
         <div
           key={i}
-          className="text-[11px] font-mono tracking-wider px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+          className="zeks-eyebrow"
+          style={{
+            fontSize: "11.5px",
+            padding: "8px 10px",
+            borderRadius: "6px",
+            border: "1px solid color-mix(in srgb, var(--destructive) 30%, transparent)",
+            backgroundColor:
+              "color-mix(in srgb, var(--destructive) 8%, transparent)",
+            color: "var(--destructive)",
+            letterSpacing: "0.02em",
+          }}
           data-issue={issue.kind}
         >
           {issueLabel(issue)}
@@ -290,7 +455,11 @@ function issueLabel(issue: PositionIssue): string {
     case "wrong-network":
       return `Wrong network (chain ${issue.chainId}). Switch to Robinhood Chain.`
     case "rpc-unavailable":
-      return `RPC unavailable: ${issue.message}`
+      // Raw transport errors (e.g. "TypeError: Failed to fetch")
+      // MUST NOT leak to users. They are not actionable and they
+      // expose internal browser detail. The RPC client already
+      // retries on a polling cadence; we just show a clean state.
+      return "Robinhood Chain RPC unavailable. Retrying…"
     case "unsupported-token":
       return `Token at ${shorten(issue.token)} is not supported by this view.`
     case "missing-contract":

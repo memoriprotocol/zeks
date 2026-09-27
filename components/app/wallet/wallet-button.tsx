@@ -40,10 +40,10 @@ export default function WalletButton() {
           aria-label="Wallet initializing"
           title="Restoring wallet state"
           data-status={status}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-xs font-mono opacity-60 cursor-wait"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-xs font-medium opacity-60 cursor-wait"
         >
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span>WALLET</span>
+          <span>Wallet</span>
         </button>
         <WalletSelectModal open={selectOpen} onOpenChange={setSelectOpen} />
       </>
@@ -59,7 +59,7 @@ export default function WalletButton() {
         <button
           type="button"
           onClick={() => setSelectOpen(true)}
-          className="inline-flex items-center gap-2 h-8 px-3.5 rounded-md bg-primary text-primary-foreground text-[12px] font-medium hover:bg-primary/90 transition-colors"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-[12.5px] font-medium hover:bg-primary/90 transition-colors"
           aria-label={label}
           aria-haspopup="dialog"
           title={label}
@@ -81,7 +81,7 @@ export default function WalletButton() {
         <button
           type="button"
           disabled
-          className="inline-flex items-center gap-2 h-8 px-3.5 rounded-md bg-primary text-primary-foreground text-[12px] font-medium opacity-90 cursor-progress"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-[12.5px] font-medium opacity-90 cursor-progress"
           aria-label="Connecting wallet"
           title="Awaiting wallet approval"
         >
@@ -102,7 +102,7 @@ export default function WalletButton() {
         aria-label={`Wallet ${shortAddress}`}
         title={shortAddress ?? "Wallet"}
         data-status={status}
-        className="inline-flex items-center gap-2 h-8 px-3.5 rounded-md bg-primary text-primary-foreground text-[12px] font-medium hover:bg-primary/90 transition-colors"
+        className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-[12.5px] font-medium hover:bg-primary/90 transition-colors"
       >
         <span className="relative inline-flex w-1.5 h-1.5" aria-hidden="true">
           <span className="absolute inset-0 rounded-full bg-primary-foreground opacity-70 animate-ping" />

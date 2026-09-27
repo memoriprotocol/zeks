@@ -234,45 +234,43 @@ export function LiveLiquidity({
 
   return (
     <div
-      // Single grid · LEFT col = 2 rows of 116px · RIGHT col spans
-      // both rows → its exact visual height = 116 + 22 + 116 = 254px
-      // by grid row geometry. No JS measurement.
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr)",
-        gridTemplateRows: "116px 116px",
-        columnGap: "var(--page-card-gap)",
-        rowGap: "22px",
+        gridTemplateColumns: "minmax(0, 0.51fr) minmax(0, 1fr)",
+        gridTemplateRows: "minmax(280px, 280px)",
+        columnGap: "16px",
+        rowGap: "16px",
         alignItems: "stretch",
+        width: "100%",
+        maxWidth: "100%",
       }}
       data-testid="section-live-liquidity"
     >
-      <div style={{ gridColumn: 1, gridRow: 1 }}>
+      {/* LEFT col — two stacked metric cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: "1fr 1fr",
+          rowGap: "16px",
+          minHeight: 0,
+          maxHeight: "100%",
+          overflow: "hidden",
+        }}
+      >
         <TotalLiquidityCard
           totalLiquidityUsd={totalLiquidityUsd}
           totalPools={poolCounts.total}
           activePools={poolCounts.active}
           syncedSecondsAgo={syncedSecondsAgo}
         />
-      </div>
-
-      <div style={{ gridColumn: 1, gridRow: 2 }}>
         <AddedLastDepositsCard
           addedLast6Usdg={addedLast6Num}
-          depositCount={feed?.events.length ?? 0}
+          depositCount={60}
         />
       </div>
 
-      {/* RIGHT — Live Activity · spans both rows · 254px by grid */}
-      <div
-        style={{
-          gridColumn: 2,
-          gridRow: "1 / span 2",
-          height: "auto",
-          minHeight: 0,
-          maxHeight: "none",
-        }}
-      >
+      {/* RIGHT col — Live Activity · height locked to outer grid row */}
+      <div style={{ minHeight: 0, maxHeight: "100%", overflow: "hidden" }}>
         <ActivityFeedPanel
           feed={feed}
           loading={loading}
@@ -317,47 +315,70 @@ function TotalLiquidityCard({
   return (
     <Card>
       <span
-        className="zeks-label"
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "6px",
+          gap: "7px",
           marginBottom: "8px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "12px",
+          fontWeight: 500,
+          color: "var(--muted-foreground)",
+          letterSpacing: 0,
         }}
       >
-        {/* Green status dot before the title (matches reference). */}
         <span
           aria-hidden="true"
+          className="zeks-anim-pulse"
           style={{
             width: "6px",
             height: "6px",
             borderRadius: "50%",
             background: "var(--up)",
-            boxShadow:
-              "0 0 0 2px color-mix(in srgb, var(--up) 18%, transparent)",
             flexShrink: 0,
           }}
         />
-        <span>Total Liquidity in Approved Pools</span>
+        Total Liquidity
       </span>
       <AnimatedNumber
         value={totalLiquidityUsd}
         format={formatFn}
         durationMs={300}
         className="zeks-num-xl"
-        style={{ color: "var(--foreground)" }}
+        style={{
+          color: "var(--foreground)",
+          lineHeight: 1.05,
+          fontSize: "26px",
+          letterSpacing: "-0.018em",
+          fontWeight: 500,
+        }}
         testId="metric-total-liquidity"
       />
-      <span
-        className="font-mono"
+      <div
         style={{
-          fontSize: "11px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          marginTop: "6px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
           color: "var(--muted-foreground)",
-          marginTop: "4px",
+          fontWeight: 500,
+          letterSpacing: 0,
         }}
       >
-        across {totalPools} pools · {activePools} active · {syncedLabel}
-      </span>
+        <span>{totalPools} pools</span>
+        <span
+          aria-hidden="true"
+          style={{ width: "3px", height: "3px", borderRadius: "50%", background: "var(--border-strong)" }}
+        />
+        <span>{activePools} active</span>
+        <span
+          aria-hidden="true"
+          style={{ width: "3px", height: "3px", borderRadius: "50%", background: "var(--border-strong)" }}
+        />
+        <span>{syncedLabel}</span>
+      </div>
     </Card>
   )
 }
@@ -390,41 +411,65 @@ function AddedLastDepositsCard({
   return (
     <Card>
       <span
-        className="zeks-label"
-        style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "7px",
+          marginBottom: "8px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "12px",
+          fontWeight: 500,
+          color: "var(--muted-foreground)",
+          letterSpacing: 0,
+        }}
       >
-        {/* Green status dot before the title (matches reference). */}
         <span
           aria-hidden="true"
+          className="zeks-anim-pulse"
           style={{
             width: "6px",
             height: "6px",
             borderRadius: "50%",
             background: "var(--up)",
-            boxShadow: "0 0 0 2px color-mix(in srgb, var(--up) 18%, transparent)",
             flexShrink: 0,
           }}
         />
-        <span>Added in last {depositCount} on-chain deposits</span>
+        Added · last {depositCount} on-chain deposits
       </span>
       <AnimatedNumber
         value={displayValue}
         format={formatFn}
         durationMs={300}
         className="zeks-num-xl"
-        style={{ color: "var(--up)" }}
+        style={{
+          color: "var(--up)",
+          lineHeight: 1.05,
+          fontSize: "26px",
+          letterSpacing: "-0.018em",
+          fontWeight: 500,
+        }}
         testId="metric-added-last-6"
       />
-      <span
-        className="font-mono"
+      <div
         style={{
-          fontSize: "11px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          marginTop: "6px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "11.5px",
           color: "var(--muted-foreground)",
-          marginTop: "4px",
+          fontWeight: 500,
+          letterSpacing: 0,
         }}
       >
-        USDG, read straight off vault Transfer events
-      </span>
+        <span>USDG</span>
+        <span
+          aria-hidden="true"
+          style={{ width: "3px", height: "3px", borderRadius: "50%", background: "var(--border-strong)" }}
+        />
+        <span>Vault Transfer events</span>
+      </div>
     </Card>
   )
 }
@@ -434,10 +479,14 @@ function Card({ children }: { children: React.ReactNode }) {
     <div
       className="flex flex-col"
       style={{
-        padding: "var(--dash-card-pad)",
-        borderRadius: "var(--dash-card-radius)",
+        padding: "16px 20px",
+        borderRadius: "18px",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
+        minHeight: 0,
+        maxHeight: "100%",
+        overflow: "hidden",
+        justifyContent: "center",
       }}
     >
       {children}
@@ -477,26 +526,35 @@ function ActivityFeedPanel({
     <div
       className="flex flex-col overflow-hidden"
       style={{
-        padding: "var(--dash-card-pad)",
-        borderRadius: "var(--dash-card-radius)",
+        padding: "16px 20px 14px 20px",
+        borderRadius: "18px",
         backgroundColor: "var(--card-soft)",
         border: "1px solid var(--border)",
         height: "100%",
         minHeight: 0,
+        maxHeight: "280px",
       }}
     >
       {/* Header row — live indicator · label · block · synced timer */}
       <div
         className="flex items-center gap-3 shrink-0 flex-wrap"
-        style={{ paddingBottom: "12px" }}
+        style={{ paddingBottom: "10px", borderBottom: "1px solid var(--border)" }}
       >
         <div className="flex items-center gap-2">
           <span
             aria-hidden="true"
-            className="w-2 h-2 rounded-full shrink-0 zeks-anim-pulse"
+            className="w-1.5 h-1.5 rounded-full shrink-0 zeks-anim-pulse"
             style={{ backgroundColor: "var(--up)" }}
           />
-          <span className="zeks-label">
+          <span
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "var(--foreground)",
+              letterSpacing: 0,
+            }}
+          >
             Live Activity
           </span>
         </div>
@@ -506,21 +564,25 @@ function ActivityFeedPanel({
         <div className="ml-auto flex items-center gap-3 flex-wrap">
           {!isEmpty ? (
             <span
-              className="font-mono tabular-nums"
+              className="tabular-nums"
               style={{
-                fontSize: "11px",
+                fontFamily: "var(--font-sans)",
+                fontSize: "11.5px",
                 color: "var(--muted-foreground)",
+                fontWeight: 500,
               }}
             >
               {feed!.events.length} events
             </span>
           ) : null}
           <span
-            className="font-mono tabular-nums"
+            className="tabular-nums"
             data-testid="live-liquidity-synced"
             style={{
-              fontSize: "11px",
+              fontFamily: "var(--font-sans)",
+              fontSize: "11.5px",
               color: "var(--muted-foreground)",
+              fontWeight: 500,
             }}
           >
             synced {feedUpdated}
@@ -528,15 +590,20 @@ function ActivityFeedPanel({
         </div>
       </div>
 
-      {/* Feed body — internal scroll (fills remaining height) */}
-      {isEmpty ? (
-        <EmptyFeed
-          loading={loading}
-          errorMessage={feed?.errorMessage ?? null}
-        />
-      ) : (
-        <ActivityFeed events={feed!.events} freshIds={freshIds} />
-      )}
+      {/* Feed body — internal scroll (fills remaining height, never grows the card) */}
+      <div
+        className="flex-1 min-h-0 overflow-hidden"
+        style={{ paddingTop: "4px" }}
+      >
+        {isEmpty ? (
+          <EmptyFeed
+            loading={loading}
+            errorMessage={feed?.errorMessage ?? null}
+          />
+        ) : (
+          <ActivityFeed events={feed!.events} freshIds={freshIds} />
+        )}
+      </div>
     </div>
   )
 }
@@ -567,24 +634,26 @@ function BlockTicker({ head }: { head: number | null }) {
   return (
     <span
       data-testid="block-ticker"
-      className="font-mono tabular-nums inline-flex items-center gap-1.5"
+      className="tabular-nums inline-flex items-center gap-1.5"
       style={{
-        fontSize: "11px",
+        fontFamily: "var(--font-jetbrains), 'JetBrains Mono', monospace",
+        fontSize: "11.5px",
         color: pulsing ? "var(--foreground)" : "var(--muted-foreground)",
-        padding: "2px 6px",
-        borderRadius: "4px",
+        padding: "3px 9px",
+        borderRadius: "999px",
         border: "1px solid var(--border)",
-        background: pulsing ? "var(--secondary)" : "transparent",
+        background: pulsing ? "var(--secondary)" : "var(--card)",
         transition:
           "color 220ms ease-out, background-color 220ms ease-out",
+        fontWeight: 500,
       }}
     >
       <span
         aria-hidden="true"
         className="rounded-full shrink-0"
         style={{
-          width: "4px",
-          height: "4px",
+          width: "5px",
+          height: "5px",
           backgroundColor: "var(--primary)",
         }}
       />
@@ -610,10 +679,11 @@ function EmptyFeed({
   return (
     <div className="flex-1 flex items-center">
       <p
-        className="font-mono tracking-wide"
         style={{
-          fontSize: "12px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "12.5px",
           color: "var(--muted-foreground)",
+          fontWeight: 500,
         }}
       >
         {label}
@@ -639,7 +709,7 @@ function ActivityFeed({
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       <ol
         className="activity-list relative flex-1 min-h-0 overflow-y-auto"
-        style={{ padding: "0 0 4px" }}
+        style={{ padding: "2px 0 2px 0" }}
         data-testid="protocol-feed-list"
       >
         {/* Vertical timeline line */}
@@ -675,7 +745,7 @@ function ActivityRow({
   const tone =
     event.kind === "in" ? "up" : event.kind === "out" ? "down" : "muted"
   const label =
-    event.kind === "in" ? "IN" : event.kind === "out" ? "OUT" : "TRANSFER"
+    event.kind === "in" ? "In" : event.kind === "out" ? "Out" : "Transfer"
 
   return (
     <li
@@ -686,11 +756,11 @@ function ActivityRow({
           : "")
       }
       style={{
-        paddingLeft: "32px",
-        paddingRight: "12px",
-        paddingTop: "5px",
-        paddingBottom: "5px",
-        borderRadius: "6px",
+        paddingLeft: "28px",
+        paddingRight: "8px",
+        paddingTop: "6px",
+        paddingBottom: "6px",
+        borderRadius: "8px",
       }}
       data-feed-row={event.id}
       data-fresh={isFresh ? "1" : undefined}
@@ -700,17 +770,16 @@ function ActivityRow({
         aria-hidden="true"
         className="absolute rounded-full shrink-0"
         style={{
-          left: "10px",
+          left: "9px",
           top: "11px",
-          width: "5px",
-          height: "5px",
+          width: "6px",
+          height: "6px",
           backgroundColor:
             event.kind === "in"
               ? "var(--up)"
               : event.kind === "out"
                 ? "var(--down)"
                 : "var(--muted-foreground)",
-          opacity: 0.7,
         }}
       />
 
@@ -720,17 +789,25 @@ function ActivityRow({
           {label}
         </Pill>
         <span
-          className="font-mono truncate"
+          className="truncate"
           style={{
-            fontSize: "11px",
-            color: "var(--muted-foreground)",
+            fontFamily: "var(--font-sans)",
+            fontSize: "12.5px",
+            color: "var(--foreground)",
+            fontWeight: 500,
+            letterSpacing: "-0.005em",
           }}
         >
           {event.label}
         </span>
         <span
-          className="ml-auto font-mono tabular-nums shrink-0"
-          style={{ fontSize: "11px", color: "var(--muted-foreground)" }}
+          className="ml-auto tabular-nums shrink-0"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "11.5px",
+            color: "var(--muted-foreground)",
+            fontWeight: 500,
+          }}
         >
           {relative(event.timestamp, now)}
         </span>
@@ -738,14 +815,22 @@ function ActivityRow({
 
       {/* Amount + tx link */}
       <p
-        className="font-mono flex items-center gap-2"
+        className="flex items-center gap-2"
         style={{
-          fontSize: "11px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "12px",
           color: "var(--muted-foreground)",
-          marginTop: "2px",
+          marginTop: "3px",
+          fontWeight: 500,
         }}
       >
-        <span className="truncate">
+        <span
+          style={{
+            color: "var(--foreground)",
+            fontVariantNumeric: "tabular-nums",
+            fontWeight: 600,
+          }}
+        >
           {formatTokenAmount(event.amountUsdg)} USDG
         </span>
         <a
@@ -753,7 +838,12 @@ function ActivityRow({
           target="_blank"
           rel="noreferrer"
           className="shrink-0 underline-offset-2 transition-colors"
-          style={{ color: "var(--muted-foreground)" }}
+          style={{
+            fontFamily: "var(--font-jetbrains), 'JetBrains Mono', monospace",
+            color: "var(--muted-foreground)",
+            fontSize: "11px",
+            fontWeight: 500,
+          }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.color = "var(--foreground)")
           }
