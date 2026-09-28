@@ -18,6 +18,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { APP_URL, APP_MARKETS_URL, APP_IS_EXTERNAL } from "@/lib/config/surface-urls"
 
 /* ── Section ─────────────────────────────────────────────────────── */
 
@@ -272,33 +273,50 @@ function Flow({ steps }: { steps: Col[] }) {
 function CalloutLinks() {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", margin: "22px 0 8px" }}>
-      <GoLink href="/terminal/markets">Browse markets</GoLink>
-      <GoLink href="/terminal/loop">Open a loop</GoLink>
-      <GoLink href="/terminal/portfolio">Your positions</GoLink>
+      <GoLink href={APP_MARKETS_URL}>Browse markets</GoLink>
+      <GoLink href={`${APP_URL}/loop`}>Open a loop</GoLink>
+      <GoLink href={`${APP_URL}/portfolio`}>Your positions</GoLink>
     </div>
   )
 }
 
+/**
+ * Call-to-action into the terminal. On the docs deployment the
+ * terminal is a different origin, so this must be a plain anchor
+ * rather than next/link.
+ */
 function GoLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "6px",
-        padding: "8px 15px",
-        borderRadius: "8px",
-        border: "1px solid var(--border)",
-        backgroundColor: "var(--card-soft)",
-        textDecoration: "none",
-        fontSize: "13px",
-        fontWeight: 500,
-        color: "var(--foreground)",
-      }}
-    >
+  const style: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "8px 15px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    backgroundColor: "var(--card-soft)",
+    textDecoration: "none",
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "var(--foreground)",
+  }
+  const inner = (
+    <>
       {children}
-      <span aria-hidden="true" style={{ color: "var(--muted-foreground)" }}>→</span>
+      <span aria-hidden="true" style={{ color: "var(--muted-foreground)" }}>
+        →
+      </span>
+    </>
+  )
+  if (APP_IS_EXTERNAL) {
+    return (
+      <a href={href} style={style}>
+        {inner}
+      </a>
+    )
+  }
+  return (
+    <Link href={href} style={style}>
+      {inner}
     </Link>
   )
 }

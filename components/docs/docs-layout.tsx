@@ -25,6 +25,11 @@ import {
   DOC_LAST_UPDATED,
 } from "./docs-content"
 import { DocsBody } from "./docs-body"
+import {
+  APP_URL,
+  APP_MARKETS_URL,
+  APP_IS_EXTERNAL,
+} from "@/lib/config/surface-urls"
 
 export default function DocsLayout() {
   const [active, setActive] = React.useState<string>("")
@@ -87,7 +92,7 @@ export default function DocsLayout() {
           }}
         >
           <Link
-            href="/docs"
+            href="/"
             style={{
               display: "flex",
               alignItems: "center",
@@ -112,10 +117,10 @@ export default function DocsLayout() {
           </Link>
 
           <nav style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-            <RailLink href="/terminal">App</RailLink>
-            <RailLink href="/terminal/markets">Markets</RailLink>
+            <RailLink href={APP_URL}>App</RailLink>
+            <RailLink href={APP_MARKETS_URL}>Markets</RailLink>
             <a
-              href="#"
+              href={APP_URL}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -334,6 +339,11 @@ export default function DocsLayout() {
   )
 }
 
+/**
+ * A top-bar link. On the docs deployment the app is a different
+ * origin, so an absolute URL must render as a plain anchor — the
+ * Next router cannot navigate off its own deployment.
+ */
 function RailLink({
   href,
   children,
@@ -341,16 +351,21 @@ function RailLink({
   href: string
   children: React.ReactNode
 }) {
+  const style: React.CSSProperties = {
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "var(--muted-foreground)",
+    textDecoration: "none",
+  }
+  if (APP_IS_EXTERNAL) {
+    return (
+      <a href={href} style={style}>
+        {children}
+      </a>
+    )
+  }
   return (
-    <Link
-      href={href}
-      style={{
-        fontSize: "13px",
-        fontWeight: 500,
-        color: "var(--muted-foreground)",
-        textDecoration: "none",
-      }}
-    >
+    <Link href={href} style={style}>
       {children}
     </Link>
   )
