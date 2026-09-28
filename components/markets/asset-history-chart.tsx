@@ -66,10 +66,6 @@ import {
  */
 const FETCH_TIMEOUT_MS = 10_000
 
-/** Chart geometry — minimal padding inside the unified card. */
-const CHART_HEIGHT_MOBILE = 220
-const CHART_HEIGHT_DESKTOP = 280
-
 interface AssetHistoryChartProps {
   symbol: string
   /** Server-rendered `Date.now()` — injected by the parent so hydration
@@ -400,8 +396,6 @@ function ChartBody({
         : result
 
   const heightClass = "h-[240px] md:h-[340px]"
-  const canvasHeight = 240
-  // (md+) handled by responsive Tailwind class on the canvas wrapper
 
   if (effective.kind === "loading") {
     return (
@@ -695,7 +689,6 @@ function PriceChart({
           series={series}
           range={range}
           isStale={isStale}
-          height={canvasHeight}
         />
       </div>
 
