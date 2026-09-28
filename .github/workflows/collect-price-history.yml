@@ -1,0 +1,114 @@
+# Scheduled real-price history collector.
+#
+# Why this exists
+# ---------------
+# `vercel.json` pins the collector to `0 9 * * *` (once per day) because
+# the Vercel Hobby plan rejects sub-daily cron schedules. Once per day
+# writes exactly ONE sample per symbol, so the 1H and 1D chart ranges
+# have a single point and the chart renders "Not enough points".
+#
+# This workflow calls the SAME route Vercel Cron would call, but on a
+# 5-minute cadence, using GitHub Actions' free scheduled-run allowance.
+# No application code is duplicated here — it is a plain HTTP GET with
+# the same `Authorization: Bearer <CRON_SECRET>` header Vercel sends.
+#
+# Data provenance is unchanged: the route still calls
+# `collectCurrentPriceHistory()`, which reads the canonical Robinhood
+# price pipeline. Prices stay `multiplier-adjusted-token-price`, so the
+# chart continues to match the live quote the user sees. This is the
+# reason we do NOT use a third-party chart vendor here — Yahoo/Nasdaq
+# quote the underlying equity, not the token, and diverge per symbol
+# by 0.3%–2.5% (measured).
+#
+# Required repository secrets
+# ---------------------------
+#   CRON_SECRET        must equal the production `CRON_SECRET` env var
+#                       (the route fails closed with 503 if unset)
+#   HISTORY_COLLECT_URL full https URL of the production deployment,
+#                       e.g. https://<your-domain>/api/cron/history-collect
+#
+# Both are set with:
+#   gh secret set CRON_SECRET
+#   gh secret set HISTORY_COLLECT_URL
+
+name: Collect price history
+
+on:
+  schedule:
+    # Every 5 minutes. Vercel Hobby cannot do this, which is why this
+    # workflow exists. Times are UTC.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# Do not queue a backlog if a run is slow or the repo is busy — a
+# stale pile of pending runs would keep hitting the collector long
+# after the data is fresh, and the route's in-process guard would
+# answer 429 for the overlaps anyway.
+concurrency:
+  group: collect-price-history
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    name: POST /api/cron/history-collect
+    runs-on: ubuntu-latest
+
+    # Scheduled workflows are killed after 5 minutes. Fail fast rather
+    # than burn the whole window on a hanging request.
+    timeout-minutes: 4
+
+    steps:
+      - name: Invoke collector
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          COLLECT_URL: ${{ secrets.HISTORY_COLLECT_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${COLLECT_URL:-}" ]; then
+            echo "::error::HISTORY_COLLECT_URL is not set."
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CRON_SECRET is not set."
+            exit 1
+          fi
+
+          # Capture both the HTTP status and the body so a failure is
+          # diagnosable from the Actions log. `curl -f` would discard
+          # the body, which is exactly the part worth reading.
+          http_code=$(curl --silent --show-error \
+            --location \
+            --max-time 180 \
+            --output /tmp/collect-body.json \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${COLLECT_URL}")
+
+          echo "HTTP ${http_code}"
+          echo "--- response body ---"
+          cat /tmp/collect-body.json
+          echo
+
+          case "${http_code}" in
+            200)
+              echo "Collector completed."
+              ;;
+            401|503)
+              echo "::error::Auth misconfigured (${http_code}). Check CRON_SECRET matches the production env var."
+              exit 1
+              ;;
+            429)
+              # The route's own concurrency guard fired. A previous run is
+              # still in flight; this is expected and not a failure.
+              echo "Collector already running (429). Treating as a no-op."
+              exit 0
+              ;;
+            *)
+              echo "::error::Collector failed with HTTP ${http_code}."
+              exit 1
+              ;;
+          esac
