@@ -10,6 +10,7 @@ import {
   Banknote,
   Briefcase,
   Activity,
+  BookOpen,
 } from "lucide-react"
 
 interface NavItem {
@@ -33,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "borrow",     label: "Borrow",    href: "/terminal/borrow",    icon: Banknote    },
   { key: "portfolio",  label: "Portfolio", href: "/terminal/portfolio", icon: Briefcase   },
   { key: "activity",   label: "Activity", href: "/terminal/activity",  icon: Activity   },
+  { key: "docs",       label: "Docs",     href: "/terminal/docs",      icon: BookOpen   },
 ]
 
 /**
