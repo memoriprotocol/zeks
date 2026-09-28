@@ -226,12 +226,20 @@
   /* ── Application shell ─────────────────────────────────── */
   /* Viewport-locked shell: only main scrolls.
      Sidebar (64px) + toolbar (48px) are pinned via grid; only
-     the page content area is overflow-y:auto. */
+     the page content area is overflow-y:auto.
+
+     Scoped to body:has(.zeks-shell) rather than applied globally.
+     The landing page and the docs site share this <body> but have
+     no shell, and they scroll normally. A bare `body { overflow:
+     hidden }` locked the whole document and left the landing page
+     unscrollable, with no scrollbar to suggest anything was wrong.
+     :has() is used because the shell lives inside a page component,
+     not in a layout that could be given its own wrapper. */
   html,
   body {
     height: 100%;
   }
-  body {
+  body:has(.zeks-shell) {
     overflow: hidden;
   }
   .zeks-shell {
