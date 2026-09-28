@@ -12,12 +12,19 @@ import {
   Activity,
   BookOpen,
 } from "lucide-react"
+import { DOCS_URL, DOCS_IS_EXTERNAL } from "@/lib/config/surface-urls"
 
 interface NavItem {
   key: string
   label: string
   href: string
   icon: React.ComponentType<LucideIconProps>
+  /**
+   * Off-app destination. Rendered as a plain anchor opening in a new
+   * tab rather than a next/link, because the client router can only
+   * resolve paths inside this deployment.
+   */
+  external?: boolean
 }
 
 type LucideIconProps = {
@@ -34,7 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "borrow",     label: "Borrow",    href: "/terminal/borrow",    icon: Banknote    },
   { key: "portfolio",  label: "Portfolio", href: "/terminal/portfolio", icon: Briefcase   },
   { key: "activity",   label: "Activity", href: "/terminal/activity",  icon: Activity   },
-  { key: "docs",       label: "Docs",     href: "/terminal/docs",      icon: BookOpen   },
+  { key: "docs",       label: "Docs",     href: DOCS_URL,              icon: BookOpen, external: DOCS_IS_EXTERNAL },
 ]
 
 /**
@@ -111,49 +118,48 @@ export default function AppSidebar() {
       >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "5px",
-                height: "54px",
-                paddingLeft: "3px",
-                paddingRight: "3px",
-                marginTop: "1px",
-                marginBottom: "1px",
-                textDecoration: "none",
-                color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
-                backgroundColor: isActive ? "var(--card-soft)" : "transparent",
-                borderRadius: "10px",
-                transition: "background-color 130ms ease-out, color 130ms ease-out",
-                position: "relative",
-                outline: "none",
-                whiteSpace: "nowrap",
-                fontSize: "10px",
-                fontWeight: isActive ? 600 : 500,
-                fontFamily: "var(--font-sans)",
-                letterSpacing: "0.005em",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = "var(--card-soft)"
-                  e.currentTarget.style.color = "var(--foreground)"
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = "transparent"
-                  e.currentTarget.style.color = "var(--muted-foreground)"
-                }
-              }}
-            >
+          const isActive = !item.external && pathname === item.href
+          const itemStyle = (active: boolean): React.CSSProperties => ({
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "5px",
+            height: "54px",
+            paddingLeft: "3px",
+            paddingRight: "3px",
+            marginTop: "1px",
+            marginBottom: "1px",
+            textDecoration: "none",
+            color: active ? "var(--foreground)" : "var(--muted-foreground)",
+            backgroundColor: active ? "var(--card-soft)" : "transparent",
+            borderRadius: "10px",
+            transition:
+              "background-color 130ms ease-out, color 130ms ease-out",
+            position: "relative",
+            outline: "none",
+            whiteSpace: "nowrap",
+            fontSize: "10px",
+            fontWeight: active ? 600 : 500,
+            fontFamily: "var(--font-sans)",
+            letterSpacing: "0.005em",
+          })
+          const hoverProps = {
+            onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+              if (!isActive) {
+                e.currentTarget.style.backgroundColor = "var(--card-soft)"
+                e.currentTarget.style.color = "var(--foreground)"
+              }
+            },
+            onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+              if (!isActive) {
+                e.currentTarget.style.backgroundColor = "transparent"
+                e.currentTarget.style.color = "var(--muted-foreground)"
+              }
+            },
+          }
+          const inner = (
+            <>
               <Icon size={18} strokeWidth={1.7} />
               <span
                 style={{
@@ -180,6 +186,37 @@ export default function AppSidebar() {
                   }}
                 />
               )}
+            </>
+          )
+
+          // Off-app destination: a plain anchor. next/link would
+          // hand the URL to the client router, which cannot resolve
+          // a path that does not exist on this deployment.
+          if (item.external) {
+            return (
+              <a
+                key={item.key}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`${item.label} (opens in a new tab)`}
+                style={itemStyle(false)}
+                {...hoverProps}
+              >
+                {inner}
+              </a>
+            )
+          }
+
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              style={itemStyle(isActive)}
+              {...hoverProps}
+            >
+              {inner}
             </Link>
           )
         })}
