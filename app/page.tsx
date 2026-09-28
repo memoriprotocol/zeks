@@ -5,7 +5,6 @@ import Header from "@/components/header"
 import HeroSection from "@/components/hero-section"
 import OnchainFinanceSection from "@/components/onchain-finance-section"
 import MarketsSection from "@/components/markets-section"
-import LaunchSection from "@/components/launch-section"
 import BorrowSection from "@/components/borrow-section"
 import YieldSection from "@/components/yield-section"
 import PortfolioSection from "@/components/portfolio-section"
@@ -36,7 +35,6 @@ export default function Home() {
       <HeroSection />
       <OnchainFinanceSection />
       <MarketsSection />
-      <LaunchSection />
       <BorrowSection />
       <YieldSection />
       <PortfolioSection />

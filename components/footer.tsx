@@ -4,6 +4,7 @@ export default function Footer() {
     { label: "Earn", href: "#earn" },
     { label: "Borrow", href: "#borrow" },
     { label: "Portfolio", href: "#portfolio" },
+    { label: "Launchpad", href: "/launchpad" },
   ]
 
   const resources = [
