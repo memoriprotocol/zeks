@@ -14,6 +14,9 @@ export default function Header() {
           <Link href="#markets" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Markets
           </Link>
+          <Link href="#launch" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Launch
+          </Link>
           <Link href="#earn" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Earn
           </Link>

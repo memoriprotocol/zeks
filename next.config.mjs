@@ -10,9 +10,15 @@
  * middleware or in per-page conditionals, because both surfaces
  * ship their own bundles: the terminal code never reaches a docs
  * visitor, and the docs never reach a terminal visitor.
+ *
+ * Must stay in agreement with lib/config/surface.ts, which reads the
+ * same variable with the same default. The two are evaluated at
+ * different times (config at startup, module at import) so a
+ * disagreement would produce a build that advertises one surface
+ * and renders the other.
  */
 
-const surface = process.env.NEXT_PUBLIC_APP_SURFACE === "app" ? "app" : "docs"
+const surface = process.env.NEXT_PUBLIC_APP_SURFACE === "docs" ? "docs" : "app"
 
 const nextConfig = {
   typescript: {
