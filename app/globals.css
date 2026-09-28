@@ -540,6 +540,61 @@
     overflow: hidden;
   }
 
+  /* ── Docs site layout (/docs) ───────────────────────────── */
+  /* Two-column reading layout: sticky doc rail + prose column.
+     Below 1000px the rail collapses to a horizontal scroller so
+     the prose gets the full width instead of being squeezed. */
+  .zeks-docs-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 236px) minmax(0, 1fr);
+    gap: 64px;
+    align-items: start;
+  }
+  .zeks-docs-rail {
+    position: sticky;
+    top: 86px;
+    max-height: calc(100vh - 116px);
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  @media (max-width: 1000px) {
+    .zeks-docs-grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 30px;
+    }
+    /* Sticky is meaningless once the rail is full width above the
+       prose, and it would pin a tall element over the content. */
+    .zeks-docs-rail {
+      position: static;
+      max-height: none;
+      overflow: visible;
+      display: flex;
+      gap: 18px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+  }
+  /* The rail groups become inline columns on narrow screens. */
+  .zeks-docs-rail-group {
+    flex-shrink: 0;
+    margin-bottom: 0;
+  }
+  @media (max-width: 700px) {
+    .zeks-docs-hero {
+      padding-top: 40px;
+      padding-left: 18px;
+      padding-right: 18px;
+    }
+    /* Stack the hero stats so the divider rules do not collide with
+       wrapped labels on a 390px viewport. */
+    .zeks-docs-stat {
+      border-right: none !important;
+      padding-right: 26px;
+      margin-right: 26px;
+    }
+  }
+
   /* ── Page-level layout primitives ──────────────────────── */
   /* Shared container + rhythm for every read-only page. */
   .zeks-page {
